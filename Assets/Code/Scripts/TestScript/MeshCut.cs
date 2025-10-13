@@ -158,6 +158,23 @@ public class MeshCut : MonoBehaviour
                         out var result2);
                     Vector3 newVertex1 = rayVector1 * result1;
                     Vector3 newVertex2 = rayVector2 * result2;
+                    
+                    if(isolation)
+                    {
+                        //isolationVが切断面の上側
+                        upperVertices.Add(newVertex1);
+                        upperVertices.Add(newVertex2);
+                        downVertices.Add(newVertex1);
+                        downVertices.Add(newVertex2);
+                    }
+                    else
+                    {
+                        //otherV1とotherV2が切断面の上側
+                        upperVertices.Add(newVertex1);
+                        upperVertices.Add(newVertex2);
+                        downVertices.Add(newVertex1);
+                        downVertices.Add(newVertex2);
+                    }
                 }
             }
         }
