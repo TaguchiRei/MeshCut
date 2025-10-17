@@ -1,198 +1,579 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 
 public class MeshCut : MonoBehaviour
 {
-    [SerializeField] private GameObject _blade;
-    [SerializeField] private MeshFilter _meshFilter;
-    private Mesh _targetMesh;
-    private Plane _cutFace;
+    #region 切断した左右の形状を保持するためのクラス
 
-
-    private void Start()
+    private class CutSide
     {
-        _cutFace = new Plane(
-            _meshFilter.gameObject.transform.InverseTransformDirection(_blade.transform.up),
-            _meshFilter.gameObject.transform.InverseTransformPoint(_blade.transform.position));
-        _targetMesh = _meshFilter.mesh;
-        DeleteOverlap();
+        public Mesh BaseMesh;
+
+        public List<Vector3> vertices = new();
+        public List<Vector3> normals = new();
+        public List<Vector2> uvs = new();
+        public List<int> triangles = new();
+        public List<List<int>> subIndices = new();
+
+        public void ClearAll()
+        {
+            vertices.Clear();
+            normals.Clear();
+            uvs.Clear();
+            triangles.Clear();
+            subIndices.Clear();
+        }
+
+        public void AddTriangle(int p1, int p2, int p3, int submesh)
+        {
+            int baseIndex = vertices.Count;
+
+            // 対象サブメッシュのインデックスに追加していく
+            subIndices[submesh].Add(baseIndex + 0);
+            subIndices[submesh].Add(baseIndex + 1);
+            subIndices[submesh].Add(baseIndex + 2);
+
+            // 三角形郡の頂点を設定
+            triangles.Add(baseIndex + 0);
+            triangles.Add(baseIndex + 1);
+            triangles.Add(baseIndex + 2);
+
+            // 対象オブジェクトの頂点配列から頂点情報を取得し設定する
+            vertices.Add(BaseMesh.vertices[p1]);
+            vertices.Add(BaseMesh.vertices[p2]);
+            vertices.Add(BaseMesh.vertices[p3]);
+
+            // 同様に、対象オブジェクトの法線配列から法線を取得し設定する
+            normals.Add(BaseMesh.normals[p1]);
+            normals.Add(BaseMesh.normals[p2]);
+            normals.Add(BaseMesh.normals[p3]);
+
+            // 同様に、UVも。
+            uvs.Add(BaseMesh.uv[p1]);
+            uvs.Add(BaseMesh.uv[p2]);
+            uvs.Add(BaseMesh.uv[p3]);
+        }
+
+        public void AddTriangle(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
+        {
+            Vector3 calculatedNormal = Vector3.Cross(
+                (points3[1] - points3[0]).normalized,
+                (points3[2] - points3[0]).normalized);
+
+            int p1 = 0;
+            int p2 = 1;
+            int p3 = 2;
+
+            if (Vector3.Dot(calculatedNormal, faceNormal) < 0)
+            {
+                p1 = 2;
+                p2 = 1;
+                p3 = 0;
+            }
+
+            int baseIndex = vertices.Count;
+
+            subIndices[submesh].Add(baseIndex + 0);
+            subIndices[submesh].Add(baseIndex + 1);
+            subIndices[submesh].Add(baseIndex + 2);
+
+            triangles.Add(baseIndex + 0);
+            triangles.Add(baseIndex + 1);
+            triangles.Add(baseIndex + 2);
+
+            vertices.Add(points3[p1]);
+            vertices.Add(points3[p2]);
+            vertices.Add(points3[p3]);
+
+            normals.Add(normals3[p1]);
+            normals.Add(normals3[p2]);
+            normals.Add(normals3[p3]);
+
+            uvs.Add(uvs3[p1]);
+            uvs.Add(uvs3[p2]);
+            uvs.Add(uvs3[p3]);
+        }
     }
 
-    private void DeleteOverlap()
+    #endregion
+
+    private readonly CutSide _leftSide = new();
+    private readonly CutSide _rightSide = new();
+    private readonly List<Vector3> _newVertices = new();
+
+    private Plane _blade;
+    private Mesh _targetMesh;
+
+    private void Initialize()
     {
-        var stopWatch = new Stopwatch();
-        stopWatch.Start();
+        _newVertices.Clear();
+        _leftSide.ClearAll();
+        _rightSide.ClearAll();
+    }
 
-        Vector3[] defaultVertices = _targetMesh.vertices;
-        int subMeshCount = _targetMesh.subMeshCount;
+    /// <summary>
+    /// 対象のメッシュを切断する。
+    /// </summary>
+    /// <param name="target"></param>
+    /// <param name="blade"></param>
+    /// <param name="capMaterial"></param>
+    /// <returns></returns>
+    public GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
+    {
+        _blade = blade;
 
-        // 新しいサブメッシュ用の三角形リスト
-        List<int>[] upperTriangles = new List<int>[subMeshCount];
-        List<Vector3> upperVertices = new();
-        List<int>[] downTriangles = new List<int>[subMeshCount];
-        List<Vector3> downVertices = new();
-        for (int s = 0; s < subMeshCount; s++)
+        _targetMesh = target.GetComponent<MeshFilter>().mesh;
+        // 頂点を初期化
+        _newVertices.Clear();
+        _leftSide.ClearAll();
+        _rightSide.ClearAll();
+
+        //頂点画面の左右どちらにあるかの計算結果を保持するための変数群
+        bool[] sides = new bool[3];
+        int[] triangles;
+        int p1, p2, p3;
+
+        for (int submesh = 0; submesh < _targetMesh.subMeshCount; submesh++)
         {
-            upperTriangles[s] = new List<int>();
-            downTriangles[s] = new List<int>();
-            int[] triangles = _targetMesh.GetTriangles(s);
-            foreach (var vertex in defaultVertices)
-            {
-                if (_cutFace.GetSide(vertex))
-                {
-                    upperVertices.Add(vertex);
-                }
-                else
-                {
-                    downVertices.Add(vertex);
-                }
-            }
+            triangles = _targetMesh.GetTriangles(submesh);
+            _leftSide.subIndices.Add(new List<int>());
+            _rightSide.subIndices.Add(new List<int>());
 
+            // サブメッシュのインデックス数分ループ
             for (int i = 0; i < triangles.Length; i += 3)
             {
-                Vector3 vertex1 = defaultVertices[triangles[i]];
-                Vector3 vertex2 = defaultVertices[triangles[i + 1]];
-                Vector3 vertex3 = defaultVertices[triangles[i + 2]];
+                // p1 - p3のインデックスを取得。つまりトライアングル
+                p1 = triangles[i + 0];
+                p2 = triangles[i + 1];
+                p3 = triangles[i + 2];
 
-                bool v1Side = _cutFace.GetSide(vertex1);
-                bool v2Side = _cutFace.GetSide(vertex2);
-                bool v3Side = _cutFace.GetSide(vertex3);
+                // 3頂点が面に対してどちら側にあるのかを得る
+                sides[0] = _blade.GetSide(_targetMesh.vertices[p1]);
+                sides[1] = _blade.GetSide(_targetMesh.vertices[p2]);
+                sides[2] = _blade.GetSide(_targetMesh.vertices[p3]);
 
-                #region 計算の説明
-
-                /*
-                  三角形分割時の孤立頂点判定について
-
-                  1. 孤立頂点について
-                     三角形の3頂点のうち、カット面で他の2頂点とは異なる側に存在する頂点のこと。
-                     この頂点を基準に新規頂点を生成して三角形を分割する。
-
-                  2. 合計値を見るとわかること:
-                     各頂点に重みを付けて合計値を計算することで、
-                       - 孤立頂点が面の上側か下側か
-                       - どの頂点が孤立しているか
-                     を1回の計算で判定可能。
-
-                     重み付けの例:
-                       v1Side = true -> 1
-                       v2Side = true -> 2
-                       v3Side = true -> 4
-
-                  3. 合計値の意味の対応表:
-                  | 合計(sum) | 孤立頂点      | 孤立頂点がある面の側 |
-                  |-----------|---------------|----------------|
-                  | 1         | v1            | 上             |
-                  | 2         | v2            | 上             |
-                  | 4         | v3            | 上             |
-                  | 3         | v3            | 下             |
-                  | 5         | v2            | 下             |
-                  | 6         | v1            | 下             |
-                  | 0         | 前頂点が下      | 下             |
-                  | 7         | 全頂点が上      | 上             |
-
-                  この方式により、if文や複雑な条件分岐を減らして高速にメッシュ分割処理が可能。
-                 */
-
-                #endregion
-                
-                //切断面と重なっているか、重なっていないなら上下どちらにあるかを調べる
-                int sum = (v1Side ? 1 : 0) + (v2Side ? 2 : 0) + (v3Side ? 4 : 0);
-
-                if (sum is 0 or 7)
+                if (sides[0] == sides[1] && sides[0] == sides[2])
                 {
-                    if (sum == 7)
+                    //頂点がすべて同じ側にある場合、単純に追加して終了
+                    if (sides[0])
                     {
-                        //7なら面の法線側
-                        upperTriangles[s].Add(triangles[i]);
-                        upperTriangles[s].Add(triangles[i + 1]);
-                        upperTriangles[s].Add(triangles[i + 2]);
+                        _leftSide.AddTriangle(p1, p2, p3, submesh);
                     }
                     else
                     {
-                        //0なら面の法線と反対方向
-                        downTriangles[s].Add(triangles[i]);
-                        downTriangles[s].Add(triangles[i + 1]);
-                        downTriangles[s].Add(triangles[i + 2]);
+                        _rightSide.AddTriangle(p1, p2, p3, submesh);
                     }
                 }
                 else
                 {
-                    //孤立しているのが上側の場合、3以下になる
-                    bool isolation = sum <= 3;
-                    int isolationV;
-                    int otherV1;
-                    int otherV2;
-                    switch (sum)
-                    {
-                        case 1 or 6:
-                            isolationV = triangles[i];
-                            otherV1 = triangles[i + 1];
-                            otherV2 = triangles[i + 2];
-                            break;
-                        case 2 or 5:
-                            isolationV = triangles[i + 1];
-                            otherV1 = triangles[i];
-                            otherV2 = triangles[i + 2];
-                            break;
-                        case 3 or 4:
-                            isolationV = triangles[i + 2];
-                            otherV1 = triangles[i];
-                            otherV2 = triangles[i + 1];
-                            break;
-                        default:
-                            isolationV = triangles[i];
-                            otherV1 = triangles[i + 1];
-                            otherV2 = triangles[i + 2];
-                            break;
-                    }
-
-                    //新規頂点の作成を行う
-                    var rayVector1 = (defaultVertices[isolationV] - defaultVertices[otherV1]).normalized;
-                    var rayVector2 = (defaultVertices[isolationV] - defaultVertices[otherV2]).normalized;
-                    _cutFace.Raycast(
-                        new Ray(defaultVertices[isolationV], rayVector1),
-                        out var result1);
-                    _cutFace.Raycast(
-                        new Ray(defaultVertices[isolationV], rayVector2),
-                        out var result2);
-                    Vector3 newVertex1 = rayVector1 * result1;
-                    Vector3 newVertex2 = rayVector2 * result2;
-                    
-                    if(isolation)
-                    {
-                        //isolationVが切断面の上側
-                        upperVertices.Add(newVertex1);
-                        upperVertices.Add(newVertex2);
-                        downVertices.Add(newVertex1);
-                        downVertices.Add(newVertex2);
-                    }
-                    else
-                    {
-                        //otherV1とotherV2が切断面の上側
-                        upperVertices.Add(newVertex1);
-                        upperVertices.Add(newVertex2);
-                        downVertices.Add(newVertex1);
-                        downVertices.Add(newVertex2);
-                    }
+                    // 三角形が切断面に重なっている場合、切断を実行
+                    CutFace(submesh, sides, p1, p2, p3);
                 }
             }
         }
 
-        // 新しいメッシュ作成
-        Mesh newMesh = new Mesh
+        Material[] mats = target.GetComponent<MeshRenderer>().sharedMaterials;
+        // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
+        if (mats[^1].name != capMaterial.name)
         {
-            vertices = defaultVertices,
-            subMeshCount = subMeshCount
-        };
+            _leftSide.subIndices.Add(new List<int>());
+            _rightSide.subIndices.Add(new List<int>());
 
-        for (int s = 0; s < subMeshCount; s++)
-        {
-            newMesh.SetTriangles(upperTriangles[s], s);
+            Material[] newMats = new Material[mats.Length + 1];
+
+            mats.CopyTo(newMats, 0);
+
+            newMats[mats.Length] = capMaterial;
+
+            mats = newMats;
         }
 
-        newMesh.RecalculateBounds();
-        newMesh.RecalculateNormals();
-        _meshFilter.mesh = newMesh;
+        Capping();
+        
+        // Left Mesh
+        // 左側のメッシュを生成
+        // MeshCutSideクラスのメンバから各値をコピー
+        Mesh leftMesh = new Mesh
+        {
+            name = "Split Mesh Left",
+            vertices = _leftSide.vertices.ToArray(),
+            triangles = _leftSide.triangles.ToArray(),
+            normals = _leftSide.normals.ToArray(),
+            uv = _leftSide.uvs.ToArray(),
+            subMeshCount = _leftSide.subIndices.Count
+        };
+
+        for (int i = 0; i < _leftSide.subIndices.Count; i++)
+        {
+            leftMesh.SetIndices(_leftSide.subIndices[i].ToArray(), MeshTopology.Triangles, i);
+        }
+
+
+        // Right Mesh
+        // 右側のメッシュも同様に生成
+        Mesh rightMesh = new Mesh
+        {
+            name = "Split Mesh Right",
+            vertices = _rightSide.vertices.ToArray(),
+            triangles = _rightSide.triangles.ToArray(),
+            normals = _rightSide.normals.ToArray(),
+            uv = _rightSide.uvs.ToArray(),
+            subMeshCount = _rightSide.subIndices.Count
+        };
+
+        for (int i = 0; i < _rightSide.subIndices.Count; i++)
+        {
+            rightMesh.SetIndices(_rightSide.subIndices[i].ToArray(), MeshTopology.Triangles, i);
+        }
+
+
+        // assign the game objects
+
+        // 元のオブジェクトを左側のオブジェクトに
+        target.name = "left side";
+        target.GetComponent<MeshFilter>().mesh = leftMesh;
+
+
+        // 右側のオブジェクトは新規作成
+        GameObject leftSideObj = target;
+
+        GameObject rightSideObj = new GameObject("right side", typeof(MeshFilter), typeof(MeshRenderer));
+        rightSideObj.transform.position = target.transform.position;
+        rightSideObj.transform.rotation = target.transform.rotation;
+        rightSideObj.GetComponent<MeshFilter>().mesh = rightMesh;
+
+        // assign mats
+        // 新規生成したマテリアルリストをそれぞれのオブジェクトに適用する
+        leftSideObj.GetComponent<MeshRenderer>().materials = mats;
+        rightSideObj.GetComponent<MeshRenderer>().materials = mats;
+
+        // 左右のGameObjectの配列を返す
+        return new[] { leftSideObj, rightSideObj };
+    }
+
+    void CutFace(int submesh, bool[] sides, int index1, int index2, int index3)
+    {
+        Vector3[] leftPoints = new Vector3[2];
+        Vector3[] leftNormals = new Vector3[2];
+        Vector2[] leftUvs = new Vector2[2];
+        Vector3[] rightPoints = new Vector3[2];
+        Vector3[] rightNormals = new Vector3[2];
+        Vector2[] rightUvs = new Vector2[2];
+
+        bool didsetLeft = false;
+        bool didsetRight = false;
+
+        int p = index1;
+
+        //各頂点を左右どちらにあるかで振り分ける
+        for (int side = 0; side < 3; side++)
+        {
+            //どの頂点について処理するか決定
+            switch (side)
+            {
+                case 0:
+                    p = index1;
+                    break;
+                case 1:
+                    p = index2;
+                    break;
+                case 2:
+                    p = index3;
+                    break;
+            }
+
+            //頂点を左右どちらにあるかで分ける
+            if (sides[side])
+            {
+                // すでに左側の頂点が設定されているか（3頂点が左右に振り分けられるため、必ず左右どちらかは2つの頂点を持つことになる）
+                if (!didsetLeft)
+                {
+                    didsetLeft = true;
+                    // 頂点およびUV、法線の設定
+                    leftPoints[0] = _targetMesh.vertices[p];
+                    leftUvs[0] = _targetMesh.uv[p];
+                    leftNormals[0] = _targetMesh.normals[p];
+
+                    //アクセスされる可能性のある[1]に値を複製
+                    leftPoints[1] = leftPoints[0];
+                    leftUvs[1] = leftUvs[0];
+                    leftNormals[1] = leftNormals[0];
+                }
+                else
+                {
+                    // 2頂点目の場合は2番目に直接頂点情報を設定する
+                    leftPoints[1] = _targetMesh.vertices[p];
+                    leftUvs[1] = _targetMesh.uv[p];
+                    leftNormals[1] = _targetMesh.normals[p];
+                }
+            }
+            else
+            {
+                // 左と同様の操作を右にも行う
+                if (!didsetRight)
+                {
+                    didsetRight = true;
+
+                    rightPoints[0] = _targetMesh.vertices[p];
+                    rightUvs[0] = _targetMesh.uv[p];
+                    rightNormals[0] = _targetMesh.normals[p];
+
+                    rightPoints[1] = rightPoints[0];
+                    rightUvs[1] = rightUvs[0];
+                    rightNormals[1] = rightNormals[0];
+                }
+                else
+                {
+                    rightPoints[1] = _targetMesh.vertices[p];
+                    rightUvs[1] = _targetMesh.uv[p];
+                    rightNormals[1] = _targetMesh.normals[p];
+                }
+            }
+        }
+
+        // 分割された点の比率計算のための距離
+        float normalizedDistance = 0f;
+
+        // 距離
+        float distance = 0f;
+
+
+        #region 左側の処理
+
+        // 左の点を基準に定義した面と交差する座標を探す。
+        _blade.Raycast(new Ray(leftPoints[0], (rightPoints[0] - leftPoints[0]).normalized), out distance);
+
+        // 見つかった交差点を、頂点間の距離で割ることで、分割点の左右の割合を算出する
+        normalizedDistance = distance / (rightPoints[0] - leftPoints[0]).magnitude;
+
+        // カット後の新頂点に対する処理。フラグメントシェーダでの補完と同じく、分割した位置に応じて適切に補完した値を設定する
+        Vector3 newVertex1 = Vector3.Lerp(leftPoints[0], rightPoints[0], normalizedDistance);
+        Vector2 newUv1 = Vector2.Lerp(leftUvs[0], rightUvs[0], normalizedDistance);
+        Vector3 newNormal1 = Vector3.Lerp(leftNormals[0], rightNormals[0], normalizedDistance);
+
+        // 新頂点郡に新しい頂点を追加
+        _newVertices.Add(newVertex1);
+
+        #endregion
+
+        #region 右側の処理
+
+        _blade.Raycast(new Ray(leftPoints[1], (rightPoints[1] - leftPoints[1]).normalized), out distance);
+
+        normalizedDistance = distance / (rightPoints[1] - leftPoints[1]).magnitude;
+        Vector3 newVertex2 = Vector3.Lerp(leftPoints[1], rightPoints[1], normalizedDistance);
+        Vector2 newUv2 = Vector2.Lerp(leftUvs[1], rightUvs[1], normalizedDistance);
+        Vector3 newNormal2 = Vector3.Lerp(leftNormals[1], rightNormals[1], normalizedDistance);
+
+        // 新頂点郡に新しい頂点を追加
+        _newVertices.Add(newVertex2);
+
+        #endregion
+
+        bool leftDoubleCheck = false;
+
+        // 計算された新しい頂点を使って、新トライアングルを左右ともに追加する
+        // memo: どう分割されても、左右どちらかは1つの三角形になる気がするけど、縮退三角形的な感じでとにかく2つずつ追加している感じだろうか？
+        _leftSide.AddTriangle(
+            new[] { leftPoints[0], newVertex1, newVertex2 },
+            new[] { leftNormals[0], newNormal1, newNormal2 },
+            new[] { leftUvs[0], newUv1, newUv2 },
+            newNormal1,
+            submesh
+        );
+
+        if (leftPoints[0] != leftPoints[1])
+        {
+            _leftSide.AddTriangle(
+                new[] { leftPoints[0], leftPoints[1], newVertex2 },
+                new[] { leftNormals[0], leftNormals[1], newNormal2 },
+                new[] { leftUvs[0], leftUvs[1], newUv2 },
+                newNormal2,
+                submesh
+            );
+            leftDoubleCheck = true;
+        }
+
+        _rightSide.AddTriangle(
+            new[] { rightPoints[0], newVertex1, newVertex2 },
+            new[] { rightNormals[0], newNormal1, newNormal2 },
+            new[] { rightUvs[0], newUv1, newUv2 },
+            newNormal1,
+            submesh
+        );
+
+        if (!leftDoubleCheck)
+        {
+            _rightSide.AddTriangle(
+                new[] { rightPoints[0], rightPoints[1], newVertex2 },
+                new[] { rightNormals[0], rightNormals[1], newNormal2 },
+                new[] { rightUvs[0], rightUvs[1], newUv2 },
+                newNormal2,
+                submesh
+            );
+        }
+    }
+
+    /// <summary>
+    /// 切断面を埋める処理？
+    /// </summary>
+    private void Capping()
+    {
+        // 新規頂点の操作を行うので、操作済み頂点を入れる
+        List<Vector3> capVertTracker = new List<Vector3>();
+        List<Vector3> capVertPolygon = new List<Vector3>();
+
+        // 新しく生成した頂点分だけループする＝全新頂点に対してポリゴンを形成するため調査を行う
+        // 具体的には、カット面を構成するポリゴンを形成するため、カット時に重複した頂点を網羅して「面」を形成する頂点を調査する
+        for (int i = 0; i < _newVertices.Count; i++)
+        {
+            // 対象頂点がすでに調査済みのマークされて（追跡配列に含まれて）いたらスキップ
+            if (capVertTracker.Contains(_newVertices[i]))
+            {
+                continue;
+            }
+
+            // カット用ポリゴン配列をクリア
+            capVertPolygon.Clear();
+
+            // 調査頂点と次の頂点をポリゴン配列に保持する
+            capVertPolygon.Add(_newVertices[i + 0]);
+            capVertPolygon.Add(_newVertices[i + 1]);
+
+            // 追跡配列に自身と次の頂点を追加する（調査済みのマークをつける）
+            capVertTracker.Add(_newVertices[i + 0]);
+            capVertTracker.Add(_newVertices[i + 1]);
+
+            // 重複頂点がなくなるまでループし調査する
+            bool isDone = false;
+            while (!isDone)
+            {
+                isDone = true;
+
+                // 新頂点郡をループし、「面」を構成する要因となる頂点をすべて抽出する。抽出が終わるまでループを繰り返す
+                // 2頂点ごとに調査を行うため、ループは2単位ですすめる
+                for (int k = 0; k < _newVertices.Count; k += 2)
+                {
+                    // 三角形を切ると必ずペアとなる２箇所の頂点が生まれる。
+                    // また、全ポリゴンに対して分割点を生成しているため、ほぼ必ず、まったく同じ位置に存在する、別トライアングルの分割頂点が存在するはずである。
+                    if (_newVertices[k] == capVertPolygon[^1] &&
+                        !capVertTracker.Contains(_newVertices[k + 1]))
+                    {
+                        // if so add the other
+                        // ペアの頂点が見つかったらそれをポリゴン配列に追加し、
+                        // 調査済マークをつけて、次のループ処理に回す
+                        isDone = false;
+                        capVertPolygon.Add(_newVertices[k + 1]);
+                        capVertTracker.Add(_newVertices[k + 1]);
+                    }
+                    else if (_newVertices[k + 1] == capVertPolygon[^1] &&
+                             !capVertTracker.Contains(_newVertices[k]))
+                    {
+                        // if so add the other
+                        isDone = false;
+                        capVertPolygon.Add(_newVertices[k]);
+                        capVertTracker.Add(_newVertices[k]);
+                    }
+                }
+            }
+
+            // 見つかった頂点郡を元に、ポリゴンを形成する
+            FillCap(capVertPolygon);
+        }
+    }
+
+    /// <summary>
+    /// カット面を埋める？
+    /// </summary>
+    /// <param name="vertices">ポリゴンを形成する頂点リスト</param>
+    private void FillCap(List<Vector3> vertices)
+    {
+        // 切断によって生まれた頂点の中心点を計算する
+        Vector3 center = Vector3.zero;
+        foreach (Vector3 point in vertices)
+        {
+            center += point;
+        }
+
+        center /= vertices.Count;
+
+        // 切断面の上側(今回は左側)を求める
+        Vector3 upward = Vector3.zero;
+        upward.x = _blade.normal.y;
+        upward.y = -_blade.normal.x;
+        upward.z = _blade.normal.z;
+
+        // 法線と「上方向」から、横軸を算出
+        Vector3 left = Vector3.Cross(_blade.normal, upward);
+
+        // 全頂点に対する処理
+        for (int i = 0; i < vertices.Count; i++)
+        {
+            // 中心から各頂点へのベクトル
+            var displacement = vertices[i] - center;
+
+            // 新規生成するポリゴンのUV座標を求める。
+            // displacementが中心からのベクトルのため、UV的な中心である0.5をベースに、内積を使ってUVの最終的な位置を得る
+            var newUV1 = Vector3.zero;
+            newUV1.x = 0.5f + Vector3.Dot(displacement, left);
+            newUV1.y = 0.5f + Vector3.Dot(displacement, upward);
+            newUV1.z = 0.5f + Vector3.Dot(displacement, _blade.normal);
+
+            // 次の頂点。ただし、最後の頂点の次は最初の頂点を利用するため、若干トリッキーな指定方法をしている（% vertices.Count）
+            displacement = vertices[(i + 1) % vertices.Count] - center;
+
+            var newUV2 = Vector3.zero;
+            newUV2.x = 0.5f + Vector3.Dot(displacement, left);
+            newUV2.y = 0.5f + Vector3.Dot(displacement, upward);
+            newUV2.z = 0.5f + Vector3.Dot(displacement, _blade.normal);
+
+            // 左側のポリゴンとして、求めたUVを利用してトライアングルを追加
+            _leftSide.AddTriangle(
+                new[]
+                {
+                    vertices[i],
+                    vertices[(i + 1) % vertices.Count],
+                    center
+                },
+                new[]
+                {
+                    -_blade.normal,
+                    -_blade.normal,
+                    -_blade.normal
+                },
+                new Vector2[]
+                {
+                    newUV1,
+                    newUV2,
+                    new Vector2(0.5f, 0.5f)
+                },
+                -_blade.normal,
+                _leftSide.subIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
+            );
+
+            // 右側のトライアングル。基本は左側と同じだが、法線だけ逆向き。
+            _rightSide.AddTriangle(
+                new Vector3[]
+                {
+                    vertices[i],
+                    vertices[(i + 1) % vertices.Count],
+                    center
+                },
+                new Vector3[]
+                {
+                    _blade.normal,
+                    _blade.normal,
+                    _blade.normal
+                },
+                new Vector2[]
+                {
+                    newUV1,
+                    newUV2,
+                    new Vector2(0.5f, 0.5f)
+                },
+                _blade.normal,
+                _rightSide.subIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
+            );
+        }
     }
 }
