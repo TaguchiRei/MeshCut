@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 public class MeshCut : MonoBehaviour
 {
@@ -7,13 +9,13 @@ public class MeshCut : MonoBehaviour
 
     private class CutSide
     {
-        public Mesh BaseMesh;
-
         public List<Vector3> vertices = new();
         public List<Vector3> normals = new();
         public List<Vector2> uvs = new();
         public List<int> triangles = new();
         public List<List<int>> subIndices = new();
+
+        private readonly Dictionary<int, int> _addedVertices = new();
 
         public void ClearAll()
         {
@@ -26,32 +28,17 @@ public class MeshCut : MonoBehaviour
 
         public void AddTriangle(int p1, int p2, int p3, int submesh)
         {
-            int baseIndex = vertices.Count;
+            int p1Index = GetOrAddVertex(p1);
+            int p2Index = GetOrAddVertex(p2);
+            int p3Index = GetOrAddVertex(p3);
 
-            // 対象サブメッシュのインデックスに追加していく
-            subIndices[submesh].Add(baseIndex + 0);
-            subIndices[submesh].Add(baseIndex + 1);
-            subIndices[submesh].Add(baseIndex + 2);
+            subIndices[submesh].Add(p1Index);
+            subIndices[submesh].Add(p2Index);
+            subIndices[submesh].Add(p3Index);
 
-            // 三角形郡の頂点を設定
-            triangles.Add(baseIndex + 0);
-            triangles.Add(baseIndex + 1);
-            triangles.Add(baseIndex + 2);
-
-            // 対象オブジェクトの頂点配列から頂点情報を取得し設定する
-            vertices.Add(BaseMesh.vertices[p1]);
-            vertices.Add(BaseMesh.vertices[p2]);
-            vertices.Add(BaseMesh.vertices[p3]);
-
-            // 同様に、対象オブジェクトの法線配列から法線を取得し設定する
-            normals.Add(BaseMesh.normals[p1]);
-            normals.Add(BaseMesh.normals[p2]);
-            normals.Add(BaseMesh.normals[p3]);
-
-            // 同様に、UVも。
-            uvs.Add(BaseMesh.uv[p1]);
-            uvs.Add(BaseMesh.uv[p2]);
-            uvs.Add(BaseMesh.uv[p3]);
+            triangles.Add(p1Index);
+            triangles.Add(p2Index);
+            triangles.Add(p3Index);
         }
 
         public void AddTriangle(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
@@ -93,6 +80,23 @@ public class MeshCut : MonoBehaviour
             uvs.Add(uvs3[p2]);
             uvs.Add(uvs3[p3]);
         }
+        
+        private int GetOrAddVertex(int index)
+        {
+            if (_addedVertices.TryGetValue(index, out var existingIndex))
+            {
+                return existingIndex;
+            }
+
+            int newIndex = vertices.Count;
+            _addedVertices[index] = newIndex;
+
+            vertices.Add(_targetMesh.vertices[index]);
+            normals.Add(_targetMesh.normals[index]);
+            uvs.Add(_targetMesh.uv[index]);
+
+            return newIndex;
+        }
     }
 
     #endregion
@@ -102,7 +106,7 @@ public class MeshCut : MonoBehaviour
     private readonly List<Vector3> _newVertices = new();
 
     private Plane _blade;
-    private Mesh _targetMesh;
+    private static Mesh _targetMesh;
 
     private void Initialize()
     {
@@ -120,9 +124,14 @@ public class MeshCut : MonoBehaviour
     /// <returns></returns>
     public GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
     {
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
+        
+        Initialize();
         _blade = blade;
 
         _targetMesh = target.GetComponent<MeshFilter>().mesh;
+
         // 頂点を初期化
         _newVertices.Clear();
         _leftSide.ClearAll();
@@ -178,18 +187,18 @@ public class MeshCut : MonoBehaviour
         {
             _leftSide.subIndices.Add(new List<int>());
             _rightSide.subIndices.Add(new List<int>());
-
             Material[] newMats = new Material[mats.Length + 1];
-
             mats.CopyTo(newMats, 0);
-
             newMats[mats.Length] = capMaterial;
-
             mats = newMats;
         }
+        
+        Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 
         Capping();
         
+        Debug.Log($"切断面穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
+
         // Left Mesh
         // 左側のメッシュを生成
         // MeshCutSideクラスのメンバから各値をコピー
@@ -247,6 +256,9 @@ public class MeshCut : MonoBehaviour
         leftSideObj.GetComponent<MeshRenderer>().materials = mats;
         rightSideObj.GetComponent<MeshRenderer>().materials = mats;
 
+        Debug.Log($"オブジェクト生成完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
+        stopwatch.Stop();
+        
         // 左右のGameObjectの配列を返す
         return new[] { leftSideObj, rightSideObj };
     }
@@ -553,13 +565,13 @@ public class MeshCut : MonoBehaviour
 
             // 右側のトライアングル。基本は左側と同じだが、法線だけ逆向き。
             _rightSide.AddTriangle(
-                new Vector3[]
+                new[]
                 {
                     vertices[i],
                     vertices[(i + 1) % vertices.Count],
                     center
                 },
-                new Vector3[]
+                new[]
                 {
                     _blade.normal,
                     _blade.normal,
@@ -569,7 +581,7 @@ public class MeshCut : MonoBehaviour
                 {
                     newUV1,
                     newUV2,
-                    new Vector2(0.5f, 0.5f)
+                    new(0.5f, 0.5f)
                 },
                 _blade.normal,
                 _rightSide.subIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加

@@ -1,5 +1,8 @@
+using System;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
 
 namespace BLINDED_AM_ME
 {
@@ -60,9 +63,16 @@ namespace BLINDED_AM_ME
                 normals.Add(_targetMesh.normals[p3]);
 
                 // 同様に、UVも。
-                uvs.Add(_targetMesh.uv[p1]);
-                uvs.Add(_targetMesh.uv[p2]);
-                uvs.Add(_targetMesh.uv[p3]);
+                try
+                {
+                    uvs.Add(_targetMesh.uv[p1]);
+                    uvs.Add(_targetMesh.uv[p2]);
+                    uvs.Add(_targetMesh.uv[p3]);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"エラーを無視しました: {e.Message}");
+                }
             }
 
             /// <summary>
@@ -78,7 +88,7 @@ namespace BLINDED_AM_ME
                 int submesh)
             {
                 // 引数の3頂点から法線を計算
-                Vector3 calculated_normal = Vector3.Cross((points3[1] - points3[0]).normalized,
+                Vector3 calculatedNormal = Vector3.Cross((points3[1] - points3[0]).normalized,
                     (points3[2] - points3[0]).normalized);
 
                 int p1 = 0;
@@ -86,7 +96,7 @@ namespace BLINDED_AM_ME
                 int p3 = 2;
 
                 // 引数で指定された法線と逆だった場合はインデックスの順番を逆順にする（つまり面を裏返す）
-                if (Vector3.Dot(calculated_normal, faceNormal) < 0)
+                if (Vector3.Dot(calculatedNormal, faceNormal) < 0)
                 {
                     p1 = 2;
                     p2 = 1;
@@ -135,11 +145,14 @@ namespace BLINDED_AM_ME
         /// <param name="capMaterial">Cap material.</param>
         public static GameObject[] Cut(GameObject target, GameObject bladeObj, Material capMaterial)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            
             // set the blade relative to victim
             // victimから相対的な平面（ブレード）をセット
             // 具体的には、対象オブジェクトのローカル座標での平面の法線と位置から平面を生成する
             _blade = new Plane(
-                target.transform.InverseTransformDirection(-bladeObj.transform.forward),
+                target.transform.InverseTransformDirection(-bladeObj.transform.up),
                 target.transform.InverseTransformPoint(bladeObj.transform.position)
             );
 
@@ -234,12 +247,11 @@ namespace BLINDED_AM_ME
                 // 生成したマテリアルリストを再設定
                 mats = newMats;
             }
-
+            Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
             // cap the opennings
             // カット開始
             Capping();
-
-            #region 未実装箇所
+            Debug.Log($"切断面穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 
             // Left Mesh
             // 左側のメッシュを生成
@@ -294,10 +306,11 @@ namespace BLINDED_AM_ME
             leftSideObj.GetComponent<MeshRenderer>().materials = mats;
             rightSideObj.GetComponent<MeshRenderer>().materials = mats;
 
+            Debug.Log($"オブジェクト生成完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
+            stopwatch.Stop();
+            
             // 左右のGameObjectの配列を返す
             return new GameObject[] { leftSideObj, rightSideObj };
-
-            #endregion
         }
 
         /// <summary>
@@ -478,7 +491,7 @@ namespace BLINDED_AM_ME
         {
             List<Vector3> capVertTracker = new List<Vector3>();
             List<Vector3> capVertpolygon = new List<Vector3>();
-            
+
             // カット用頂点追跡リスト
             // 具体的には新頂点全部に対する調査を行う。その過程で調査済みをマークする目的で利用する。
             capVertTracker.Clear();
