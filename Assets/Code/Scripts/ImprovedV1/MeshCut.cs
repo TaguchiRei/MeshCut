@@ -24,6 +24,7 @@ public class MeshCut : MonoBehaviour
             uvs.Clear();
             triangles.Clear();
             subIndices.Clear();
+            _addedVertices.Clear();
         }
 
         public void AddTriangle(int p1, int p2, int p3, int submesh)

@@ -8,31 +8,32 @@ public class TestMeshCutter : MonoBehaviour
     [SerializeField] private Collider _myCollider;
     [SerializeField] private Material _capMaterial;
     [SerializeField] private bool _useSample;
-
+    
     public void CutMesh()
     {
+        var plane = new Plane(transform.forward, transform.position);
         if (_useSample)
         {
             List<GameObject> newObjects = new();
-            var plane = new Plane(transform.up, transform.position);
             var cutObjects = CheckOverlapObjects();
             Debug.Log(cutObjects.Length);
             foreach (var obj in cutObjects)
             {
                 SampleMeshCut.Cut(obj, gameObject, _capMaterial);
             }
+
             Debug.Log("GeneratedMesh");
         }
         else
         {
             List<GameObject> newObjects = new();
-            var plane = new Plane(transform.forward, transform.position);
             var cutObjects = CheckOverlapObjects();
             Debug.Log(cutObjects.Length);
             foreach (var obj in cutObjects)
             {
-                _meshCut.Cut(obj,plane,_capMaterial);
+                _meshCut.Cut(obj, plane, _capMaterial);
             }
+
             Debug.Log("GeneratedMesh");
         }
     }

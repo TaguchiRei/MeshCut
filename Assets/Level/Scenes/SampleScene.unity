@@ -435,7 +435,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 881771432}
-  - component: {fileID: 881771431}
+  - component: {fileID: 881771434}
+  - component: {fileID: 881771433}
   m_Layer: 0
   m_Name: --------------MeshCut-----------------------------
   m_TagString: Untagged
@@ -443,18 +444,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &881771431
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 881771430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9fad445490d795e4a8ae94312355825d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &881771432
 Transform:
   m_ObjectHideFlags: 0
@@ -470,6 +459,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &881771433
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 881771430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbf9d79dad919b84f9f4581199c8fa79, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &881771434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 881771430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fad445490d795e4a8ae94312355825d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1509682368
 GameObject:
   m_ObjectHideFlags: 0
@@ -593,10 +606,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cba2ba6a6de78045a51a9aab78b9773, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _meshCut: {fileID: 881771431}
+  _meshCut: {fileID: 881771433}
   _myCollider: {fileID: 1509682369}
   _capMaterial: {fileID: 2100000, guid: 09b730f7467944043a230a7aded5275e, type: 2}
-  _useSample: 1
+  _useSample: 0
 --- !u!54 &1509682374
 Rigidbody:
   m_ObjectHideFlags: 0
