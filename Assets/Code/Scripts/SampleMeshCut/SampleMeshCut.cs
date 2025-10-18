@@ -54,26 +54,20 @@ namespace BLINDED_AM_ME
 
                 // 対象オブジェクトの頂点配列から頂点情報を取得し設定する
                 // （victim_meshはstaticメンバなんだけどいいんだろうか・・）
-                vertices.Add(_targetMesh.vertices[p1]);
-                vertices.Add(_targetMesh.vertices[p2]);
-                vertices.Add(_targetMesh.vertices[p3]);
+                vertices.Add(_baseVertices[p1]);
+                vertices.Add(_baseVertices[p2]);
+                vertices.Add(_baseVertices[p3]);
 
                 // 同様に、対象オブジェクトの法線配列から法線を取得し設定する
-                normals.Add(_targetMesh.normals[p1]);
-                normals.Add(_targetMesh.normals[p2]);
-                normals.Add(_targetMesh.normals[p3]);
+                normals.Add(_baseNormals[p1]);
+                normals.Add(_baseNormals[p2]);
+                normals.Add(_baseNormals[p3]);
 
                 // 同様に、UVも。
-                try
-                {
-                    uvs.Add(_targetMesh.uv[p1]);
-                    uvs.Add(_targetMesh.uv[p2]);
-                    uvs.Add(_targetMesh.uv[p3]);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"エラーを無視しました: {e.Message}");
-                }
+                    uvs.Add(_baseUVs[p1]);
+                    uvs.Add(_baseUVs[p2]);
+                    uvs.Add(_baseUVs[p3]);
+                
             }
 
             /// <summary>
