@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -24,9 +23,7 @@ namespace Ver2
 
             private readonly Dictionary<int, int> _addedVertices = new();
 
-            private int[] _moveVertices;
-
-            public void ClearAll(int length)
+            public void ClearAll()
             {
                 vertices.Clear();
                 normals.Clear();
@@ -34,7 +31,6 @@ namespace Ver2
                 triangles.Clear();
                 subIndices.Clear();
                 _addedVertices.Clear();
-                _moveVertices = new int[length];
             }
 
             public void AddTriangle(int p1, int p2, int p3, int submesh)
@@ -103,9 +99,9 @@ namespace Ver2
                 int newIndex = vertices.Count;
                 _addedVertices[index] = newIndex;
 
-                vertices.Add(_targetMesh.vertices[index]);
-                normals.Add(_targetMesh.normals[index]);
-                uvs.Add(_targetMesh.uv[index]);
+                vertices.Add(_baseVertices[index]);
+                normals.Add(_baseNormals[index]);
+                uvs.Add(_baseUVs[index]);
 
                 return newIndex;
             }
@@ -119,16 +115,16 @@ namespace Ver2
 
         private Plane _blade;
         private static Mesh _targetMesh;
-        private List<Vector3> _baseVertices = new();
-        private List<Vector3> _baseNormals = new();
-        private List<Vector2> _baseUVs = new();
+        private static List<Vector3> _baseVertices = new();
+        private static List<Vector3> _baseNormals = new();
+        private static List<Vector2> _baseUVs = new();
 
 
         private void Initialize()
         {
             _newVertices.Clear();
-            _leftSide.ClearAll(_baseVertices.Count);
-            _rightSide.ClearAll(_baseVertices.Count);
+            _leftSide.ClearAll();
+            _rightSide.ClearAll();
         }
 
         /// <summary>
@@ -143,27 +139,25 @@ namespace Ver2
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
+            Initialize();
             _blade = blade;
 
             _targetMesh = target.GetComponent<MeshFilter>().mesh;
             _baseVertices = _targetMesh.vertices.ToList();
             _baseNormals = _targetMesh.normals.ToList();
             _baseUVs = _targetMesh.uv.ToList();
-            Initialize();
 
             // 頂点を初期化
             _newVertices.Clear();
-            _leftSide.ClearAll(_baseVertices.Count);
-            _rightSide.ClearAll(_baseVertices.Count);
+            _leftSide.ClearAll();
+            _rightSide.ClearAll();
 
             //頂点画面の左右どちらにあるかの計算結果を保持するための変数群
             bool[] sides = new bool[3];
-            int[] triangles;
-            int p1, p2, p3;
 
             for (int submesh = 0; submesh < _targetMesh.subMeshCount; submesh++)
             {
-                triangles = _targetMesh.GetTriangles(submesh);
+                var triangles = _targetMesh.GetTriangles(submesh);
                 _leftSide.subIndices.Add(new List<int>());
                 _rightSide.subIndices.Add(new List<int>());
 
@@ -171,12 +165,11 @@ namespace Ver2
                 for (int i = 0; i < triangles.Length; i += 3)
                 {
                     // p1 - p3のインデックスを取得。つまりトライアングル
-                    p1 = triangles[i + 0];
-                    p2 = triangles[i + 1];
-                    p3 = triangles[i + 2];
+                    var p1 = triangles[i + 0];
+                    var p2 = triangles[i + 1];
+                    var p3 = triangles[i + 2];
 
                     // 3頂点が面に対してどちら側にあるのかを得る
-
                     sides[0] = _blade.GetSide(_baseVertices[p1]);
                     sides[1] = _blade.GetSide(_baseVertices[p2]);
                     sides[2] = _blade.GetSide(_baseVertices[p3]);
@@ -200,6 +193,8 @@ namespace Ver2
                     }
                 }
             }
+            
+            Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 
             Material[] mats = target.GetComponent<MeshRenderer>().sharedMaterials;
             // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
@@ -213,11 +208,7 @@ namespace Ver2
                 mats = newMats;
             }
 
-            Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
-
             FillCap(_newVertices);
-
-            Debug.Log($"切断面穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 
             // Left Mesh
             // 左側のメッシュを生成
@@ -397,8 +388,7 @@ namespace Ver2
 
             bool leftDoubleCheck = false;
 
-            // 計算された新しい頂点を使って、新トライアングルを左右ともに追加する
-            // memo: どう分割されても、左右どちらかは1つの三角形になる気がするけど、縮退三角形的な感じでとにかく2つずつ追加している感じだろうか？
+            // 計算された新しい頂点を使って、新トライアングルを追加する
             _leftSide.AddTriangle(
                 new[] { leftPoints[0], newVertex1, newVertex2 },
                 new[] { leftNormals[0], newNormal1, newNormal2 },
