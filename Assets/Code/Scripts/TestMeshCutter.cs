@@ -4,14 +4,14 @@ using UnityEngine;
 
 public class TestMeshCutter : MonoBehaviour
 {
-    [SerializeField] private MeshCut _meshCut;
+    [SerializeField] private int _meshCutNumber;
+    [SerializeField] private MeshCutBase[] _meshCut;
     [SerializeField] private Collider _myCollider;
     [SerializeField] private Material _capMaterial;
     [SerializeField] private bool _useSample;
-    
+
     public void CutMesh()
     {
-        var plane = new Plane(transform.forward, transform.position);
         if (_useSample)
         {
             List<GameObject> newObjects = new();
@@ -31,7 +31,10 @@ public class TestMeshCutter : MonoBehaviour
             Debug.Log(cutObjects.Length);
             foreach (var obj in cutObjects)
             {
-                _meshCut.Cut(obj, plane, _capMaterial);
+                var plane = new Plane(
+                    -obj.transform.InverseTransformDirection(-transform.up), 
+                    obj.transform.InverseTransformPoint(transform.position));
+                _meshCut[_meshCutNumber].Cut(obj, plane, _capMaterial);
             }
 
             Debug.Log("GeneratedMesh");

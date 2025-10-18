@@ -1,10 +1,15 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 namespace Ver2
 {
+    /// <summary>
+    /// メッシュデータへのアクセスは配列コピーを伴うという情報をもとに、キャッシュしたデータの利用による解決を試みる
+    /// </summary>
     public class MeshCut2 : MeshCutBase
     {
         #region 切断した左右の形状を保持するためのクラス
@@ -19,7 +24,9 @@ namespace Ver2
 
             private readonly Dictionary<int, int> _addedVertices = new();
 
-            public void ClearAll()
+            private int[] _moveVertices;
+
+            public void ClearAll(int length)
             {
                 vertices.Clear();
                 normals.Clear();
@@ -27,6 +34,7 @@ namespace Ver2
                 triangles.Clear();
                 subIndices.Clear();
                 _addedVertices.Clear();
+                _moveVertices = new int[length];
             }
 
             public void AddTriangle(int p1, int p2, int p3, int submesh)
@@ -111,12 +119,16 @@ namespace Ver2
 
         private Plane _blade;
         private static Mesh _targetMesh;
+        private List<Vector3> _baseVertices = new();
+        private List<Vector3> _baseNormals = new();
+        private List<Vector2> _baseUVs = new();
+
 
         private void Initialize()
         {
             _newVertices.Clear();
-            _leftSide.ClearAll();
-            _rightSide.ClearAll();
+            _leftSide.ClearAll(_baseVertices.Count);
+            _rightSide.ClearAll(_baseVertices.Count);
         }
 
         /// <summary>
@@ -131,15 +143,18 @@ namespace Ver2
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            Initialize();
             _blade = blade;
 
             _targetMesh = target.GetComponent<MeshFilter>().mesh;
+            _baseVertices = _targetMesh.vertices.ToList();
+            _baseNormals = _targetMesh.normals.ToList();
+            _baseUVs = _targetMesh.uv.ToList();
+            Initialize();
 
             // 頂点を初期化
             _newVertices.Clear();
-            _leftSide.ClearAll();
-            _rightSide.ClearAll();
+            _leftSide.ClearAll(_baseVertices.Count);
+            _rightSide.ClearAll(_baseVertices.Count);
 
             //頂点画面の左右どちらにあるかの計算結果を保持するための変数群
             bool[] sides = new bool[3];
@@ -161,9 +176,10 @@ namespace Ver2
                     p3 = triangles[i + 2];
 
                     // 3頂点が面に対してどちら側にあるのかを得る
-                    sides[0] = _blade.GetSide(_targetMesh.vertices[p1]);
-                    sides[1] = _blade.GetSide(_targetMesh.vertices[p2]);
-                    sides[2] = _blade.GetSide(_targetMesh.vertices[p3]);
+
+                    sides[0] = _blade.GetSide(_baseVertices[p1]);
+                    sides[1] = _blade.GetSide(_baseVertices[p2]);
+                    sides[2] = _blade.GetSide(_baseVertices[p3]);
 
                     if (sides[0] == sides[1] && sides[0] == sides[2])
                     {
@@ -306,9 +322,9 @@ namespace Ver2
                     {
                         didsetLeft = true;
                         // 頂点およびUV、法線の設定
-                        leftPoints[0] = _targetMesh.vertices[p];
-                        leftUvs[0] = _targetMesh.uv[p];
-                        leftNormals[0] = _targetMesh.normals[p];
+                        leftPoints[0] = _baseVertices[p];
+                        leftUvs[0] = _baseUVs[p];
+                        leftNormals[0] = _baseNormals[p];
 
                         //アクセスされる可能性のある[1]に値を複製
                         leftPoints[1] = leftPoints[0];
@@ -318,9 +334,9 @@ namespace Ver2
                     else
                     {
                         // 2頂点目の場合は2番目に直接頂点情報を設定する
-                        leftPoints[1] = _targetMesh.vertices[p];
-                        leftUvs[1] = _targetMesh.uv[p];
-                        leftNormals[1] = _targetMesh.normals[p];
+                        leftPoints[1] = _baseVertices[p];
+                        leftUvs[1] = _baseUVs[p];
+                        leftNormals[1] = _baseNormals[p];
                     }
                 }
                 else
@@ -330,9 +346,9 @@ namespace Ver2
                     {
                         didsetRight = true;
 
-                        rightPoints[0] = _targetMesh.vertices[p];
-                        rightUvs[0] = _targetMesh.uv[p];
-                        rightNormals[0] = _targetMesh.normals[p];
+                        rightPoints[0] = _baseVertices[p];
+                        rightUvs[0] = _baseUVs[p];
+                        rightNormals[0] = _baseNormals[p];
 
                         rightPoints[1] = rightPoints[0];
                         rightUvs[1] = rightUvs[0];
@@ -340,9 +356,9 @@ namespace Ver2
                     }
                     else
                     {
-                        rightPoints[1] = _targetMesh.vertices[p];
-                        rightUvs[1] = _targetMesh.uv[p];
-                        rightNormals[1] = _targetMesh.normals[p];
+                        rightPoints[1] = _baseVertices[p];
+                        rightUvs[1] = _baseUVs[p];
+                        rightNormals[1] = _baseNormals[p];
                     }
                 }
             }
@@ -420,74 +436,6 @@ namespace Ver2
                     newNormal2,
                     submesh
                 );
-            }
-        }
-
-        /// <summary>
-        /// 切断面を埋める処理？
-        /// </summary>
-        private void Capping()
-        {
-            // 新規頂点の操作を行うので、操作済み頂点を入れる
-            List<Vector3> capVertTracker = new List<Vector3>();
-            List<Vector3> capVertPolygon = new List<Vector3>();
-
-            // 新しく生成した頂点分だけループする＝全新頂点に対してポリゴンを形成するため調査を行う
-            // 具体的には、カット面を構成するポリゴンを形成するため、カット時に重複した頂点を網羅して「面」を形成する頂点を調査する
-            for (int i = 0; i < _newVertices.Count; i++)
-            {
-                // 対象頂点がすでに調査済みのマークされて（追跡配列に含まれて）いたらスキップ
-                if (capVertTracker.Contains(_newVertices[i]))
-                {
-                    continue;
-                }
-
-                // カット用ポリゴン配列をクリア
-                capVertPolygon.Clear();
-
-                // 調査頂点と次の頂点をポリゴン配列に保持する
-                capVertPolygon.Add(_newVertices[i + 0]);
-                capVertPolygon.Add(_newVertices[i + 1]);
-
-                // 追跡配列に自身と次の頂点を追加する（調査済みのマークをつける）
-                capVertTracker.Add(_newVertices[i + 0]);
-                capVertTracker.Add(_newVertices[i + 1]);
-
-                // 重複頂点がなくなるまでループし調査する
-                bool isDone = false;
-                while (!isDone)
-                {
-                    isDone = true;
-
-                    // 新頂点郡をループし、「面」を構成する要因となる頂点をすべて抽出する。抽出が終わるまでループを繰り返す
-                    // 2頂点ごとに調査を行うため、ループは2単位ですすめる
-                    for (int k = 0; k < _newVertices.Count; k += 2)
-                    {
-                        // 三角形を切ると必ずペアとなる２箇所の頂点が生まれる。
-                        // また、全ポリゴンに対して分割点を生成しているため、ほぼ必ず、まったく同じ位置に存在する、別トライアングルの分割頂点が存在するはずである。
-                        if (_newVertices[k] == capVertPolygon[^1] &&
-                            !capVertTracker.Contains(_newVertices[k + 1]))
-                        {
-                            // if so add the other
-                            // ペアの頂点が見つかったらそれをポリゴン配列に追加し、
-                            // 調査済マークをつけて、次のループ処理に回す
-                            isDone = false;
-                            capVertPolygon.Add(_newVertices[k + 1]);
-                            capVertTracker.Add(_newVertices[k + 1]);
-                        }
-                        else if (_newVertices[k + 1] == capVertPolygon[^1] &&
-                                 !capVertTracker.Contains(_newVertices[k]))
-                        {
-                            // if so add the other
-                            isDone = false;
-                            capVertPolygon.Add(_newVertices[k]);
-                            capVertTracker.Add(_newVertices[k]);
-                        }
-                    }
-                }
-
-                // 見つかった頂点郡を元に、ポリゴンを形成する
-                FillCap(capVertPolygon);
             }
         }
 

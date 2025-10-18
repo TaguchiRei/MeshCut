@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Debug = UnityEngine.Debug;
 
 namespace BLINDED_AM_ME
@@ -132,6 +133,9 @@ namespace BLINDED_AM_ME
 
         private static Plane _blade;
         private static Mesh _targetMesh;
+        private static List<Vector3> _baseVertices = new();
+        private static List<Vector3> _baseNormals = new();
+        private static List<Vector2> _baseUVs = new();
 
         // capping stuff
         private static List<Vector3> _newVertices = new List<Vector3>();
@@ -159,6 +163,9 @@ namespace BLINDED_AM_ME
             // get the victims mesh
             // 対象のメッシュを取得
             _targetMesh = target.GetComponent<MeshFilter>().mesh;
+            _baseVertices = _targetMesh.vertices.ToList();
+            _baseNormals = _targetMesh.normals.ToList();
+            _baseUVs = _targetMesh.uv.ToList();
 
             // reset values
             // 新しい頂点郡
@@ -196,9 +203,9 @@ namespace BLINDED_AM_ME
 
                     // それぞれ評価中のメッシュの頂点が、冒頭で定義された平面の左右どちらにあるかを評価。
                     // `GetSide` メソッドによりboolを得る。
-                    sides[0] = _blade.GetSide(_targetMesh.vertices[p1]);
-                    sides[1] = _blade.GetSide(_targetMesh.vertices[p2]);
-                    sides[2] = _blade.GetSide(_targetMesh.vertices[p3]);
+                    sides[0] = _blade.GetSide(_baseVertices[p1]);
+                    sides[1] = _blade.GetSide(_baseVertices[p2]);
+                    sides[2] = _blade.GetSide(_baseVertices[p3]);
 
                     // whole triangle
                     // 頂点０と頂点１および頂点２がどちらも同じ側にある場合はカットしない
@@ -365,23 +372,23 @@ namespace BLINDED_AM_ME
                         // つまり、アクセスされる可能性がある
 
                         // 頂点の設定
-                        leftPoints[0] = _targetMesh.vertices[p];
+                        leftPoints[0] = _baseVertices[p];
                         leftPoints[1] = leftPoints[0];
 
                         // UVの設定
-                        leftUvs[0] = _targetMesh.uv[p];
+                        leftUvs[0] = _baseUVs[p];
                         leftUvs[1] = leftUvs[0];
 
                         // 法線の設定
-                        leftNormals[0] = _targetMesh.normals[p];
+                        leftNormals[0] = _baseNormals[p];
                         leftNormals[1] = leftNormals[0];
                     }
                     else
                     {
                         // 2頂点目の場合は2番目に直接頂点情報を設定する
-                        leftPoints[1] = _targetMesh.vertices[p];
-                        leftUvs[1] = _targetMesh.uv[p];
-                        leftNormals[1] = _targetMesh.normals[p];
+                        leftPoints[1] = _baseVertices[p];
+                        leftUvs[1] = _baseUVs[p];
+                        leftNormals[1] = _baseNormals[p];
                     }
                 }
                 else
@@ -391,18 +398,18 @@ namespace BLINDED_AM_ME
                     {
                         didset_right = true;
 
-                        rightPoints[0] = _targetMesh.vertices[p];
+                        rightPoints[0] = _baseVertices[p];
                         rightPoints[1] = rightPoints[0];
-                        rightUvs[0] = _targetMesh.uv[p];
+                        rightUvs[0] = _baseUVs[p];
                         rightUvs[1] = rightUvs[0];
-                        rightNormals[0] = _targetMesh.normals[p];
+                        rightNormals[0] = _baseNormals[p];
                         rightNormals[1] = rightNormals[0];
                     }
                     else
                     {
-                        rightPoints[1] = _targetMesh.vertices[p];
-                        rightUvs[1] = _targetMesh.uv[p];
-                        rightNormals[1] = _targetMesh.normals[p];
+                        rightPoints[1] = _baseVertices[p];
+                        rightUvs[1] = _baseUVs[p];
+                        rightNormals[1] = _baseNormals[p];
                     }
                 }
             }
