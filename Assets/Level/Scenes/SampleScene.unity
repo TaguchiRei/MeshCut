@@ -615,7 +615,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cba2ba6a6de78045a51a9aab78b9773, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _meshCutNumber: 1
+  _meshCutNumber: 0
   _meshCut:
   - {fileID: 1509682376}
   - {fileID: 1509682375}
@@ -1050,7 +1050,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!135 &4130853603361522842
 SphereCollider:
   m_ObjectHideFlags: 0

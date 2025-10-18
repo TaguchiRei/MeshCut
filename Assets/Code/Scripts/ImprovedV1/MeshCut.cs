@@ -140,7 +140,7 @@ namespace Ver2
             _targetMesh.GetNormals(_baseNormals);
             _baseUVs = new List<Vector2>(_targetMesh.vertexCount);
             _targetMesh.GetUVs(0, _baseUVs);
-            
+
             // 頂点を初期化
             _newVertices.Clear();
             _leftSide.ClearAll();
@@ -170,7 +170,7 @@ namespace Ver2
                     sides[1] = _blade.GetSide(_baseVertices[p2]);
                     sides[2] = _blade.GetSide(_baseVertices[p3]);
 
-// 左右両方に存在するか判定
+                    // 左右両方に存在するか判定
                     for (int s = 0; s < 3; s++)
                     {
                         if (sides[s]) left = true;
@@ -181,7 +181,7 @@ namespace Ver2
                             break;
                     }
 
-// 完全に片側なら即追加
+                    // 完全に片側なら即追加
                     if (left && !right)
                     {
                         _leftSide.AddTriangle(p1, p2, p3, submesh);
@@ -193,9 +193,8 @@ namespace Ver2
                         continue;
                     }
 
-// どちらにも跨る → 切断実行
+                    // どちらにも跨る → 切断実行
                     CutFace(submesh, sides, p1, p2, p3);
-
                 }
             }
 
@@ -364,35 +363,38 @@ namespace Ver2
 
             #region 左側の処理
 
-            // 左の点を基準に定義した面と交差する座標を探す。
-            _blade.Raycast(new Ray(leftPoints[0], (rightPoints[0] - leftPoints[0]).normalized), out var distance);
+            Vector3 dir1 = rightPoints[0] - leftPoints[0];
+            float denom1 = Vector3.Dot(_blade.normal, dir1);
 
-            // 見つかった交差点を、頂点間の距離で割ることで、分割点の左右の割合を算出する
-            var normalizedDistance = distance / (rightPoints[0] - leftPoints[0]).magnitude;
+            // 内積計算で交差点を求める
+            // Plane は法線 n と距離 d で表される: n・p + d = 0
+            // distance = -(n・左頂点 + d) / (n・dir)
+            float t1 = (-Vector3.Dot(_blade.normal, leftPoints[0]) - _blade.distance) / denom1;
 
-            // カット後の新頂点に対する処理。フラグメントシェーダでの補完と同じく、分割した位置に応じて適切に補完した値を設定する
-            Vector3 newVertex1 = Vector3.Lerp(leftPoints[0], rightPoints[0], normalizedDistance);
-            Vector2 newUv1 = Vector2.Lerp(leftUvs[0], rightUvs[0], normalizedDistance);
-            Vector3 newNormal1 = Vector3.Lerp(leftNormals[0], rightNormals[0], normalizedDistance);
+            // 新頂点とUV、法線の補間を手動計算
+            Vector3 newVertex1 = leftPoints[0] + dir1 * t1;
+            Vector2 newUv1 = leftUvs[0] + (rightUvs[0] - leftUvs[0]) * t1;
+            Vector3 newNormal1 = leftNormals[0] + (rightNormals[0] - leftNormals[0]) * t1;
 
-            // 新頂点郡に新しい頂点を追加
+            // 新頂点郡に追加
             _newVertices.Add(newVertex1);
 
             #endregion
 
             #region 右側の処理
 
-            _blade.Raycast(new Ray(leftPoints[1], (rightPoints[1] - leftPoints[1]).normalized), out distance);
+            Vector3 dir2 = rightPoints[1] - leftPoints[1];
+            float denom2 = Vector3.Dot(_blade.normal, dir2);
+            float t2 = (-Vector3.Dot(_blade.normal, leftPoints[1]) - _blade.distance) / denom2;
 
-            normalizedDistance = distance / (rightPoints[1] - leftPoints[1]).magnitude;
-            Vector3 newVertex2 = Vector3.Lerp(leftPoints[1], rightPoints[1], normalizedDistance);
-            Vector2 newUv2 = Vector2.Lerp(leftUvs[1], rightUvs[1], normalizedDistance);
-            Vector3 newNormal2 = Vector3.Lerp(leftNormals[1], rightNormals[1], normalizedDistance);
+            Vector3 newVertex2 = leftPoints[1] + dir2 * t2;
+            Vector2 newUv2 = leftUvs[1] + (rightUvs[1] - leftUvs[1]) * t2;
+            Vector3 newNormal2 = leftNormals[1] + (rightNormals[1] - leftNormals[1]) * t2;
 
-            // 新頂点郡に新しい頂点を追加
             _newVertices.Add(newVertex2);
 
             #endregion
+
 
             bool leftDoubleCheck = false;
 
