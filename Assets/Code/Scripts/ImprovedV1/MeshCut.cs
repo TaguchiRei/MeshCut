@@ -3,7 +3,7 @@ using System.Diagnostics;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-public class MeshCut : MonoBehaviour
+public class MeshCut : MeshCutBase
 {
     #region 切断した左右の形状を保持するためのクラス
 
@@ -123,7 +123,7 @@ public class MeshCut : MonoBehaviour
     /// <param name="blade"></param>
     /// <param name="capMaterial"></param>
     /// <returns></returns>
-    public GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
+    public override GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();

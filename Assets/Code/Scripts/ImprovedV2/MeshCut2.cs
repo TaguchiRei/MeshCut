@@ -5,7 +5,7 @@ using Debug = UnityEngine.Debug;
 
 namespace Ver2
 {
-    public class MeshCut2 : MonoBehaviour
+    public class MeshCut2 : MeshCutBase
     {
         #region 切断した左右の形状を保持するためのクラス
 
@@ -26,6 +26,7 @@ namespace Ver2
                 uvs.Clear();
                 triangles.Clear();
                 subIndices.Clear();
+                _addedVertices.Clear();
             }
 
             public void AddTriangle(int p1, int p2, int p3, int submesh)
@@ -125,7 +126,7 @@ namespace Ver2
         /// <param name="blade"></param>
         /// <param name="capMaterial"></param>
         /// <returns></returns>
-        public GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
+        public override GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
