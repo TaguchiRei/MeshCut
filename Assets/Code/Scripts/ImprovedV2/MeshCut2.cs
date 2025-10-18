@@ -209,38 +209,40 @@ namespace Ver2
             }
 
             FillCap(_newVertices);
-
-            // Left Mesh
-            // 左側のメッシュを生成
-            // MeshCutSideクラスのメンバから各値をコピー
+            
+            
             Mesh leftMesh = new Mesh
             {
-                name = "Split Mesh Left",
-                vertices = _leftSide.vertices.ToArray(),
-                triangles = _leftSide.triangles.ToArray(),
-                normals = _leftSide.normals.ToArray(),
-                uv = _leftSide.uvs.ToArray(),
-                subMeshCount = _leftSide.subIndices.Count
+                name = "Split Mesh Left"
             };
-
+            if (_leftSide.vertices.Count > 65535)
+            {
+                leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+            leftMesh.vertices = _leftSide.vertices.ToArray();
+            leftMesh.normals = _leftSide.normals.ToArray();
+            leftMesh.uv = _leftSide.uvs.ToArray();
+            leftMesh.subMeshCount = _leftSide.subIndices.Count;
             for (int i = 0; i < _leftSide.subIndices.Count; i++)
             {
                 leftMesh.SetIndices(_leftSide.subIndices[i].ToArray(), MeshTopology.Triangles, i);
             }
-
-
-            // Right Mesh
-            // 右側のメッシュも同様に生成
+            
+            
             Mesh rightMesh = new Mesh
             {
-                name = "Split Mesh Right",
-                vertices = _rightSide.vertices.ToArray(),
-                triangles = _rightSide.triangles.ToArray(),
-                normals = _rightSide.normals.ToArray(),
-                uv = _rightSide.uvs.ToArray(),
-                subMeshCount = _rightSide.subIndices.Count
+                name = "Split Mesh Right"
             };
 
+            if (_rightSide.vertices.Count > 65535)
+            {
+                rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+
+            rightMesh.vertices = _rightSide.vertices.ToArray();
+            rightMesh.normals = _rightSide.normals.ToArray();
+            rightMesh.uv = _rightSide.uvs.ToArray();
+            rightMesh.subMeshCount = _rightSide.subIndices.Count;
             for (int i = 0; i < _rightSide.subIndices.Count; i++)
             {
                 rightMesh.SetIndices(_rightSide.subIndices[i].ToArray(), MeshTopology.Triangles, i);
