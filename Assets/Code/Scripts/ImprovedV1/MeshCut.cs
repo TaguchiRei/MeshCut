@@ -102,6 +102,8 @@ namespace Ver2
         private readonly CutSide _leftSide = new();
         private readonly CutSide _rightSide = new();
         private readonly List<Vector3> _newVertices = new();
+        private readonly Dictionary<Vector3, List<Vector3>> _capConnections = new();
+
 
         private Plane _blade;
         private static Mesh _targetMesh;
@@ -212,8 +214,9 @@ namespace Ver2
                 mats = newMats;
             }
 
-            FillCap(_newVertices);
+            Capping();
 
+            Debug.Log($"面の穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 
             Mesh leftMesh = new Mesh
             {
@@ -254,12 +257,10 @@ namespace Ver2
             }
 
 
-            // assign the game objects
-
             // 元のオブジェクトを左側のオブジェクトに
             target.name = "left side";
             target.GetComponent<MeshFilter>().mesh = leftMesh;
-
+            Debug.Log($"左側メッシュの頂点数{leftMesh.vertices.Length}個");
 
             // 右側のオブジェクトは新規作成
             GameObject leftSideObj = target;
@@ -268,6 +269,8 @@ namespace Ver2
             rightSideObj.transform.position = target.transform.position;
             rightSideObj.transform.rotation = target.transform.rotation;
             rightSideObj.GetComponent<MeshFilter>().mesh = rightMesh;
+            rightSideObj.AddComponent<CuttableObject>();
+            rightSideObj.AddComponent<MeshCollider>();
 
             // assign mats
             // 新規生成したマテリアルリストをそれぞれのオブジェクトに適用する
@@ -361,7 +364,7 @@ namespace Ver2
                 }
             }
 
-            #region 左側の処理
+            #region 新規頂点１を生成
 
             Vector3 dir1 = rightPoints[0] - leftPoints[0];
             float denom1 = Vector3.Dot(_blade.normal, dir1);
@@ -381,7 +384,7 @@ namespace Ver2
 
             #endregion
 
-            #region 右側の処理
+            #region 新規頂点２を生成
 
             Vector3 dir2 = rightPoints[1] - leftPoints[1];
             float denom2 = Vector3.Dot(_blade.normal, dir2);
@@ -394,6 +397,10 @@ namespace Ver2
             _newVertices.Add(newVertex2);
 
             #endregion
+            
+            //辺で登録
+            AddCapConnection(newVertex1, newVertex2);
+            AddCapConnection(newVertex2, newVertex1);
 
 
             bool leftDoubleCheck = false;
@@ -436,6 +443,43 @@ namespace Ver2
                     newNormal2,
                     submesh
                 );
+            }
+        }
+
+        /// <summary>
+        /// 新しく生成された頂点の中で重複やペアを追跡して面を埋める
+        /// </summary>
+        private void Capping()
+        {
+            HashSet<Vector3> visited = new();
+
+            foreach (var kv in _capConnections)
+            {
+                if (visited.Contains(kv.Key))
+                    continue;
+
+                List<Vector3> polygon = new();
+                Vector3 current = kv.Key;
+                polygon.Add(current);
+                visited.Add(current);
+
+                // 次の頂点をたどってポリゴン形成
+                while (true)
+                {
+                    if (!_capConnections.TryGetValue(current, out var neighbors))
+                        break;
+
+                    Vector3 next = neighbors.FirstOrDefault(v => !visited.Contains(v));
+                    if (next == default)
+                        break;
+
+                    polygon.Add(next);
+                    visited.Add(next);
+                    current = next;
+                }
+
+                // 完成したポリゴンをカット面として埋める
+                FillCap(polygon);
             }
         }
 
@@ -532,6 +576,37 @@ namespace Ver2
                     _rightSide.SubIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
                 );
             }
+        }
+
+        private void AddCapConnection(Vector3 a, Vector3 b)
+        {
+            if (!_capConnections.TryGetValue(a, out var list))
+            {
+                list = new List<Vector3>();
+                _capConnections[a] = list;
+            }
+
+            list.Add(b);
+        }
+
+
+        private void FillCutFace(List<Vector3> vertices)
+        {
+        }
+
+        /// <summary>
+        /// ３頂点のなす角が180度以内かを調べる
+        /// </summary>
+        /// <param name="o"></param>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        private bool IsAngleLessThan180(
+            Vector3 o,
+            Vector3 a,
+            Vector3 b)
+        {
+            return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) > 0;
         }
     }
 }
