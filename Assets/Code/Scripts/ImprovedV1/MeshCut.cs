@@ -78,11 +78,11 @@ public class MeshCut : MeshCutBase
         _leftSubIndices[submesh].Add(p3Index);
     }
 
-    public void AddTriangleLeft(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
+    private void AddTriangleLeft(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
     {
         Vector3 calculatedNormal = Vector3.Cross(
-            (points3[1] - points3[0]).normalized,
-            (points3[2] - points3[0]).normalized);
+            points3[1] - points3[0],
+            points3[2] - points3[0]);
 
         int p1 = 0;
         int p2 = 1;
@@ -135,7 +135,7 @@ public class MeshCut : MeshCutBase
         return newIndex;
     }
 
-    public void AddTriangleRight(int p1, int p2, int p3, int submesh)
+    private void AddTriangleRight(int p1, int p2, int p3, int submesh)
     {
         int p1Index = GetOrAddVertexRight(p1);
         int p2Index = GetOrAddVertexRight(p2);
@@ -146,7 +146,7 @@ public class MeshCut : MeshCutBase
         _rightSubIndices[submesh].Add(p3Index);
     }
 
-    public void AddTriangleRight(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
+    private void AddTriangleRight(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
     {
         Vector3 calculatedNormal = Vector3.Cross(
             (points3[1] - points3[0]).normalized,
@@ -208,8 +208,7 @@ public class MeshCut : MeshCutBase
 
         _blade = blade;
         _targetMesh = target.GetComponent<MeshFilter>().mesh;
-
-        //ToListを避け、UnSafeアクセスを行うメソッドを利用
+        
         _baseVertices = _targetMesh.vertices;
         _baseNormals = _targetMesh.normals;
         _baseUVs = _targetMesh.uv;
@@ -428,12 +427,12 @@ public class MeshCut : MeshCutBase
         #region 新規頂点１を生成
 
         Vector3 dir1 = rightPoints[0] - leftPoints[0];
-        float denom1 = Vector3.Dot(_blade.normal, dir1);
+        float dot1 = Vector3.Dot(_blade.normal, dir1);
 
         // 内積計算で交差点を求める
         // Plane は法線 n と距離 d で表される: n・p + d = 0
         // distance = -(n・左頂点 + d) / (n・dir)
-        float t1 = (-Vector3.Dot(_blade.normal, leftPoints[0]) - _blade.distance) / denom1;
+        float t1 = (-Vector3.Dot(_blade.normal, leftPoints[0]) - _blade.distance) / dot1;
 
         // 新頂点とUV、法線の補間を手動計算
         Vector3 newVertex1 = leftPoints[0] + dir1 * t1;
@@ -447,8 +446,8 @@ public class MeshCut : MeshCutBase
         #region 新規頂点２を生成
 
         Vector3 dir2 = rightPoints[1] - leftPoints[1];
-        float denom2 = Vector3.Dot(_blade.normal, dir2);
-        float t2 = (-Vector3.Dot(_blade.normal, leftPoints[1]) - _blade.distance) / denom2;
+        float dot2 = Vector3.Dot(_blade.normal, dir2);
+        float t2 = (-Vector3.Dot(_blade.normal, leftPoints[1]) - _blade.distance) / dot2;
 
         Vector3 newVertex2 = leftPoints[1] + dir2 * t2;
         Vector2 newUv2 = leftUvs[1] + (rightUvs[1] - leftUvs[1]) * t2;
