@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Attribute;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 
 public class CuttableObject : MonoBehaviour
@@ -25,8 +27,10 @@ public class CuttableObject : MonoBehaviour
 
 
     [MethodExecutor("当たり判定を単純化する", false)]
-    public void ColliderWeightReduction()
+    public void ColliderWeightReduction(Vector3[] cutFaceCenterPos = null)
     {
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
         if (MeshCollider.sharedMesh == null) return;
         int vertCount = MeshCollider.sharedMesh.vertexCount;
 
@@ -42,6 +46,11 @@ public class CuttableObject : MonoBehaviour
         else
         {
             clusteringSamples.AddRange(verts);
+        }
+
+        if (cutFaceCenterPos != null)
+        {
+            clusteringSamples.AddRange(cutFaceCenterPos);
         }
 
         var centers = ClusteringVerts(clusteringSamples);
@@ -80,6 +89,7 @@ public class CuttableObject : MonoBehaviour
         }
 
         MeshCollider.enabled = false;
+        Debug.Log($"コライダー軽量化完了。処理時間{stopwatch.ElapsedMilliseconds}ms");
     }
 
     private List<Vector3> ClusteringVerts(List<Vector3> clusteringSample)

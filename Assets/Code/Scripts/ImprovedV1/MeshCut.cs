@@ -29,6 +29,8 @@ namespace Code.Scripts.ImprovedV1
         private List<List<int>> _rightSubIndices = new();
         private int[] _rightAddVerticesArray;
 
+        private List<Vector3> _centers = new();
+
         /// <summary>
         /// すべてのリストを初期化
         /// </summary>
@@ -42,6 +44,7 @@ namespace Code.Scripts.ImprovedV1
             _rightNormals.Clear();
             _rightUvs.Clear();
             _rightSubIndices.Clear();
+            _centers.Clear();
 
             _leftAddVerticesArray = new int[_baseVertices.Length];
             _rightAddVerticesArray = new int[_baseVertices.Length];
@@ -326,18 +329,21 @@ namespace Code.Scripts.ImprovedV1
                 rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
             }
 
+            var centers = _centers.ToArray();
 
             var leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
             var cuttableLeft = leftObj.GetComponent<CuttableObject>();
             cuttableLeft.MeshFilter.mesh = leftMesh;
             cuttableLeft.MeshCollider.sharedMesh = leftMesh;
             cuttableLeft.MeshRenderer.materials = mats;
+            cuttableLeft.ColliderWeightReduction(centers);
 
             var rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
             var cuttableRight = rightObj.GetComponent<CuttableObject>();
             cuttableRight.MeshFilter.mesh = rightMesh;
             cuttableRight.MeshCollider.sharedMesh = rightMesh;
             cuttableRight.MeshRenderer.materials = mats;
+            cuttableRight.ColliderWeightReduction(centers);
             
             target.SetActive(false);
 
@@ -562,6 +568,7 @@ namespace Code.Scripts.ImprovedV1
             }
 
             center /= vertices.Count;
+            _centers.Add(center);
 
             // _bladeの法線をもとにUV座標系のどちらをUとして扱うかを決定する。(xyを入れ替えるのはxy平面上で90度回転させる行為)
             Vector3 upward = Vector3.zero;
