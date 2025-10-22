@@ -19,7 +19,10 @@ public class TestMeshCutter : MonoBehaviour
             Debug.Log(cutObjects.Length);
             foreach (var obj in cutObjects)
             {
-                SampleMeshCut.Cut(obj, gameObject, _capMaterial);
+                var plane = new Plane(
+                    -obj.transform.InverseTransformDirection(-transform.up), 
+                    obj.transform.InverseTransformPoint(transform.position));
+                SampleMeshCut.Cut(obj, plane, _capMaterial);
             }
 
             Debug.Log("GeneratedMesh");
