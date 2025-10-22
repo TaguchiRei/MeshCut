@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BLINDED_AM_ME;
 using UnityEngine;
+using Attribute;
 
 public class TestMeshCutter : MonoBehaviour
 {
@@ -9,7 +10,8 @@ public class TestMeshCutter : MonoBehaviour
     [SerializeField] private Collider _myCollider;
     [SerializeField] private Material _capMaterial;
     [SerializeField] private bool _useSample;
-
+    
+    [MethodExecutor("メッシュカットを実行", false)]
     public void CutMesh()
     {
         if (_useSample)

@@ -328,12 +328,18 @@ namespace Code.Scripts.ImprovedV1
 
 
             var leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-            leftObj.GetComponent<MeshFilter>().mesh = leftMesh;
-            leftObj.GetComponent<MeshRenderer>().materials = mats;
+            var cuttableLeft = leftObj.GetComponent<CuttableObject>();
+            cuttableLeft.MeshFilter.mesh = leftMesh;
+            cuttableLeft.MeshCollider.sharedMesh = leftMesh;
+            cuttableLeft.MeshRenderer.materials = mats;
 
             var rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-            rightObj.GetComponent<MeshFilter>().mesh = rightMesh;
-            rightObj.GetComponent<MeshRenderer>().materials = mats;
+            var cuttableRight = rightObj.GetComponent<CuttableObject>();
+            cuttableRight.MeshFilter.mesh = rightMesh;
+            cuttableRight.MeshCollider.sharedMesh = rightMesh;
+            cuttableRight.MeshRenderer.materials = mats;
+            
+            target.SetActive(false);
 
 
             // assign mats
