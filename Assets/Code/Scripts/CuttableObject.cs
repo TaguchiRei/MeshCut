@@ -45,7 +45,7 @@ public class CuttableObject : MonoBehaviour
         }
         else
         {
-            clusteringSamples.AddRange(verts);
+            return;
         }
 
         if (cutFaceCenterPos != null)
