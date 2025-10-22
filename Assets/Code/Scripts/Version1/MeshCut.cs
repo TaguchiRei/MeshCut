@@ -327,9 +327,8 @@ namespace Code.Scripts.ImprovedV1
                 leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
                 var cuttableLeft = leftObj.GetComponent<CuttableObject>();
                 cuttableLeft.MeshFilter.mesh = leftMesh;
-                cuttableLeft.MeshCollider.sharedMesh = leftMesh;
                 cuttableLeft.MeshRenderer.materials = mats;
-                cuttableLeft.ColliderWeightReduction(centers);
+                cuttableLeft.ColliderWeightReduction(leftMesh,centers);
             }
 
             if (_rightVertices.Count >= 2)
@@ -357,9 +356,8 @@ namespace Code.Scripts.ImprovedV1
                 rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
                 var cuttableRight = rightObj.GetComponent<CuttableObject>();
                 cuttableRight.MeshFilter.mesh = rightMesh;
-                cuttableRight.MeshCollider.sharedMesh = rightMesh;
                 cuttableRight.MeshRenderer.materials = mats;
-                cuttableRight.ColliderWeightReduction(centers);
+                cuttableRight.ColliderWeightReduction(rightMesh,centers);
             }
 
             target.SetActive(false);

@@ -26,14 +26,13 @@ public class CuttableObject : MonoBehaviour
 
 
     [MethodExecutor("当たり判定を単純化する", false)]
-    public void ColliderWeightReduction(Vector3[] cutFaceCenterPos = null)
+    public void ColliderWeightReduction(Mesh mesh,Vector3[] cutFaceCenterPos = null)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-        if (MeshCollider.sharedMesh == null) return;
-        int vertCount = MeshCollider.sharedMesh.vertexCount;
+        int vertCount = mesh.vertexCount;
 
-        var verts = MeshCollider.sharedMesh.vertices;
+        var verts = mesh.vertices;
         List<Vector3> clusteringSamples = new();
         if (verts.Length >= _maxSamplingVert)
         {
@@ -44,6 +43,7 @@ public class CuttableObject : MonoBehaviour
         }
         else
         {
+            MeshCollider.sharedMesh = mesh;
             return;
         }
 
