@@ -83,7 +83,8 @@ namespace Code.Scripts.ImprovedV1
             _leftSubIndices[submesh].Add(p3Index);
         }
 
-        private void AddTriangleLeft(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
+        private void AddTriangleLeft(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal,
+            int submesh)
         {
             Vector3 calculatedNormal = Vector3.Cross(
                 points3[1] - points3[0],
@@ -151,7 +152,8 @@ namespace Code.Scripts.ImprovedV1
             _rightSubIndices[submesh].Add(p3Index);
         }
 
-        private void AddTriangleRight(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal, int submesh)
+        private void AddTriangleRight(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal,
+            int submesh)
         {
             Vector3 calculatedNormal = Vector3.Cross(
                 (points3[1] - points3[0]).normalized,
@@ -208,12 +210,13 @@ namespace Code.Scripts.ImprovedV1
         /// <returns></returns>
         public override GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
         {
+#if UNITY_EDITOR
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-
+#endif
             _blade = blade;
             _targetMesh = target.GetComponent<MeshFilter>().mesh;
-        
+
             _baseVertices = _targetMesh.vertices;
             _baseNormals = _targetMesh.normals;
             _baseUVs = _targetMesh.uv;
@@ -240,7 +243,7 @@ namespace Code.Scripts.ImprovedV1
 
                     bool left = false;
                     bool right = false;
-                
+
                     sides[0] = _blade.GetSide(_baseVertices[p1]);
                     sides[1] = _blade.GetSide(_baseVertices[p2]);
                     sides[2] = _blade.GetSide(_baseVertices[p3]);
@@ -272,8 +275,11 @@ namespace Code.Scripts.ImprovedV1
                     CutFace(submesh, sides, p1, p2, p3);
                 }
             }
+#if UNITY_EDITOR
 
             Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
+#endif
+
 
             Material[] mats = target.GetComponent<MeshRenderer>().sharedMaterials;
             // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
@@ -289,70 +295,82 @@ namespace Code.Scripts.ImprovedV1
 
             Capping();
 
+#if UNITY_EDITOR
+
             Debug.Log($"面の穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
-
-            Mesh leftMesh = new Mesh
-            {
-                name = "Split Mesh Left"
-            };
-            if (_leftVertices.Count > 65535)
-            {
-                leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-
-            leftMesh.vertices = _leftVertices.ToArray();
-            leftMesh.normals = _leftNormals.ToArray();
-            leftMesh.uv = _leftUvs.ToArray();
-            leftMesh.subMeshCount = _leftSubIndices.Count;
-            for (int i = 0; i < _leftSubIndices.Count; i++)
-            {
-                leftMesh.SetIndices(_leftSubIndices[i].ToArray(), MeshTopology.Triangles, i);
-            }
-
-
-            Mesh rightMesh = new Mesh
-            {
-                name = "Split Mesh Right"
-            };
-
-            if (_rightVertices.Count > 65535)
-            {
-                rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-
-            rightMesh.vertices = _rightVertices.ToArray();
-            rightMesh.normals = _rightNormals.ToArray();
-            rightMesh.uv = _rightUvs.ToArray();
-            rightMesh.subMeshCount = _rightSubIndices.Count;
-            for (int i = 0; i < _rightSubIndices.Count; i++)
-            {
-                rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
-            }
+#endif
 
             var centers = _centers.ToArray();
+            GameObject leftObj = null;
+            GameObject rightObj = null;
 
-            var leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-            var cuttableLeft = leftObj.GetComponent<CuttableObject>();
-            cuttableLeft.MeshFilter.mesh = leftMesh;
-            cuttableLeft.MeshCollider.sharedMesh = leftMesh;
-            cuttableLeft.MeshRenderer.materials = mats;
-            cuttableLeft.ColliderWeightReduction(centers);
+            if (_leftVertices.Count >= 2)
+            {
+                Mesh leftMesh = new Mesh
+                {
+                    name = "Split Mesh Left"
+                };
+                if (_leftVertices.Count > 65535)
+                {
+                    leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                }
 
-            var rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-            var cuttableRight = rightObj.GetComponent<CuttableObject>();
-            cuttableRight.MeshFilter.mesh = rightMesh;
-            cuttableRight.MeshCollider.sharedMesh = rightMesh;
-            cuttableRight.MeshRenderer.materials = mats;
-            cuttableRight.ColliderWeightReduction(centers);
-            
+                leftMesh.vertices = _leftVertices.ToArray();
+                leftMesh.normals = _leftNormals.ToArray();
+                leftMesh.uv = _leftUvs.ToArray();
+                leftMesh.subMeshCount = _leftSubIndices.Count;
+                for (int i = 0; i < _leftSubIndices.Count; i++)
+                {
+                    leftMesh.SetIndices(_leftSubIndices[i].ToArray(), MeshTopology.Triangles, i);
+                }
+
+                leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
+                var cuttableLeft = leftObj.GetComponent<CuttableObject>();
+                cuttableLeft.MeshFilter.mesh = leftMesh;
+                cuttableLeft.MeshCollider.sharedMesh = leftMesh;
+                cuttableLeft.MeshRenderer.materials = mats;
+                cuttableLeft.ColliderWeightReduction(centers);
+            }
+
+            if (_rightVertices.Count >= 2)
+            {
+                Mesh rightMesh = new Mesh
+                {
+                    name = "Split Mesh Right"
+                };
+
+                if (_rightVertices.Count > 65535)
+                {
+                    rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                }
+
+                rightMesh.vertices = _rightVertices.ToArray();
+                rightMesh.normals = _rightNormals.ToArray();
+                rightMesh.uv = _rightUvs.ToArray();
+                rightMesh.subMeshCount = _rightSubIndices.Count;
+                for (int i = 0; i < _rightSubIndices.Count; i++)
+                {
+                    rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
+                }
+
+
+                rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
+                var cuttableRight = rightObj.GetComponent<CuttableObject>();
+                cuttableRight.MeshFilter.mesh = rightMesh;
+                cuttableRight.MeshCollider.sharedMesh = rightMesh;
+                cuttableRight.MeshRenderer.materials = mats;
+                cuttableRight.ColliderWeightReduction(centers);
+            }
+
             target.SetActive(false);
 
 
             // assign mats
             // 新規生成したマテリアルリストをそれぞれのオブジェクトに適用する
-
+#if UNITY_EDITOR
             Debug.Log($"オブジェクト生成完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
             stopwatch.Stop();
+#endif
 
             // 左右のGameObjectの配列を返す
             return new[] { leftObj, rightObj };
@@ -577,7 +595,7 @@ namespace Code.Scripts.ImprovedV1
             upward.z = _blade.normal.z;
             // 法線と「上方向」から、横軸を算出
             Vector3 left = Vector3.Cross(_blade.normal, upward);
-            
+
             //_blade.normal	切断面の法線方向	切断面の向き（Z軸的）
             //upward	法線に直交する軸	切断面の「縦方向（V軸）」
             //left	_blade.normal × upward	切断面の「横方向（U軸）」
