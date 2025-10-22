@@ -127,4 +127,5 @@ MonoBehaviour:
   MeshCollider: {fileID: 1261029126407026668}
   CutFaceMaterial: {fileID: 2100000, guid: 4eff970757759bc498974ea325788d13, type: 2}
   _maxSamplingVert: 300
-  _numberOfCollider: 20
+  _colliderNum: 10
+  _centerRate: 0.6

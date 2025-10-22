@@ -15,7 +15,7 @@ public class CuttableObject : MonoBehaviour
 
     [SerializeField] private int _maxSamplingVert = 300;
     [SerializeField] private int _colliderNum;
-    [SerializeField] private int _dummyColliderNum;
+    [SerializeField] private float _centerRate = 0.7f;
 
     private void Start()
     {
@@ -56,7 +56,8 @@ public class CuttableObject : MonoBehaviour
 
         foreach (var clusterCenter in centers)
         {
-            Vector3 colliderCenter = (clusterCenter + center) / 2;
+            Vector3 colliderCenter = Vector3.Lerp(clusterCenter, center, _centerRate);
+
             Vector3 mostNearVertexPos = Vector3.zero;
             float distance = float.MaxValue;
 
@@ -69,7 +70,7 @@ public class CuttableObject : MonoBehaviour
                     mostNearVertexPos = vert;
                 }
             }
-            
+
             float radius = (colliderCenter - mostNearVertexPos).magnitude;
 
             SphereCollider sphereCollider = gameObject.AddComponent<SphereCollider>();
@@ -78,17 +79,13 @@ public class CuttableObject : MonoBehaviour
             _colliders.Add(sphereCollider);
         }
 
-        var sorted = _colliders.OrderByDescending(col => col.radius).ToList();
-
-        for (int i = 0; i < _dummyColliderNum; i++)
-        {
-            Destroy(sorted[0]);
-            sorted.RemoveAt(0);
-        }
+        MeshCollider.enabled = false;
     }
 
     private List<Vector3> ClusteringVerts(List<Vector3> clusteringSample)
     {
+        _colliderNum = Mathf.Max(_colliderNum, 10);
+
         List<Vector3> centers = new();
         List<List<int>> nearVertex = new();
 
@@ -112,11 +109,30 @@ public class CuttableObject : MonoBehaviour
             if (minZ > sample.z) minZ = sample.z;
         }
 
-        for (int i = 0; i < _colliderNum + _dummyColliderNum; i++)
+        for (int i = 0; i < _colliderNum - 8; i++)
         {
             centers.Add(new Vector3(Random.Range(minX, maxX), Random.Range(minY, maxY), Random.Range(minZ, maxZ)));
             nearVertex.Add(new List<int>());
         }
+
+        for (int i = 0; i < 8; i++)
+        {
+            nearVertex.Add(new List<int>());
+        }
+
+        //8この隅には必ず重心を作成する
+        float midX = (minX + maxX) / 2;
+        float midY = (minY + maxY) / 2;
+        float midZ = (minZ + maxZ) / 2;
+
+        // 十字型に6個配置（中心は midX, midY, midZ）
+        centers.Add(new Vector3(midX, midY, maxZ)); // Z方向正
+        centers.Add(new Vector3(midX, midY, minZ)); // Z方向負
+        centers.Add(new Vector3(midX, maxY, midZ)); // Y方向正
+        centers.Add(new Vector3(midX, minY, midZ)); // Y方向負
+        centers.Add(new Vector3(maxX, midY, midZ)); // X方向正
+        centers.Add(new Vector3(minX, midY, midZ)); // X方向負
+
 
         while (true)
         {
