@@ -41,8 +41,8 @@ public class MeshCut : MeshCutBase
         _rightUvs.Clear();
         _rightSubIndices.Clear();
 
-        _leftAddVerticesArray = new int[_baseVertices.Count];
-        _rightAddVerticesArray = new int[_baseVertices.Count];
+        _leftAddVerticesArray = new int[_baseVertices.Length];
+        _rightAddVerticesArray = new int[_baseVertices.Length];
 
         Array.Fill(_leftAddVerticesArray, -1);
         Array.Fill(_rightAddVerticesArray, -1);
@@ -190,9 +190,9 @@ public class MeshCut : MeshCutBase
 
     private Plane _blade;
     private Mesh _targetMesh;
-    private List<Vector3> _baseVertices = new();
-    private List<Vector3> _baseNormals = new();
-    private List<Vector2> _baseUVs = new();
+    private Vector3[] _baseVertices;
+    private Vector3[] _baseNormals;
+    private Vector2[] _baseUVs;
 
     /// <summary>
     /// 対象のメッシュを切断する。
@@ -210,12 +210,9 @@ public class MeshCut : MeshCutBase
         _targetMesh = target.GetComponent<MeshFilter>().mesh;
 
         //ToListを避け、UnSafeアクセスを行うメソッドを利用
-        _baseVertices = new List<Vector3>(_targetMesh.vertexCount);
-        _targetMesh.GetVertices(_baseVertices);
-        _baseNormals = new List<Vector3>(_targetMesh.vertexCount);
-        _targetMesh.GetNormals(_baseNormals);
-        _baseUVs = new List<Vector2>(_targetMesh.vertexCount);
-        _targetMesh.GetUVs(0, _baseUVs);
+        _baseVertices = _targetMesh.vertices;
+        _baseNormals = _targetMesh.normals;
+        _baseUVs = _targetMesh.uv;
 
         // 頂点を初期化
         ClearAll();
