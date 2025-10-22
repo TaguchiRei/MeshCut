@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
 using Attribute;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -16,7 +14,8 @@ public class CuttableObject : MonoBehaviour
     private List<SphereCollider> _colliders = new();
 
     [SerializeField] private int _maxSamplingVert = 300;
-    [SerializeField] private int _numberOfCollider;
+    [SerializeField] private int _colliderNum;
+    [SerializeField] private int _dummyColliderNum;
 
     private void Start()
     {
@@ -58,12 +57,33 @@ public class CuttableObject : MonoBehaviour
         foreach (var clusterCenter in centers)
         {
             Vector3 colliderCenter = (clusterCenter + center) / 2;
-            float radius = (colliderCenter - clusterCenter).magnitude;
+            Vector3 mostNearVertexPos = Vector3.zero;
+            float distance = float.MaxValue;
+
+            foreach (var vert in clusteringSamples)
+            {
+                float newDistance = Vector3.Distance(vert, colliderCenter);
+                if (newDistance < distance)
+                {
+                    distance = newDistance;
+                    mostNearVertexPos = vert;
+                }
+            }
+            
+            float radius = (colliderCenter - mostNearVertexPos).magnitude;
 
             SphereCollider sphereCollider = gameObject.AddComponent<SphereCollider>();
             sphereCollider.radius = radius;
             sphereCollider.center = colliderCenter;
             _colliders.Add(sphereCollider);
+        }
+
+        var sorted = _colliders.OrderByDescending(col => col.radius).ToList();
+
+        for (int i = 0; i < _dummyColliderNum; i++)
+        {
+            Destroy(sorted[0]);
+            sorted.RemoveAt(0);
         }
     }
 
@@ -92,7 +112,7 @@ public class CuttableObject : MonoBehaviour
             if (minZ > sample.z) minZ = sample.z;
         }
 
-        for (int i = 0; i < _numberOfCollider; i++)
+        for (int i = 0; i < _colliderNum + _dummyColliderNum; i++)
         {
             centers.Add(new Vector3(Random.Range(minX, maxX), Random.Range(minY, maxY), Random.Range(minZ, maxZ)));
             nearVertex.Add(new List<int>());
