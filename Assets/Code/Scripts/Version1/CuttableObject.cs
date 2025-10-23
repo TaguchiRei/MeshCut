@@ -18,10 +18,17 @@ public class CuttableObject : MonoBehaviour
     [SerializeField] private int _colliderNum;
     [SerializeField] private float _centerRate = 0.7f;
 
+    private int parentHash;
+
     private void Start()
     {
         var mesh = GetComponent<MeshFilter>().mesh;
         Debug.Log($"オブジェクト{gameObject.name}  頂点数{mesh.vertexCount}");
+    }
+
+    public void SetParentHash(int hash)
+    {
+        parentHash = hash;
     }
 
 

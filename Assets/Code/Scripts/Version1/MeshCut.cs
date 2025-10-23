@@ -13,8 +13,6 @@ namespace Code.Scripts.ImprovedV1
     /// </summary>
     public class MeshCut : MeshCutBase
     {
-        [SerializeField] private GameObject _cutObject;
-
         #region 切断した左右の形状を保持する
 
         private List<Vector3> _leftVertices = new();
@@ -30,6 +28,7 @@ namespace Code.Scripts.ImprovedV1
         private int[] _rightAddVerticesArray;
 
         private List<Vector3> _centers = new();
+        [SerializeField] private CutObjectPool _cutObjectPool;
 
         /// <summary>
         /// すべてのリストを初期化
@@ -265,7 +264,8 @@ namespace Code.Scripts.ImprovedV1
                         AddTriangleLeft(p1, p2, p3, submesh);
                         continue;
                     }
-                    else if (right && !left)
+
+                    if (right && !left)
                     {
                         AddTriangleRight(p1, p2, p3, submesh);
                         continue;
@@ -314,21 +314,17 @@ namespace Code.Scripts.ImprovedV1
                 {
                     leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 }
-
-                leftMesh.vertices = _leftVertices.ToArray();
-                leftMesh.normals = _leftNormals.ToArray();
-                leftMesh.uv = _leftUvs.ToArray();
+                
+                leftMesh.SetVertices(_leftVertices);
+                leftMesh.SetNormals(_leftNormals);
+                leftMesh.SetUVs(0, _leftUvs);
                 leftMesh.subMeshCount = _leftSubIndices.Count;
                 for (int i = 0; i < _leftSubIndices.Count; i++)
                 {
                     leftMesh.SetIndices(_leftSubIndices[i].ToArray(), MeshTopology.Triangles, i);
                 }
 
-                leftObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-                var cuttableLeft = leftObj.GetComponent<CuttableObject>();
-                cuttableLeft.MeshFilter.mesh = leftMesh;
-                cuttableLeft.MeshRenderer.materials = mats;
-                cuttableLeft.ColliderWeightReduction(leftMesh,centers);
+                leftObj = _cutObjectPool.GenerateCutObject(target, leftMesh, mats, centers);
             }
 
             if (_rightVertices.Count >= 2)
@@ -342,22 +338,18 @@ namespace Code.Scripts.ImprovedV1
                 {
                     rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 }
-
-                rightMesh.vertices = _rightVertices.ToArray();
-                rightMesh.normals = _rightNormals.ToArray();
-                rightMesh.uv = _rightUvs.ToArray();
+                
+                rightMesh.SetVertices(_rightVertices);
+                rightMesh.SetNormals(_rightNormals);
+                rightMesh.SetUVs(0, _rightUvs);
+                
                 rightMesh.subMeshCount = _rightSubIndices.Count;
                 for (int i = 0; i < _rightSubIndices.Count; i++)
                 {
                     rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
                 }
-
-
-                rightObj = Instantiate(_cutObject, target.transform.position, target.transform.rotation);
-                var cuttableRight = rightObj.GetComponent<CuttableObject>();
-                cuttableRight.MeshFilter.mesh = rightMesh;
-                cuttableRight.MeshRenderer.materials = mats;
-                cuttableRight.ColliderWeightReduction(rightMesh,centers);
+                
+                rightObj = _cutObjectPool.GenerateCutObject(target,rightMesh, mats, centers);
             }
 
             target.SetActive(false);
@@ -632,7 +624,7 @@ namespace Code.Scripts.ImprovedV1
                         -_blade.normal,
                         -_blade.normal
                     },
-                    new Vector2[]
+                    new[]
                     {
                         newUV1,
                         newUV2,
