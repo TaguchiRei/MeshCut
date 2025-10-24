@@ -16,18 +16,17 @@ public class CutObjectPool : MonoBehaviour
     {
         StartCoroutine(PoolGenerator());
     }
-
+    
     /// <summary>
     /// オブジェクトプールから切断後のオブジェクトを生成する
     /// </summary>
     /// <param name="baseObject"></param>
-    /// <param name="position"></param>
-    /// <param name="rotation"></param>
-    /// <param name="mesh"></param>
+    /// <param name="verts"></param>
     /// <param name="mats"></param>
     /// <param name="cutFaceCenterPos"></param>
-    public GameObject GenerateCutObject(
-        GameObject baseObject, Mesh mesh, Material[] mats, Vector3[] cutFaceCenterPos)
+    /// <returns></returns>
+    public (GameObject, bool) GenerateCutObject(
+        GameObject baseObject, List<Vector3> verts, Material[] mats, Vector3[] cutFaceCenterPos)
     {
         if (_preCutPool.Count > 0)
         {
@@ -36,14 +35,13 @@ public class CutObjectPool : MonoBehaviour
             cuttable.SetParentHash(baseObject.GetInstanceID());
             cuttable.transform.position = baseObject.transform.position;
             cuttable.transform.rotation = baseObject.transform.rotation;
-            cuttable.MeshFilter.mesh = mesh;
             cuttable.MeshRenderer.materials = mats;
-            cuttable.ColliderWeightReduction(mesh, cutFaceCenterPos);
+            var result = cuttable.ColliderWeightReduction(verts, cutFaceCenterPos);
             _postCutPool[cuttable.GetInstanceID()] = cuttable.gameObject;
-            return cuttable.gameObject;
+            return (cuttable.gameObject, result);
         }
 
-        return null;
+        return default;
     }
 
     public void ResetPostPool()

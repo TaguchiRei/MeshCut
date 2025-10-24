@@ -33,7 +33,6 @@ public class TestMeshCutter : MonoBehaviour
         {
             List<GameObject> newObjects = new();
             var cutObjects = CheckOverlapObjects();
-            Debug.Log(cutObjects.Length);
             foreach (var obj in cutObjects)
             {
                 var plane = new Plane(

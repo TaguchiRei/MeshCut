@@ -323,8 +323,13 @@ namespace Code.Scripts.ImprovedV1
                 {
                     leftMesh.SetIndices(_leftSubIndices[i].ToArray(), MeshTopology.Triangles, i);
                 }
+                var result = _cutObjectPool.GenerateCutObject(target, _leftVertices.ToList(), mats, centers);
 
-                leftObj = _cutObjectPool.GenerateCutObject(target, leftMesh, mats, centers);
+                if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
+
+                result.Item1.GetComponent<MeshFilter>().sharedMesh = leftMesh;
+
+                leftObj = result.Item1;
             }
 
             if (_rightVertices.Count >= 2)
@@ -349,7 +354,13 @@ namespace Code.Scripts.ImprovedV1
                     rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
                 }
                 
-                rightObj = _cutObjectPool.GenerateCutObject(target,rightMesh, mats, centers);
+                var result = _cutObjectPool.GenerateCutObject(target, _rightVertices.ToList(), mats, centers);
+
+                if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
+
+                result.Item1.GetComponent<MeshFilter>().sharedMesh = rightMesh;
+
+                rightObj = result.Item1;
             }
 
             target.SetActive(false);
