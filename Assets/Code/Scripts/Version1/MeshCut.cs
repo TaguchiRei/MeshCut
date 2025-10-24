@@ -15,19 +15,19 @@ namespace Code.Scripts.ImprovedV1
     {
         #region 切断した左右の形状を保持する
 
-        private List<Vector3> _leftVertices = new();
-        private List<Vector3> _leftNormals = new();
-        private List<Vector2> _leftUvs = new();
-        private List<List<int>> _leftSubIndices = new();
+        private readonly List<Vector3> _leftVertices = new();
+        private readonly List<Vector3> _leftNormals = new();
+        private readonly List<Vector2> _leftUvs = new();
+        private readonly List<List<int>> _leftSubIndices = new();
         private int[] _leftAddVerticesArray;
 
-        private List<Vector3> _rightVertices = new();
-        private List<Vector3> _rightNormals = new();
-        private List<Vector2> _rightUvs = new();
-        private List<List<int>> _rightSubIndices = new();
+        private readonly List<Vector3> _rightVertices = new();
+        private readonly List<Vector3> _rightNormals = new();
+        private readonly List<Vector2> _rightUvs = new();
+        private readonly List<List<int>> _rightSubIndices = new();
         private int[] _rightAddVerticesArray;
 
-        private List<Vector3> _centers = new();
+        private readonly List<Vector3> _centers = new();
         [SerializeField] private CutObjectPool _cutObjectPool;
 
         /// <summary>
@@ -39,6 +39,7 @@ namespace Code.Scripts.ImprovedV1
             _leftNormals.Clear();
             _leftUvs.Clear();
             _leftSubIndices.Clear();
+
             _rightVertices.Clear();
             _rightNormals.Clear();
             _rightUvs.Clear();
@@ -200,6 +201,8 @@ namespace Code.Scripts.ImprovedV1
         private Vector3[] _baseNormals;
         private Vector2[] _baseUVs;
 
+        private bool[] _baseVerticesSide;
+
         /// <summary>
         /// 対象のメッシュを切断する。
         /// </summary>
@@ -220,11 +223,16 @@ namespace Code.Scripts.ImprovedV1
             _baseNormals = _targetMesh.normals;
             _baseUVs = _targetMesh.uv;
 
+            _baseVerticesSide = new bool[_baseVertices.Length];
+
+            //すべての頂点がどちら側なのかを調べる
+            for (int i = 0; i < _baseVertices.Length; i++)
+            {
+                _baseVerticesSide[i] = _blade.GetSide(_baseVertices[i]);
+            }
+
             // 頂点を初期化
             ClearAll();
-
-            //頂点画面の左右どちらにあるかの計算結果を保持するための変数群
-            bool[] sides = new bool[3];
 
             for (int submesh = 0; submesh < _targetMesh.subMeshCount; submesh++)
             {
@@ -239,24 +247,9 @@ namespace Code.Scripts.ImprovedV1
                     var p1 = triangles[i + 0];
                     var p2 = triangles[i + 1];
                     var p3 = triangles[i + 2];
-
-                    bool left = false;
-                    bool right = false;
-
-                    sides[0] = _blade.GetSide(_baseVertices[p1]);
-                    sides[1] = _blade.GetSide(_baseVertices[p2]);
-                    sides[2] = _blade.GetSide(_baseVertices[p3]);
-
-                    // 左右両方に存在するか判定
-                    for (int s = 0; s < 3; s++)
-                    {
-                        if (sides[s]) left = true;
-                        else right = true;
-
-                        // 両方trueになった時点で抜ける（分岐予測が単純化される）
-                        if (left & right)
-                            break;
-                    }
+                    
+                    var left = _baseVerticesSide[p1] || _baseVerticesSide[p2] || _baseVerticesSide[p3];
+                    var right = !_baseVerticesSide[p1] || !_baseVerticesSide[p2] || !_baseVerticesSide[p3];
 
                     // 完全に片側なら即追加
                     if (left && !right)
@@ -272,7 +265,7 @@ namespace Code.Scripts.ImprovedV1
                     }
 
                     // 面の左右にまたがっている場合、切断を行う
-                    CutFace(submesh, sides, p1, p2, p3);
+                    CutFace(submesh, p1, p2, p3);
                 }
             }
 #if UNITY_EDITOR
@@ -300,7 +293,7 @@ namespace Code.Scripts.ImprovedV1
             Debug.Log($"面の穴埋め完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 #endif
 
-            var centers = _centers.ToArray();
+            var centers = _centers;
             GameObject leftObj = null;
             GameObject rightObj = null;
 
@@ -314,21 +307,20 @@ namespace Code.Scripts.ImprovedV1
                 {
                     leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 }
-                
+
                 leftMesh.SetVertices(_leftVertices);
                 leftMesh.SetNormals(_leftNormals);
                 leftMesh.SetUVs(0, _leftUvs);
                 leftMesh.subMeshCount = _leftSubIndices.Count;
                 for (int i = 0; i < _leftSubIndices.Count; i++)
                 {
-                    leftMesh.SetIndices(_leftSubIndices[i].ToArray(), MeshTopology.Triangles, i);
+                    leftMesh.SetIndices(_leftSubIndices[i], MeshTopology.Triangles, i);
                 }
-                var result = _cutObjectPool.GenerateCutObject(target, _leftVertices.ToList(), mats, centers);
 
+                var result = _cutObjectPool.GenerateCutObject(target, _leftVertices, mats, centers);
                 if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
 
                 result.Item1.GetComponent<MeshFilter>().sharedMesh = leftMesh;
-
                 leftObj = result.Item1;
             }
 
@@ -343,23 +335,21 @@ namespace Code.Scripts.ImprovedV1
                 {
                     rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 }
-                
+
                 rightMesh.SetVertices(_rightVertices);
                 rightMesh.SetNormals(_rightNormals);
                 rightMesh.SetUVs(0, _rightUvs);
-                
+
                 rightMesh.subMeshCount = _rightSubIndices.Count;
                 for (int i = 0; i < _rightSubIndices.Count; i++)
                 {
-                    rightMesh.SetIndices(_rightSubIndices[i].ToArray(), MeshTopology.Triangles, i);
+                    rightMesh.SetIndices(_rightSubIndices[i], MeshTopology.Triangles, i);
                 }
-                
-                var result = _cutObjectPool.GenerateCutObject(target, _rightVertices.ToList(), mats, centers);
 
+                var result = _cutObjectPool.GenerateCutObject(target, _rightVertices, mats, centers);
                 if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
 
                 result.Item1.GetComponent<MeshFilter>().sharedMesh = rightMesh;
-
                 rightObj = result.Item1;
             }
 
@@ -377,7 +367,7 @@ namespace Code.Scripts.ImprovedV1
             return new[] { leftObj, rightObj };
         }
 
-        void CutFace(int submesh, bool[] sides, int index1, int index2, int index3)
+        void CutFace(int submesh, int index1, int index2, int index3)
         {
             Vector3[] leftPoints = new Vector3[2];
             Vector3[] leftNormals = new Vector3[2];
@@ -409,7 +399,7 @@ namespace Code.Scripts.ImprovedV1
                 }
 
                 //頂点を左右どちらにあるかで分ける
-                if (sides[side])
+                if (_baseVerticesSide[p])
                 {
                     // すでに左側の頂点が設定されているか（3頂点が左右に振り分けられるため、必ず左右どちらかは2つの頂点を持つことになる）
                     if (!setLeft)

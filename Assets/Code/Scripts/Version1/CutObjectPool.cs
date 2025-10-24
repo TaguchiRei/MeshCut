@@ -26,7 +26,7 @@ public class CutObjectPool : MonoBehaviour
     /// <param name="cutFaceCenterPos"></param>
     /// <returns></returns>
     public (GameObject, bool) GenerateCutObject(
-        GameObject baseObject, List<Vector3> verts, Material[] mats, Vector3[] cutFaceCenterPos)
+        GameObject baseObject, List<Vector3> verts, Material[] mats, List<Vector3> cutFaceCenterPos)
     {
         if (_preCutPool.Count > 0)
         {

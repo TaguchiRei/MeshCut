@@ -33,7 +33,7 @@ public class CuttableObject : MonoBehaviour
 
 
     [MethodExecutor("当たり判定を単純化する", false)]
-    public bool ColliderWeightReduction(List<Vector3> verts, Vector3[] cutFaceCenterPos = null)
+    public bool ColliderWeightReduction(List<Vector3> verts, List<Vector3> cutFaceCenterPos = null)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
