@@ -273,7 +273,6 @@ namespace Code.Scripts.ImprovedV1
             Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 #endif
 
-
             Material[] mats = target.GetComponent<MeshRenderer>().sharedMaterials;
             // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
             if (mats[^1].name != capMaterial.name)
@@ -320,7 +319,7 @@ namespace Code.Scripts.ImprovedV1
                 var result = _cutObjectPool.GenerateCutObject(target, _leftVertices, mats, centers);
                 if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
 
-                result.Item1.GetComponent<MeshFilter>().sharedMesh = leftMesh;
+                result.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
                 leftObj = result.Item1;
             }
 
@@ -349,7 +348,7 @@ namespace Code.Scripts.ImprovedV1
                 var result = _cutObjectPool.GenerateCutObject(target, _rightVertices, mats, centers);
                 if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
 
-                result.Item1.GetComponent<MeshFilter>().sharedMesh = rightMesh;
+                result.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
                 rightObj = result.Item1;
             }
 
