@@ -16,7 +16,7 @@ public class CutObjectPool : MonoBehaviour
     {
         StartCoroutine(PoolGenerator());
     }
-    
+
     /// <summary>
     /// オブジェクトプールから切断後のオブジェクトを生成する
     /// </summary>
@@ -24,9 +24,12 @@ public class CutObjectPool : MonoBehaviour
     /// <param name="verts"></param>
     /// <param name="mats"></param>
     /// <param name="cutFaceCenterPos"></param>
+    /// <param name="oldCutFaces"></param>
     /// <returns></returns>
     public (GameObject, bool) GenerateCutObject(
-        GameObject baseObject, List<Vector3> verts, Material[] mats, List<Vector3> cutFaceCenterPos)
+        GameObject baseObject, List<Vector3> verts, Material[] mats,
+        List<Vector3> cutFaceCenterPos,
+        List<Vector3> oldCutFaces = null)
     {
         if (_preCutPool.Count > 0)
         {

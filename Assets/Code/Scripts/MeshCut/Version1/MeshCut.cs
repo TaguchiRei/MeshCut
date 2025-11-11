@@ -45,6 +45,7 @@ namespace Code.Scripts.ImprovedV1
             _rightUvs.Clear();
             _rightSubIndices.Clear();
             _centers.Clear();
+            _capConnections.Clear();
 
             _leftAddVerticesArray = new int[_baseVertices.Length];
             _rightAddVerticesArray = new int[_baseVertices.Length];
@@ -231,6 +232,9 @@ namespace Code.Scripts.ImprovedV1
                 _baseVerticesSide[i] = _blade.GetSide(_baseVertices[i]);
             }
 
+            Debug.Log($"面に対する頂点の方向を調べ終わる{stopwatch.ElapsedMilliseconds}ms");
+
+
             // 頂点を初期化
             ClearAll();
 
@@ -247,7 +251,7 @@ namespace Code.Scripts.ImprovedV1
                     var p1 = triangles[i + 0];
                     var p2 = triangles[i + 1];
                     var p3 = triangles[i + 2];
-                    
+
                     var left = _baseVerticesSide[p1] || _baseVerticesSide[p2] || _baseVerticesSide[p3];
                     var right = !_baseVerticesSide[p1] || !_baseVerticesSide[p2] || !_baseVerticesSide[p3];
 
@@ -689,6 +693,11 @@ namespace Code.Scripts.ImprovedV1
             Vector3 b)
         {
             return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) > 0;
+        }
+
+        Vector3 CenterOfTriangle(Vector3 a, Vector3 b, Vector3 c)
+        {
+            return (a + b + c) / 3;
         }
     }
 }

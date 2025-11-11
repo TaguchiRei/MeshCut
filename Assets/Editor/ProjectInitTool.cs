@@ -65,17 +65,8 @@ public class ProjectInitTool : EditorWindow
     {
         string packageUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
         var request = Client.Add(packageUrl);
-        EditorApplication.update += () =>
-        {
-            if (request.IsCompleted)
-            {
-                if (request.Status == StatusCode.Success)
-                    Debug.Log($"UniTask 導入成功: {request.Result.packageId}");
-                else
-                    Debug.LogError($"UniTask導入失敗: {request.Error.message}");
-            }
-        };
     }
+    
 
     #endregion
 }

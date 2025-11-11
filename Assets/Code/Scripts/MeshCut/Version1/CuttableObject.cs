@@ -12,6 +12,8 @@ public class CuttableObject : MonoBehaviour
     public MeshCollider MeshCollider;
     public Material CutFaceMaterial;
 
+    public List<Vector3> CutFaceVertices { get; private set; }
+
     private List<SphereCollider> _colliders = new();
 
     [SerializeField] private int _maxSamplingVert = 300;
@@ -31,9 +33,15 @@ public class CuttableObject : MonoBehaviour
         parentHash = hash;
     }
 
+    #region 当たり判定の単純化
+
+    public void Init(List<Vector3> oldCutFaces)
+    {
+    }
 
     [MethodExecutor("当たり判定を単純化する", false)]
-    public bool ColliderWeightReduction(List<Vector3> verts, List<Vector3> cutFaceCenterPos = null)
+    public bool ColliderWeightReduction(List<Vector3> verts, List<Vector3> cutFaceCenterPos = null,
+        List<Vector3> oldCutFaces = null)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
@@ -95,9 +103,15 @@ public class CuttableObject : MonoBehaviour
 
         MeshCollider.enabled = false;
         Debug.Log($"コライダー軽量化完了。処理時間{stopwatch.ElapsedMilliseconds}ms");
+        gameObject.AddComponent<Rigidbody>();
         return true;
     }
 
+    /// <summary>
+    /// クラスタリングを利用してコライダーの適切な位置を指定
+    /// </summary>
+    /// <param name="clusteringSample"></param>
+    /// <returns></returns>
     private List<Vector3> ClusteringVerts(List<Vector3> clusteringSample)
     {
         _colliderNum = Mathf.Max(_colliderNum, 10);
@@ -125,7 +139,7 @@ public class CuttableObject : MonoBehaviour
             if (minZ > sample.z) minZ = sample.z;
         }
 
-        for (int i = 0; i < _colliderNum - 8; i++)
+        for (int i = 0; i < _colliderNum - 6; i++)
         {
             centers.Add(new Vector3(Random.Range(minX, maxX), Random.Range(minY, maxY), Random.Range(minZ, maxZ)));
             nearVertex.Add(new List<int>());
@@ -150,7 +164,7 @@ public class CuttableObject : MonoBehaviour
         centers.Add(new Vector3(minX, midY, midZ)); // X方向負
 
 
-        while (true)
+        for (int k = 0; k < 20; k++)
         {
             foreach (var nears in nearVertex)
             {
@@ -203,5 +217,9 @@ public class CuttableObject : MonoBehaviour
                 return centers;
             }
         }
+
+        return centers;
     }
+
+    #endregion
 }

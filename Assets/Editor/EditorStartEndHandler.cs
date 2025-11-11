@@ -8,6 +8,7 @@ public static class EditorStartupHandler
 
     static EditorStartupHandler()
     {
+        
         if (SessionState.GetBool(InitKey, false))
             return; // このエディタセッション中に既に実行済みならスキップ
 
