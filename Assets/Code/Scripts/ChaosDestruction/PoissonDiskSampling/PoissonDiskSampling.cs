@@ -48,11 +48,20 @@ public class PoissonDiskSampling : MonoBehaviour
             bool found = false;
             for (int i = 0; i < _tryCheck; i++)
             {
+                Vector3 newVert = GenerateRandomVert(currentPos, radius);
+                
                 
             }
         }
     }
 
+    /// <summary>
+    /// グリッドに追加。
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="point"></param>
+    /// <param name="cellSize"></param>
+    [Obsolete("副作用のあるメソッドなので要改善")]
     private void AddToGrid(Dictionary<Vector3Int, List<Vector3>> grid, Vector3 point, float cellSize)
     {
         Vector3Int key = GetGridPos(point, cellSize);
@@ -61,6 +70,12 @@ public class PoissonDiskSampling : MonoBehaviour
         grid[key].Add(point);
     }
 
+    /// <summary>
+    /// グリッド座標を取得する
+    /// </summary>
+    /// <param name="point"></param>
+    /// <param name="cellSize"></param>
+    /// <returns></returns>
     private Vector3Int GetGridPos(Vector3 point, float cellSize)
     {
         return new Vector3Int(
@@ -100,5 +115,12 @@ public class PoissonDiskSampling : MonoBehaviour
             Random.Range(0f, 360f),
             Random.Range(0f, 360f)) * Vector3.right;
         return center + randomDirection * radius;
+    }
+
+    private bool IsInBounds(Vector3 point, Vector3 min, Vector3 max)
+    {
+        return point.x >= min.x && point.x <= max.x &&
+               point.y >= min.y && point.y <= max.y &&
+               point.z >= min.z && point.z <= max.z;
     }
 }
