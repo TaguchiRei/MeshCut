@@ -1,16 +1,12 @@
 using UnityEngine;
 
-public class ChaosDestruction : MonoBehaviour
+namespace ChaosDestruction
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public class ChaosDestruction : MonoBehaviour
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        public GameObject[] Destruction()
+        {
+            return null;
+        }
     }
 }
