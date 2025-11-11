@@ -7,22 +7,23 @@ using Random = UnityEngine.Random;
 
 public class PoissonDiskSampling : MonoBehaviour
 {
-    [SerializeField] private float _radius;
+    [SerializeField] private float _minRadius = 1;
+    [SerializeField] private float _maxRadius = 1;
     [SerializeField] private GameObject _positionPrefab;
     [SerializeField] private int _tryCheck = 18;
 
     private void Start()
     {
-        float xMax = 5f;
+        float xMax = 20f;
         float xMin = 0f;
-        float yMax = 5f;
+        float yMax = 20f;
         float yMin = 0f;
-        float zMax = 5f;
+        float zMax = 20f;
         float zMin = 0f;
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-        var a = SamplingVector3(_radius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
+        var a = SamplingVector3(_minRadius, _maxRadius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
         Debug.Log(stopwatch.ElapsedMilliseconds);
         foreach (var vector3 in a)
         {
@@ -30,13 +31,17 @@ public class PoissonDiskSampling : MonoBehaviour
         }
     }
 
-    private List<Vector3> SamplingVector3(float radius, Vector3 maxPosition, Vector3 minPosition)
+    private List<Vector3> SamplingVector3(float minRadius, float maxRadius, Vector3 maxPosition, Vector3 minPosition)
     {
+        if (minRadius < 0 ||  maxRadius < 0)
+        {
+            throw new Exception("minRadius and maxRadius are required");
+        }
         List<Vector3> generatedVerts = new(); //生成された頂点
         Dictionary<Vector3Int, List<Vector3>> checkGrid = new(); //グリッドごとに設置の可否を保存する。
         List<Vector3> activeVerts = new(); //未探査の頂点
 
-        float cellSize = radius / Mathf.Sqrt(3); //グリッドのセルサイズ
+        float cellSize = minRadius / Mathf.Sqrt(3); //グリッドのセルサイズ
 
         Vector3 firstVert = new Vector3(
             Random.Range(minPosition.x, maxPosition.x),
@@ -45,7 +50,7 @@ public class PoissonDiskSampling : MonoBehaviour
 
         generatedVerts.Add(firstVert);
         activeVerts.Add(firstVert);
-        AddToGrid(checkGrid, firstVert, cellSize);
+        checkGrid[GetGridPos(firstVert, cellSize)] = new List<Vector3> { firstVert };
 
         while (activeVerts.Count > 0)
         {
@@ -54,14 +59,17 @@ public class PoissonDiskSampling : MonoBehaviour
             bool found = false;
             for (int i = 0; i < _tryCheck; i++)
             {
-                Vector3 newVert = GenerateRandomVert(currentPos, radius);
+                Vector3 newVert = GenerateRandomVert(currentPos, minRadius, maxRadius);
 
-                if (IsInBounds(newVert, minPosition, maxPosition) && 
-                    !IsTooClose(newVert, checkGrid, cellSize, radius))
+                if (IsInBounds(newVert, minPosition, maxPosition) &&
+                    !IsTooClose(newVert, checkGrid, cellSize, minRadius))
                 {
                     generatedVerts.Add(newVert);
                     activeVerts.Add(newVert);
-                    AddToGrid(checkGrid, newVert, cellSize);
+                    Vector3Int key = GetGridPos(newVert, cellSize);
+                    if (!checkGrid.ContainsKey(key))
+                        checkGrid[key] = new List<Vector3>();
+                    checkGrid[key].Add(newVert);
                     found = true;
                     break;
                 }
@@ -72,22 +80,8 @@ public class PoissonDiskSampling : MonoBehaviour
                 activeVerts.RemoveAt(index);
             }
         }
-        return generatedVerts;
-    }
 
-    /// <summary>
-    /// グリッドに追加。
-    /// </summary>
-    /// <param name="grid"></param>
-    /// <param name="vert"></param>
-    /// <param name="cellSize"></param>
-    [Obsolete("副作用のあるメソッドなので要改善")]
-    private void AddToGrid(Dictionary<Vector3Int, List<Vector3>> grid, Vector3 vert, float cellSize)
-    {
-        Vector3Int key = GetGridPos(vert, cellSize);
-        if (!grid.ContainsKey(key))
-            grid[key] = new List<Vector3>();
-        grid[key].Add(vert);
+        return generatedVerts;
     }
 
     /// <summary>
@@ -137,13 +131,20 @@ public class PoissonDiskSampling : MonoBehaviour
         return center + randomDirection * radius;
     }
 
+    /// <summary>
+    /// 範囲内にあるかを調べる
+    /// </summary>
+    /// <param name="vert"></param>
+    /// <param name="min"></param>
+    /// <param name="max"></param>
+    /// <returns></returns>
     private bool IsInBounds(Vector3 vert, Vector3 min, Vector3 max)
     {
         return vert.x >= min.x && vert.x <= max.x &&
                vert.y >= min.y && vert.y <= max.y &&
                vert.z >= min.z && vert.z <= max.z;
     }
-    
+
     /// <summary>
     /// 指定された頂点がほか頂点と近いかを調べるメソッド
     /// </summary>
@@ -173,6 +174,7 @@ public class PoissonDiskSampling : MonoBehaviour
                 }
             }
         }
+
         return false;
     }
 }

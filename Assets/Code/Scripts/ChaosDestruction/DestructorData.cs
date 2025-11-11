@@ -17,7 +17,6 @@ public class DestructorData
         ClearAll();
         
         //
-
     }
 
     private void InitDestructorVertices(List<Vector3> vertices)
