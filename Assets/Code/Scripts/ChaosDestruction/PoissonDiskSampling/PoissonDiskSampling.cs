@@ -1,25 +1,29 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 
 public class PoissonDiskSampling : MonoBehaviour
 {
     [SerializeField] private float _radius;
     [SerializeField] private GameObject _positionPrefab;
-    [SerializeField] private float _scale = 1.0f;
     [SerializeField] private int _tryCheck = 18;
 
     private void Start()
     {
-        float xMax = 20f;
+        float xMax = 5f;
         float xMin = 0f;
-        float yMax = 20f;
+        float yMax = 5f;
         float yMin = 0f;
-        float zMax = 20f;
+        float zMax = 5f;
         float zMin = 0f;
 
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
         var a = SamplingVector3(_radius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
+        Debug.Log(stopwatch.ElapsedMilliseconds);
         foreach (var vector3 in a)
         {
             Instantiate(_positionPrefab, vector3, Quaternion.identity);
@@ -53,7 +57,7 @@ public class PoissonDiskSampling : MonoBehaviour
                 Vector3 newVert = GenerateRandomVert(currentPos, radius);
 
                 if (IsInBounds(newVert, minPosition, maxPosition) && 
-                    IsTooClose(newVert, checkGrid, cellSize, radius))
+                    !IsTooClose(newVert, checkGrid, cellSize, radius))
                 {
                     generatedVerts.Add(newVert);
                     activeVerts.Add(newVert);
