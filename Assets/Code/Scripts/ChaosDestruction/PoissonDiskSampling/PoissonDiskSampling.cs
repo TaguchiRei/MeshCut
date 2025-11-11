@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class PoissonDiskSampling : MonoBehaviour
 {
@@ -20,20 +21,23 @@ public class PoissonDiskSampling : MonoBehaviour
         float yMin = 0f;
         float zMax = 20f;
         float zMin = 0f;
-        _rangeVerts.Add(new Vector3(xMin, yMax, zMax));
-        _rangeVerts.Add(new Vector3(xMax, yMax, zMax));
-        _rangeVerts.Add(new Vector3(xMin, yMax, zMin));
-        _rangeVerts.Add(new Vector3(xMax, yMax, zMin));
-        _rangeVerts.Add(new Vector3(xMin, yMin, zMax));
-        _rangeVerts.Add(new Vector3(xMax, yMin, zMax));
-        _rangeVerts.Add(new Vector3(xMin, yMin, zMin));
-        _rangeVerts.Add(new Vector3(xMax, yMin, zMin));
 
-        SamplingVector3(_radius);
+        SamplingVector3(_radius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
     }
 
-    private void SamplingVector3(float radius)
+    private void SamplingVector3(float radius,Vector3 maxPosition, Vector3 minPosition)
     {
-        List<Vector3> generatedVerts = new List<Vector3>();
+        List<Vector3> generatedVerts = new();//生成された頂点
+        Dictionary<Vector3Int, List<Vector3>> checkGrid = new();//グリッドごとに設置の可否を保存する。
+        List<Vector3> activeVerts = new();//未探査の頂点
+
+        Vector3 firstVert = new Vector3(
+            Random.Range(minPosition.x, maxPosition.x),
+            Random.Range(minPosition.y, maxPosition.y),
+            Random.Range(minPosition.z, maxPosition.z));
+        
+        generatedVerts.Add(firstVert);
+        activeVerts.Add(firstVert);
+        
     }
 }
