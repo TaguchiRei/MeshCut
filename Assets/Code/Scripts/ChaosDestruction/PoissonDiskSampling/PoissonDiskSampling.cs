@@ -6,14 +6,12 @@ using Random = UnityEngine.Random;
 public class PoissonDiskSampling : MonoBehaviour
 {
     [SerializeField] private float _radius;
-    private List<Vector3> _rangeVerts;
-    [SerializeField] private GameObject pointPrefab;
-    [SerializeField] private float scale = 1.0f;
+    [SerializeField] private GameObject _positionPrefab;
+    [SerializeField] private float _scale = 1.0f;
     [SerializeField] private int _tryCheck = 18;
 
     private void Start()
     {
-        _rangeVerts = new();
         float xMax = 20f;
         float xMin = 0f;
         float yMax = 20f;
@@ -21,7 +19,11 @@ public class PoissonDiskSampling : MonoBehaviour
         float zMax = 20f;
         float zMin = 0f;
 
-        SamplingVector3(_radius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
+        var a = SamplingVector3(_radius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
+        foreach (var vector3 in a)
+        {
+            Instantiate(_positionPrefab, vector3, Quaternion.identity);
+        }
     }
 
     private List<Vector3> SamplingVector3(float radius, Vector3 maxPosition, Vector3 minPosition)
@@ -50,7 +52,8 @@ public class PoissonDiskSampling : MonoBehaviour
             {
                 Vector3 newVert = GenerateRandomVert(currentPos, radius);
 
-                if (IsInBounds(newVert, minPosition, maxPosition))
+                if (IsInBounds(newVert, minPosition, maxPosition) && 
+                    IsTooClose(newVert, checkGrid, cellSize, radius))
                 {
                     generatedVerts.Add(newVert);
                     activeVerts.Add(newVert);
@@ -65,35 +68,36 @@ public class PoissonDiskSampling : MonoBehaviour
                 activeVerts.RemoveAt(index);
             }
         }
+        return generatedVerts;
     }
 
     /// <summary>
     /// グリッドに追加。
     /// </summary>
     /// <param name="grid"></param>
-    /// <param name="point"></param>
+    /// <param name="vert"></param>
     /// <param name="cellSize"></param>
     [Obsolete("副作用のあるメソッドなので要改善")]
-    private void AddToGrid(Dictionary<Vector3Int, List<Vector3>> grid, Vector3 point, float cellSize)
+    private void AddToGrid(Dictionary<Vector3Int, List<Vector3>> grid, Vector3 vert, float cellSize)
     {
-        Vector3Int key = GetGridPos(point, cellSize);
+        Vector3Int key = GetGridPos(vert, cellSize);
         if (!grid.ContainsKey(key))
             grid[key] = new List<Vector3>();
-        grid[key].Add(point);
+        grid[key].Add(vert);
     }
 
     /// <summary>
     /// グリッド座標を取得する
     /// </summary>
-    /// <param name="point"></param>
+    /// <param name="vert"></param>
     /// <param name="cellSize"></param>
     /// <returns></returns>
-    private Vector3Int GetGridPos(Vector3 point, float cellSize)
+    private Vector3Int GetGridPos(Vector3 vert, float cellSize)
     {
         return new Vector3Int(
-            Mathf.FloorToInt(point.x / cellSize),
-            Mathf.FloorToInt(point.y / cellSize),
-            Mathf.FloorToInt(point.z / cellSize)
+            Mathf.FloorToInt(vert.x / cellSize),
+            Mathf.FloorToInt(vert.y / cellSize),
+            Mathf.FloorToInt(vert.z / cellSize)
         );
     }
 
@@ -129,10 +133,42 @@ public class PoissonDiskSampling : MonoBehaviour
         return center + randomDirection * radius;
     }
 
-    private bool IsInBounds(Vector3 point, Vector3 min, Vector3 max)
+    private bool IsInBounds(Vector3 vert, Vector3 min, Vector3 max)
     {
-        return point.x >= min.x && point.x <= max.x &&
-               point.y >= min.y && point.y <= max.y &&
-               point.z >= min.z && point.z <= max.z;
+        return vert.x >= min.x && vert.x <= max.x &&
+               vert.y >= min.y && vert.y <= max.y &&
+               vert.z >= min.z && vert.z <= max.z;
+    }
+    
+    /// <summary>
+    /// 指定された頂点がほか頂点と近いかを調べるメソッド
+    /// </summary>
+    /// <param name="vertPos"></param>
+    /// <param name="grid"></param>
+    /// <param name="cellSize"></param>
+    /// <param name="radius"></param>
+    /// <returns></returns>
+    private bool IsTooClose(Vector3 vertPos, Dictionary<Vector3Int, List<Vector3>> grid, float cellSize, float radius)
+    {
+        Vector3Int key = GetGridPos(vertPos, cellSize);
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    Vector3Int neighborKey = new Vector3Int(key.x + x, key.y + y, key.z + z);
+                    if (grid.TryGetValue(neighborKey, out var value))
+                    {
+                        foreach (var p in value)
+                        {
+                            if (Vector3.Distance(vertPos, p) < radius)
+                                return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
