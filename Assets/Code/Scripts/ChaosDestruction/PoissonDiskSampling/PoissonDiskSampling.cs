@@ -49,8 +49,20 @@ public class PoissonDiskSampling : MonoBehaviour
             for (int i = 0; i < _tryCheck; i++)
             {
                 Vector3 newVert = GenerateRandomVert(currentPos, radius);
-                
-                
+
+                if (IsInBounds(newVert, minPosition, maxPosition))
+                {
+                    generatedVerts.Add(newVert);
+                    activeVerts.Add(newVert);
+                    AddToGrid(checkGrid, newVert, cellSize);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                activeVerts.RemoveAt(index);
             }
         }
     }
