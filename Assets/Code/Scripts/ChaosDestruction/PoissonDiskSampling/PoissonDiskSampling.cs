@@ -5,43 +5,64 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 
-public class PoissonDiskSampling : MonoBehaviour
+public class PoissonDiskSampling
 {
-    [SerializeField] private float _minRadius = 1;
-    [SerializeField] private float _maxRadius = 1;
-    [SerializeField] private GameObject _positionPrefab;
-    [SerializeField] private int _tryCheck = 18;
+    #region Variables
 
-    private void Start()
+    private readonly int _tryCheck;
+    private readonly float _density;
+    private readonly float _maxRadiusMagnitude;
+    private float _minRadius;
+    private float _maxRadius;
+
+    /// <summary>
+    /// コンストラクタ
+    /// </summary>
+    /// <param name="tryCheck">チェック回数</param>
+    /// <param name="density">密度</param>
+    /// <param name="maxRadiusMagnification">密度の上限</param>
+    public PoissonDiskSampling(int tryCheck, float density, float maxRadiusMagnification = 1)
     {
-        float xMax = 20f;
-        float xMin = 0f;
-        float yMax = 20f;
-        float yMin = 0f;
-        float zMax = 20f;
-        float zMin = 0f;
-
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-        var a = SamplingVector3(_minRadius, _maxRadius, new Vector3(xMax, yMax, zMax), new Vector3(xMin, yMin, zMin));
-        Debug.Log(stopwatch.ElapsedMilliseconds);
-        foreach (var vector3 in a)
-        {
-            Instantiate(_positionPrefab, vector3, Quaternion.identity);
-        }
+        _tryCheck = tryCheck;
+        _density = density;
+        _maxRadiusMagnitude = maxRadiusMagnification;
     }
 
-    private List<Vector3> SamplingVector3(float minRadius, float maxRadius, Vector3 maxPosition, Vector3 minPosition)
+    /// <summary>
+    /// 点分布生成を行う
+    /// </summary>
+    /// <param name="maxPosition"></param>
+    /// <param name="minPosition"></param>
+    /// <returns></returns>
+    public List<Vector3> Sampling(Vector3 maxPosition, Vector3 minPosition)
     {
-        if (minRadius < 0 ||  maxRadius < 0)
+        float xLength = Mathf.Abs(maxPosition.x - minPosition.x);
+        float yLength = Mathf.Abs(maxPosition.y - minPosition.y);
+        float zLength = Mathf.Abs(maxPosition.z - minPosition.z);
+        float volume = xLength * yLength * zLength; //面積
+
+        // 1個あたりの体積
+        float singleVolume = 1f / _density;
+
+        // 半径を計算
+        _minRadius = Mathf.Pow((3f * singleVolume) / (4f * Mathf.PI), 1f / 3f);
+        _maxRadius = _minRadius * _maxRadiusMagnitude;
+        
+        return SamplingVector3(maxPosition, minPosition);
+    }
+
+    private List<Vector3> SamplingVector3( Vector3 maxPosition, Vector3 minPosition)
+    {
+        if (_minRadius < 0 || _maxRadius < 0)
         {
             throw new Exception("minRadius and maxRadius are required");
         }
+
         List<Vector3> generatedVerts = new(); //生成された頂点
         Dictionary<Vector3Int, List<Vector3>> checkGrid = new(); //グリッドごとに設置の可否を保存する。
         List<Vector3> activeVerts = new(); //未探査の頂点
 
-        float cellSize = minRadius / Mathf.Sqrt(3); //グリッドのセルサイズ
+        float cellSize = _minRadius / Mathf.Sqrt(3); //グリッドのセルサイズ
 
         Vector3 firstVert = new Vector3(
             Random.Range(minPosition.x, maxPosition.x),
@@ -59,10 +80,10 @@ public class PoissonDiskSampling : MonoBehaviour
             bool found = false;
             for (int i = 0; i < _tryCheck; i++)
             {
-                Vector3 newVert = GenerateRandomVert(currentPos, minRadius, maxRadius);
+                Vector3 newVert = GenerateRandomVert(currentPos, _minRadius, _maxRadius);
 
                 if (IsInBounds(newVert, minPosition, maxPosition) &&
-                    !IsTooClose(newVert, checkGrid, cellSize, minRadius))
+                    !IsTooClose(newVert, checkGrid, cellSize, _minRadius))
                 {
                     generatedVerts.Add(newVert);
                     activeVerts.Add(newVert);
@@ -177,4 +198,6 @@ public class PoissonDiskSampling : MonoBehaviour
 
         return false;
     }
+
+    #endregion
 }

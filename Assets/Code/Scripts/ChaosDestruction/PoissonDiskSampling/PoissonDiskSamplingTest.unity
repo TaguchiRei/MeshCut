@@ -255,8 +255,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02226cf796515824dbd40b1644f6001d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _minRadius: 1
-  _maxRadius: 1
+  _minRadius: 3
+  _maxRadius: 6
   _positionPrefab: {fileID: 926457087772327428, guid: 9c41b92166e3a9c418baf3159d27b00f, type: 3}
   _tryCheck: 18
 --- !u!1 &1986062245
