@@ -6,195 +6,18 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 
-namespace Code.Scripts.ImprovedV1
+namespace MeshBreak.MeshCut
 {
     /// <summary>
     /// メッシュデータへのアクセスは配列コピーを伴うという情報をもとに、キャッシュしたデータの利用による解決を試みる
     /// </summary>
-    public class MeshCut : MeshCutBase
+    public class MeshCut : MeshBreakBase
     {
-        #region 切断した左右の形状を保持する
-
-        private readonly List<Vector3> _leftVertices = new();
-        private readonly List<Vector3> _leftNormals = new();
-        private readonly List<Vector2> _leftUvs = new();
-        private readonly List<List<int>> _leftSubIndices = new();
-        private int[] _leftAddVerticesArray;
-
-        private readonly List<Vector3> _rightVertices = new();
-        private readonly List<Vector3> _rightNormals = new();
-        private readonly List<Vector2> _rightUvs = new();
-        private readonly List<List<int>> _rightSubIndices = new();
-        private int[] _rightAddVerticesArray;
-
-        private readonly List<Vector3> _centers = new();
-        [SerializeField] private CutObjectPool _cutObjectPool;
-
-        /// <summary>
-        /// すべてのリストを初期化
-        /// </summary>
-        private void ClearAll()
-        {
-            _leftVertices.Clear();
-            _leftNormals.Clear();
-            _leftUvs.Clear();
-            _leftSubIndices.Clear();
-
-            _rightVertices.Clear();
-            _rightNormals.Clear();
-            _rightUvs.Clear();
-            _rightSubIndices.Clear();
-            _centers.Clear();
-            _capConnections.Clear();
-
-            _leftAddVerticesArray = new int[_baseVertices.Length];
-            _rightAddVerticesArray = new int[_baseVertices.Length];
-
-            Array.Fill(_leftAddVerticesArray, -1);
-            Array.Fill(_rightAddVerticesArray, -1);
-        }
-
-        #region 左側の処理
-
-        private int GetOrAddVertexLeft(int index)
-        {
-            if (_leftAddVerticesArray[index] != -1)
-            {
-                return _leftAddVerticesArray[index];
-            }
-
-            int newIndex = _leftVertices.Count;
-            _leftAddVerticesArray[index] = newIndex;
-
-            _leftVertices.Add(_baseVertices[index]);
-            _leftNormals.Add(_baseNormals[index]);
-            _leftUvs.Add(_baseUVs[index]);
-
-            return newIndex;
-        }
-
-        private void AddTriangleLeft(int p1, int p2, int p3, int submesh)
-        {
-            int p1Index = GetOrAddVertexLeft(p1);
-            int p2Index = GetOrAddVertexLeft(p2);
-            int p3Index = GetOrAddVertexLeft(p3);
-
-            _leftSubIndices[submesh].Add(p1Index);
-            _leftSubIndices[submesh].Add(p2Index);
-            _leftSubIndices[submesh].Add(p3Index);
-        }
-
-        private void AddTriangleLeft(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal,
-            int submesh)
-        {
-            Vector3 calculatedNormal = Vector3.Cross(
-                points3[1] - points3[0],
-                points3[2] - points3[0]);
-
-            int p1 = 0;
-            int p2 = 1;
-            int p3 = 2;
-
-            if (Vector3.Dot(calculatedNormal, faceNormal) < 0)
-            {
-                p1 = 2;
-                p2 = 1;
-                p3 = 0;
-            }
-
-            int baseIndex = _leftVertices.Count;
-
-            _leftSubIndices[submesh].Add(baseIndex + 0);
-            _leftSubIndices[submesh].Add(baseIndex + 1);
-            _leftSubIndices[submesh].Add(baseIndex + 2);
-
-            _leftVertices.Add(points3[p1]);
-            _leftVertices.Add(points3[p2]);
-            _leftVertices.Add(points3[p3]);
-
-            _leftNormals.Add(normals3[p1]);
-            _leftNormals.Add(normals3[p2]);
-            _leftNormals.Add(normals3[p3]);
-
-            _leftUvs.Add(uvs3[p1]);
-            _leftUvs.Add(uvs3[p2]);
-            _leftUvs.Add(uvs3[p3]);
-        }
-
-        #endregion
-
-        #region 右側の処理
-
-        private int GetOrAddVertexRight(int index)
-        {
-            if (_rightAddVerticesArray[index] != -1)
-            {
-                return _rightAddVerticesArray[index];
-            }
-
-            int newIndex = _rightVertices.Count;
-            _rightAddVerticesArray[index] = newIndex;
-
-            _rightVertices.Add(_baseVertices[index]);
-            _rightNormals.Add(_baseNormals[index]);
-            _rightUvs.Add(_baseUVs[index]);
-
-            return newIndex;
-        }
-
-        private void AddTriangleRight(int p1, int p2, int p3, int submesh)
-        {
-            int p1Index = GetOrAddVertexRight(p1);
-            int p2Index = GetOrAddVertexRight(p2);
-            int p3Index = GetOrAddVertexRight(p3);
-
-            _rightSubIndices[submesh].Add(p1Index);
-            _rightSubIndices[submesh].Add(p2Index);
-            _rightSubIndices[submesh].Add(p3Index);
-        }
-
-        private void AddTriangleRight(Vector3[] points3, Vector3[] normals3, Vector2[] uvs3, Vector3 faceNormal,
-            int submesh)
-        {
-            Vector3 calculatedNormal = Vector3.Cross(
-                (points3[1] - points3[0]).normalized,
-                (points3[2] - points3[0]).normalized);
-
-            int p1 = 0;
-            int p2 = 1;
-            int p3 = 2;
-
-            if (Vector3.Dot(calculatedNormal, faceNormal) < 0)
-            {
-                p1 = 2;
-                p2 = 1;
-                p3 = 0;
-            }
-
-            int baseIndex = _rightVertices.Count;
-
-            _rightSubIndices[submesh].Add(baseIndex + 0);
-            _rightSubIndices[submesh].Add(baseIndex + 1);
-            _rightSubIndices[submesh].Add(baseIndex + 2);
-
-            _rightVertices.Add(points3[p1]);
-            _rightVertices.Add(points3[p2]);
-            _rightVertices.Add(points3[p3]);
-
-            _rightNormals.Add(normals3[p1]);
-            _rightNormals.Add(normals3[p2]);
-            _rightNormals.Add(normals3[p3]);
-
-            _rightUvs.Add(uvs3[p1]);
-            _rightUvs.Add(uvs3[p2]);
-            _rightUvs.Add(uvs3[p3]);
-        }
-
-        #endregion
-
-        #endregion
+        private BreakMeshData _leftMeshData;
+        private BreakMeshData _rightMeshData;
 
         private readonly Dictionary<Vector3, List<Vector3>> _capConnections = new();
+        private readonly List<Vector3> _centers = new();
 
         private Plane _blade;
         private Mesh _targetMesh;
@@ -204,6 +27,14 @@ namespace Code.Scripts.ImprovedV1
 
         private bool[] _baseVerticesSide;
 
+        private TriangleData _triangleData;
+        [SerializeField] private CutObjectPool _cutObjectPool;
+
+        private void Start()
+        {
+            _triangleData = new();
+        }
+
         /// <summary>
         /// 対象のメッシュを切断する。
         /// </summary>
@@ -211,7 +42,7 @@ namespace Code.Scripts.ImprovedV1
         /// <param name="blade"></param>
         /// <param name="capMaterial"></param>
         /// <returns></returns>
-        public override GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
+        public GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
         {
 #if UNITY_EDITOR
             Stopwatch stopwatch = new Stopwatch();
@@ -236,13 +67,15 @@ namespace Code.Scripts.ImprovedV1
 
 
             // 頂点を初期化
-            ClearAll();
+            _leftMeshData = new BreakMeshData(_baseVertices, _baseNormals, _baseUVs);
+            _rightMeshData = new BreakMeshData(_baseVertices, _baseNormals, _baseUVs);
+            _centers.Clear();
 
             for (int submesh = 0; submesh < _targetMesh.subMeshCount; submesh++)
             {
                 var triangles = _targetMesh.GetTriangles(submesh);
-                _leftSubIndices.Add(new List<int>());
-                _rightSubIndices.Add(new List<int>());
+                _leftMeshData.AddSubMesh();
+                _rightMeshData.AddSubMesh();
 
                 // サブメッシュのインデックス数分ループ
                 for (int i = 0; i < triangles.Length; i += 3)
@@ -258,13 +91,13 @@ namespace Code.Scripts.ImprovedV1
                     // 完全に片側なら即追加
                     if (left && !right)
                     {
-                        AddTriangleLeft(p1, p2, p3, submesh);
+                        _leftMeshData.AddTriangle(p1, p2, p3, submesh);
                         continue;
                     }
 
                     if (right && !left)
                     {
-                        AddTriangleRight(p1, p2, p3, submesh);
+                        _rightMeshData.AddTriangle(p1, p2, p3, submesh);
                         continue;
                     }
 
@@ -281,8 +114,8 @@ namespace Code.Scripts.ImprovedV1
             // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
             if (mats[^1].name != capMaterial.name)
             {
-                _leftSubIndices.Add(new List<int>());
-                _rightSubIndices.Add(new List<int>());
+                _leftMeshData.AddSubMesh();
+                _rightMeshData.AddSubMesh();
                 Material[] newMats = new Material[mats.Length + 1];
                 mats.CopyTo(newMats, 0);
                 newMats[mats.Length] = capMaterial;
@@ -300,61 +133,25 @@ namespace Code.Scripts.ImprovedV1
             GameObject leftObj = null;
             GameObject rightObj = null;
 
-            if (_leftVertices.Count >= 2)
+            if (_leftMeshData.Vertices.Count >= 2)
             {
-                Mesh leftMesh = new Mesh
-                {
-                    name = "Split Mesh Left"
-                };
-                if (_leftVertices.Count > 65535)
-                {
-                    leftMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                }
+                Mesh leftMesh = _leftMeshData.ToMesh("Split Mesh Right");
 
-                leftMesh.SetVertices(_leftVertices);
-                leftMesh.SetNormals(_leftNormals);
-                leftMesh.SetUVs(0, _leftUvs);
-                leftMesh.subMeshCount = _leftSubIndices.Count;
-                for (int i = 0; i < _leftSubIndices.Count; i++)
-                {
-                    leftMesh.SetIndices(_leftSubIndices[i], MeshTopology.Triangles, i);
-                }
+                var leftResult = _cutObjectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
+                if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
 
-                var result = _cutObjectPool.GenerateCutObject(target, _leftVertices, mats, centers);
-                if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
-
-                result.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
-                leftObj = result.Item1;
+                leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
+                leftObj = leftResult.Item1;
             }
 
-            if (_rightVertices.Count >= 2)
-            {
-                Mesh rightMesh = new Mesh
-                {
-                    name = "Split Mesh Right"
-                };
+            Mesh rightMesh = _rightMeshData.ToMesh("Split Mesh Left");
 
-                if (_rightVertices.Count > 65535)
-                {
-                    rightMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                }
+            var result = _cutObjectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
+            if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
 
-                rightMesh.SetVertices(_rightVertices);
-                rightMesh.SetNormals(_rightNormals);
-                rightMesh.SetUVs(0, _rightUvs);
+            result.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
+            rightObj = result.Item1;
 
-                rightMesh.subMeshCount = _rightSubIndices.Count;
-                for (int i = 0; i < _rightSubIndices.Count; i++)
-                {
-                    rightMesh.SetIndices(_rightSubIndices[i], MeshTopology.Triangles, i);
-                }
-
-                var result = _cutObjectPool.GenerateCutObject(target, _rightVertices, mats, centers);
-                if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
-
-                result.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
-                rightObj = result.Item1;
-            }
 
             target.SetActive(false);
 
@@ -489,43 +286,33 @@ namespace Code.Scripts.ImprovedV1
             bool leftDoubleCheck = false;
 
             // 計算された新しい頂点を使って、新トライアングルを追加する
-            AddTriangleLeft(
-                new[] { leftPoints[0], newVertex1, newVertex2 },
-                new[] { leftNormals[0], newNormal1, newNormal2 },
-                new[] { leftUvs[0], newUv1, newUv2 },
-                newNormal1,
-                submesh
-            );
+
+            _triangleData.SetVertexes(leftPoints[0], newVertex1, newVertex2);
+            _triangleData.SetNormals(leftNormals[0], newNormal1, newNormal2);
+            _triangleData.SetUVs(leftUvs[0], newUv1, newUv2);
+
+            _leftMeshData.AddTriangle(_triangleData, newNormal1, submesh);
 
             if (leftPoints[0] != leftPoints[1])
             {
-                AddTriangleLeft(
-                    new[] { leftPoints[0], leftPoints[1], newVertex2 },
-                    new[] { leftNormals[0], leftNormals[1], newNormal2 },
-                    new[] { leftUvs[0], leftUvs[1], newUv2 },
-                    newNormal2,
-                    submesh
-                );
+                _triangleData.SetVertexes(leftPoints[0], leftPoints[1], newVertex2);
+                _triangleData.SetNormals(leftNormals[0], leftNormals[1], newNormal2);
+                _triangleData.SetUVs(leftUvs[0], leftUvs[1], newUv2);
+                _leftMeshData.AddTriangle(_triangleData, newNormal2, submesh);
                 leftDoubleCheck = true;
             }
 
-            AddTriangleRight(
-                new[] { rightPoints[0], newVertex1, newVertex2 },
-                new[] { rightNormals[0], newNormal1, newNormal2 },
-                new[] { rightUvs[0], newUv1, newUv2 },
-                newNormal1,
-                submesh
-            );
+            _triangleData.SetVertexes(rightPoints[0], newVertex1, newVertex2);
+            _triangleData.SetNormals(rightNormals[0], newNormal1, newNormal2);
+            _triangleData.SetUVs(rightUvs[0], newUv1, newUv2);
+            _rightMeshData.AddTriangle(_triangleData, newNormal1, submesh);
 
             if (!leftDoubleCheck)
             {
-                AddTriangleRight(
-                    new[] { rightPoints[0], rightPoints[1], newVertex2 },
-                    new[] { rightNormals[0], rightNormals[1], newNormal2 },
-                    new[] { rightUvs[0], rightUvs[1], newUv2 },
-                    newNormal2,
-                    submesh
-                );
+                _triangleData.SetVertexes(rightPoints[0], rightPoints[1], newVertex2);
+                _triangleData.SetNormals(rightNormals[0], rightNormals[1], newNormal2);
+                _triangleData.SetUVs(rightUvs[0], rightUvs[1], newUv2);
+                _rightMeshData.AddTriangle(_triangleData, newNormal2, submesh);
             }
         }
 

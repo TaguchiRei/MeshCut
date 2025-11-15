@@ -1,6 +1,7 @@
 using UnityEngine;
 using BLINDED_AM_ME;
-using Code.Scripts.ImprovedV1; // MeshCut 名前空間を参照
+
+// MeshCut 名前空間を参照
 
 public class TestCutSide : MonoBehaviour
 {
