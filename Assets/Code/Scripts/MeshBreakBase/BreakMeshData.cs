@@ -10,7 +10,6 @@ public class BreakMeshData
     public List<Vector3> Vertices;
     public List<Vector3> Normals;
     public List<Vector2> Uvs;
-    public List<int> Triangles;
     public List<List<int>> _subIndices;
 
     private readonly Vector3[] _baseMeshVertices;
