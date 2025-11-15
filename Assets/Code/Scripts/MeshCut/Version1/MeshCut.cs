@@ -402,52 +402,21 @@ namespace MeshBreak.MeshCut
                 newUV2.y = 0.5f + Vector3.Dot(displacement, upward);
 
                 // 左側のポリゴンとして、求めたUVを利用してトライアングルを追加
-                AddTriangleLeft(
-                    new[]
-                    {
-                        vertices[i],
-                        vertices[(i + 1) % vertices.Count],
-                        center
-                    },
-                    new[]
-                    {
-                        -_blade.normal,
-                        -_blade.normal,
-                        -_blade.normal
-                    },
-                    new[]
-                    {
-                        newUV1,
-                        newUV2,
-                        new(0.5f, 0.5f)
-                    },
+                _triangleData.SetVertexes(vertices[i], vertices[(i + 1) % vertices.Count], center);
+                _triangleData.SetNormals(-_blade.normal, -_blade.normal, -_blade.normal);
+                _triangleData.SetUVs(newUV1, newUV2, new(0.5f, 0.5f));
+
+
+                _leftMeshData.AddTriangle(
+                    _triangleData,
                     -_blade.normal,
-                    _leftSubIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
+                    _leftMeshData._subIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
                 );
 
-                // 右側のトライアングル。基本は左側と同じだが、法線だけ逆向き。
-                AddTriangleRight(
-                    new[]
-                    {
-                        vertices[i],
-                        vertices[(i + 1) % vertices.Count],
-                        center
-                    },
-                    new[]
-                    {
-                        _blade.normal,
-                        _blade.normal,
-                        _blade.normal
-                    },
-                    new[]
-                    {
-                        newUV1,
-                        newUV2,
-                        new(0.5f, 0.5f)
-                    },
-                    _blade.normal,
-                    _rightSubIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
-                );
+                _triangleData.SetVertexes(vertices[i], vertices[(i + 1) % vertices.Count], center);
+                _triangleData.SetNormals(_blade.normal, _blade.normal, _blade.normal);
+                _triangleData.SetUVs(newUV1, newUV2, new(0.5f, 0.5f));
+                _rightMeshData.AddTriangle(_triangleData, _blade.normal, _rightMeshData._subIndices.Count - 1);
             }
         }
 
