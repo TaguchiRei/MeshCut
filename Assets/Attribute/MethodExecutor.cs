@@ -13,7 +13,7 @@ namespace Attribute
         public string ButtonName { get; }
         public bool CanExecuteInEditMode { get; }
 
-        public MethodExecutorAttribute(string buttonName, bool canExecuteInEditMode)
+        public MethodExecutorAttribute(string buttonName = "テスト" , bool canExecuteInEditMode = false)
         {
             ButtonName = buttonName;
             CanExecuteInEditMode = canExecuteInEditMode;
