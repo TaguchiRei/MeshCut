@@ -29,6 +29,7 @@ public class TestSampling : MonoBehaviour
     [MethodExecutor("生成", false)]
     private void GenerateSample()
     {
+        Debug.Log("開始");
         foreach (var generatedObject in _generatedObjects)
         {
             Destroy(generatedObject);

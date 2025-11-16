@@ -4,6 +4,7 @@ using System.Linq;
 using BLINDED_AM_ME;
 using UnityEngine;
 using Attribute;
+using MeshBreak;
 using Debug = UnityEngine.Debug;
 
 public class TestMeshCutter : MonoBehaviour
@@ -63,7 +64,7 @@ public class TestMeshCutter : MonoBehaviour
 
         foreach (Collider hit in hits)
         {
-            if (!hit.gameObject.TryGetComponent<CuttableObject>(out CuttableObject cuttable)) continue;
+            if (!hit.gameObject.TryGetComponent<BreakableObject>(out BreakableObject cuttable)) continue;
             objects.Add(hit.gameObject);
         }
 

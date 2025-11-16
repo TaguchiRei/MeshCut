@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using MeshBreak;
 using UnityEngine;
 
 public class CutObjectPool : MonoBehaviour
@@ -33,7 +34,7 @@ public class CutObjectPool : MonoBehaviour
     {
         if (_preCutPool.Count > 0)
         {
-            var cuttable = _preCutPool[0].GetComponent<CuttableObject>();
+            var cuttable = _preCutPool[0].GetComponent<BreakableObject>();
             _preCutPool.RemoveAt(0);
             cuttable.SetParentHash(baseObject.GetInstanceID());
             cuttable.transform.position = baseObject.transform.position;
