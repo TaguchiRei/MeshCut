@@ -3,8 +3,8 @@ using System.Diagnostics;
 using System.Linq;
 using BLINDED_AM_ME;
 using UnityEngine;
-using Attribute;
 using MeshBreak;
+using UsefllAttribute;
 using Debug = UnityEngine.Debug;
 
 public class TestMeshCutter : MonoBehaviour

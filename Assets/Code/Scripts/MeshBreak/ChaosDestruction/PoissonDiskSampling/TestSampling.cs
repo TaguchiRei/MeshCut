@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
-using Attribute;
 using ChaosDestruction.PoissonDiskSampling;
 using Cysharp.Threading.Tasks;
+using UsefllAttribute;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 

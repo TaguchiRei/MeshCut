@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Attribute;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using UsefllAttribute;
 using Debug = UnityEngine.Debug;
 
 public class BurstPrime : MonoBehaviour

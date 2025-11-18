@@ -5,10 +5,10 @@ using UnityEngine;
 #if UNITY_EDITOR
 #endif
 
-namespace Attribute
+namespace UsefllAttribute
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class MethodExecutorAttribute : System.Attribute
+    public class MethodExecutorAttribute : Attribute
     {
         public string ButtonName { get; }
         public bool CanExecuteInEditMode { get; }
@@ -22,7 +22,7 @@ namespace Attribute
 
 
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class InspectorButtonEditor : UnityEditor.Editor
+    public class InspectorButtonEditor : Editor
     {
         #if UNITY_EDITOR
         public override void OnInspectorGUI()

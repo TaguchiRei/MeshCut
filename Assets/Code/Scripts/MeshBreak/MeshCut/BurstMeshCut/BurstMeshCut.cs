@@ -1,12 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using MeshBreak;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-
-namespace MeshBreak.MeshCut
+public class BurstMeshCut : MonoBehaviour
 {
     /// <summary>
     /// メッシュデータへのアクセスは配列コピーを伴うという情報をもとに、キャッシュしたデータの利用による解決を試みる
@@ -429,31 +428,6 @@ namespace MeshBreak.MeshCut
             }
 
             list.Add(b);
-        }
-
-
-        private void FillCutFace(List<Vector3> vertices)
-        {
-        }
-
-        /// <summary>
-        /// ３頂点のなす角が180度以内かを調べる
-        /// </summary>
-        /// <param name="o"></param>
-        /// <param name="a"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        private bool IsAngleLessThan180(
-            Vector3 o,
-            Vector3 a,
-            Vector3 b)
-        {
-            return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) > 0;
-        }
-
-        Vector3 CenterOfTriangle(Vector3 a, Vector3 b, Vector3 c)
-        {
-            return (a + b + c) / 3;
         }
     }
 }
