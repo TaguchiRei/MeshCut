@@ -1,9 +1,7 @@
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace MeshBreak.MeshBooleanOperator
 {
@@ -24,7 +22,7 @@ namespace MeshBreak.MeshBooleanOperator
                 NativeArray<Vector3> vertices = new();
                 NativeArray<Vector3> normals = new();
                 NativeArray<Vector2> uvs = new();
- 
+
                 meshData.GetVertices(vertices);
                 meshData.GetNormals(normals);
                 meshData.GetUVs(0, uvs);
