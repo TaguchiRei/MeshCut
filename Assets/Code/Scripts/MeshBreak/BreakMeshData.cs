@@ -53,10 +53,10 @@ namespace MeshBreak
             Vector3 calculatedNormal = Vector3.Cross(
                 triangleData.Vertex1 - triangleData.Vertex0,
                 triangleData.Vertex2 - triangleData.Vertex0);
-            
-            
+
+
             int baseIndex = Vertices.Count;
-            
+
             _subIndices[submesh].Add(baseIndex);
             _subIndices[submesh].Add(baseIndex + 1);
             _subIndices[submesh].Add(baseIndex + 2);
@@ -93,9 +93,9 @@ namespace MeshBreak
 
         private int GetOrAddVertex(int index)
         {
-            if (_addVerticesArray[index] == -1)
+            if (_addVerticesArray[index] != -1)
             {
-                return _addVerticesArray[index] = index;
+                return _addVerticesArray[index];
             }
 
             int newIndex = Vertices.Count;
