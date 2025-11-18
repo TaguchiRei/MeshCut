@@ -70,6 +70,7 @@ namespace MeshBreak.MeshCut
             _leftMeshData = new BreakMeshData(_baseVertices, _baseNormals, _baseUVs);
             _rightMeshData = new BreakMeshData(_baseVertices, _baseNormals, _baseUVs);
             _centers.Clear();
+            _capConnections.Clear();
 
             for (int submesh = 0; submesh < _targetMesh.subMeshCount; submesh++)
             {
