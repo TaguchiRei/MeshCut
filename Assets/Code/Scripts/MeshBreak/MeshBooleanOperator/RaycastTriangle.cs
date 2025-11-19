@@ -1,5 +1,6 @@
-using System.Numerics;
 using MeshBreak;
+using UnityEngine;
+using Vector3 = System.Numerics.Vector3;
 
 namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 {
