@@ -1,15 +1,76 @@
 using MeshBreak;
 using UnityEngine;
-using Vector3 = System.Numerics.Vector3;
 
 namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 {
     public static class RaycastTriangle
     {
+        /// <summary>
+        /// 任意の三角形と任意の直線が交差しているかを調べる。
+        /// </summary>
+        /// <param name="triangle">三角形情報</param>
+        /// <param name="start">開始地点</param>
+        /// <param name="end">終了地点</param>
+        /// <param name="point">交差座標</param>
+        /// <returns>交差しているか</returns>
         public static bool CheckIntersectPoint(TriangleData triangle, Vector3 start, Vector3 end, out Vector3 point)
         {
-            point = Vector3.Zero;
-            return false;
+            /*
+            三角形上の任意の点を求める式は　v0+(v0,v1)ベクトル*係数+(v0,v2)ベクトル*係数2
+            E1とE2にそれぞれ係数をかけてベクトルを合成すれば三角形の位置する面のすべての座標が示せる
+
+            レイ上の任意の点を求める式は　　v + ベクトル*距離
+
+            なのでこの二つの式を=でつなぐことでその交点を求められる。
+            */
+            Vector3 direction = (end - start).normalized;
+
+            //E1 = V1-V0 E2 = V2 - V0
+            Vector3 edgeVector1 = triangle.Vertex1 - triangle.Vertex0;
+            Vector3 edgeVector2 = triangle.Vertex2 - triangle.Vertex0;
+
+            //補助ベクトルH。　H = D×E2　クロス積 
+            Vector3 rayV2Cross = Vector3.Cross(direction, edgeVector2);
+            //係数a。　a = E1・H  レイと平面が十分交差しうる角度であるかを調べる(極端に水平に近いと浮動小数点誤差が致命的になったり水平だとつながらないため)
+            float planeParallel = Vector3.Dot(edgeVector1, rayV2Cross);
+
+            //水平に近ければ足切り。
+            if (Mathf.Abs(planeParallel) < 1e-7f)
+            {
+                /*
+                 三角形のスケールが大きい場合、1e-8 の判定では実際には十分な角度があるのに「平行」と誤判定特に長距離レイで顕著
+                 小さな三角形や接線に近いレイで、本来はぎりぎり大丈夫な範囲の角度のものも「平行」と判定されてしまう。つまり 粗すぎる閾値は接触判定を壊す。
+                 ので1e-7fを利用している。
+                 */
+                point = Vector3.zero;
+                return false;
+            }
+
+            //逆数を取得
+            float oneMinus = 1.0f / planeParallel;
+
+            //レイの座標系をV0を基準とした座標系に直す
+            Vector3 v0RayStartPos = start - triangle.Vertex0;
+
+            //三角形上の衝突点がどこにあるかを求める
+            float u = Vector3.Dot(v0RayStartPos, rayV2Cross) * oneMinus;
+            Vector3 supportVector = Vector3.Cross(v0RayStartPos, edgeVector1);
+            float v = Vector3.Dot(direction, supportVector) * oneMinus;
+
+            //レイ上の衝突点がどこにあるかを求める
+            float rayDistance = Vector3.Dot(edgeVector2, supportVector) * oneMinus;
+
+            point = start + rayDistance * direction;
+
+            //それぞれ範囲外チェックを行う。
+            if (u < 0 || v < 0 || (u + v) > 1 || rayDistance < 0)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
     }
 }
