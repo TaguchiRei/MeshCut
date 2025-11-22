@@ -26,14 +26,7 @@ namespace MeshBreak.MeshBooleanOperator
             */
             Vector3 direction = (end - start);
             float segmentLength = direction.magnitude;
-
-            // 線分の長さが0の場合は判定不可
-            if (segmentLength < 1e-10f)
-            {
-                point = Vector3.zero;
-                return false;
-            }
-
+            
             // directionを正規化
             direction = direction.normalized;
 
