@@ -26,7 +26,7 @@ namespace MeshBreak.MeshBooleanOperator
             */
             Vector3 direction = (end - start);
             float segmentLength = direction.magnitude;
-            
+
             // directionを正規化
             direction = direction.normalized;
 
@@ -50,7 +50,7 @@ namespace MeshBreak.MeshBooleanOperator
             {
                 Debug.LogWarning("極端に巨大または小さいな三角形はレイキャストの精度を低下させます");
             }
-            
+
 
             //補助ベクトルH。　H = D×E2　クロス積 
             Vector3 rayV2Cross = Vector3.Cross(direction, edgeVector2);
@@ -119,12 +119,23 @@ namespace MeshBreak.MeshBooleanOperator
         {
             TriangleData triangle = new TriangleData();
             int hitCount = 0;
+
+            float minY = float.MaxValue;
+            float maxY = float.MinValue;
+            foreach (var vertex in vertexes)
+            {
+                if (vertex.y < minY) minY = vertex.y;
+                if (vertex.y > maxY) maxY = vertex.y;
+            }
+
+            float rayLength = maxY - minY;
+
             for (int i = 0; i < triangleData.Length; i += 3)
             {
                 triangle.SetVertexes(vertexes[triangleData[i]], vertexes[triangleData[i + 1]],
                     vertexes[triangleData[i + 2]]);
 
-                if (RayCast(triangle, vert, vert + Vector3.up, out var point))
+                if (RayCast(triangle, vert, vert + Vector3.up * rayLength, out var point))
                 {
                     hitCount++;
                 }

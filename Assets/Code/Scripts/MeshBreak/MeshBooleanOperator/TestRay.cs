@@ -34,14 +34,7 @@ public class TestRay : MonoBehaviour
 
         if (_hitPos != null)
         {
-            if (isHit)
-            {
-                _hitPos.transform.position = point;
-            }
-            else
-            {
-                _hitPos.transform.position = Vector3.down;
-            }
+            _hitPos.transform.position = isHit ? point : Vector3.down;
         }
     }
 }
