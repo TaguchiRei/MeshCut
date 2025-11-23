@@ -1,4 +1,5 @@
 using System;
+using Cysharp.Threading.Tasks;
 using MeshBreak;
 using UnityEngine;
 
@@ -107,6 +108,49 @@ namespace MeshBreak.MeshBooleanOperator
             return true;
         }
 
+        public static async UniTask<bool> CheckInsideMesh(Vector3[] vertexes, int[] triangleData, Vector3 vert)
+        {
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float minZ = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            float maxZ = float.MinValue;
+
+            foreach (var vector3 in vertexes)
+            {
+                if (minX > vector3.x) minX = vector3.x;
+                if (minY > vector3.y) minY = vector3.y;
+                if (minZ > vector3.z) minZ = vector3.z;
+                if (maxX < vector3.x) maxX = vector3.x;
+                if (maxY < vector3.y) maxY = vector3.y;
+                if (maxZ < vector3.z) maxZ = vector3.z;
+            }
+
+            float rayX = maxX - minX;
+            float rayY = maxY - minY;
+            float rayZ = maxZ - minZ;
+
+            //５方向調べる
+            var up = CheckInsideMeshVector(vertexes, triangleData, vert, Vector3.up, rayY);
+            var down = CheckInsideMeshVector(vertexes, triangleData, vert, Vector3.down, rayY);
+            var left = CheckInsideMeshVector(vertexes, triangleData, vert, Vector3.left, rayX);
+            var right = CheckInsideMeshVector(vertexes, triangleData, vert, Vector3.right, rayX);
+            var foward = CheckInsideMeshVector(vertexes, triangleData, vert, Vector3.forward, rayZ);
+
+            var result = await UniTask.WhenAll(up, down, left, right, foward);
+
+            int trueCount = 0;
+            if (result.Item1) trueCount++;
+            if (result.Item2) trueCount++;
+            if (result.Item3) trueCount++;
+            if (result.Item4) trueCount++;
+            if (result.Item5) trueCount++;
+
+            // 多数決で返す
+            return trueCount >= 3;
+        }
+
 
         /// <summary>
         /// 指定した頂点座標が閉じたメッシュ内にあるかを調べる
@@ -114,34 +158,31 @@ namespace MeshBreak.MeshBooleanOperator
         /// <param name="vertexes"></param>
         /// <param name="triangleData"></param>
         /// <param name="vert"></param>
+        /// <param name="checkVector"></param>
+        /// <param name="distance"></param>
         /// <returns></returns>
-        public static bool CheckInsideMesh(Vector3[] vertexes, int[] triangleData, Vector3 vert)
+        private static UniTask<bool> CheckInsideMeshVector(Vector3[] vertexes, int[] triangleData, Vector3 vert,
+            Vector3 checkVector, float distance)
         {
             TriangleData triangle = new TriangleData();
-            int hitCount = 0;
-
-            float minY = float.MaxValue;
-            float maxY = float.MinValue;
-            foreach (var vertex in vertexes)
+            return UniTask.RunOnThreadPool(() =>
             {
-                if (vertex.y < minY) minY = vertex.y;
-                if (vertex.y > maxY) maxY = vertex.y;
-            }
+                int hitCount = 0;
 
-            float rayLength = maxY - minY;
 
-            for (int i = 0; i < triangleData.Length; i += 3)
-            {
-                triangle.SetVertexes(vertexes[triangleData[i]], vertexes[triangleData[i + 1]],
-                    vertexes[triangleData[i + 2]]);
-
-                if (RayCast(triangle, vert, vert + Vector3.up * rayLength, out var point))
+                for (int i = 0; i < triangleData.Length; i += 3)
                 {
-                    hitCount++;
-                }
-            }
+                    triangle.SetVertexes(vertexes[triangleData[i]], vertexes[triangleData[i + 1]],
+                        vertexes[triangleData[i + 2]]);
 
-            return hitCount % 2 != 0;
+                    if (RayCast(triangle, vert, vert + checkVector * distance, out var point))
+                    {
+                        hitCount++;
+                    }
+                }
+
+                return hitCount % 2 != 0;
+            });
         }
     }
 }

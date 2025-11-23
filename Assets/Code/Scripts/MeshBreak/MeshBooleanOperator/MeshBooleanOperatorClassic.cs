@@ -1,17 +1,13 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 {
     public class MeshBooleanOperatorClassic
     {
-        
-        /// <summary>
-        /// 指定のローカル座標がメッシュ内にあるかメッシュ外にあるかを調べる
-        /// </summary>
-        /// <returns></returns>
-        private bool CheckInside()
+        public UniTask<GameObject> Boolean(GameObject target, GameObject booleanMesh, Material capMaterial)
         {
-            return true;
+            return UniTask.FromResult(booleanMesh);
         }
     }
 }
