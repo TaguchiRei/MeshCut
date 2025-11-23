@@ -27,9 +27,12 @@ public class MeshEdgeUtilityWindow : EditorWindow
         if (GUILayout.Button("Bake"))
         {
             Undo.RecordObject(_meshEdgeDataList, "Bake MeshEdgeData");
-            
-            var newData = new MeshEdgeData();
-            newData.Edges = BakeMeshEdge();
+
+            MeshEdgeData newData = new MeshEdgeData
+            {
+                MeshName = _mesh.name,
+                Edges = BakeMeshEdge()
+            };
             _meshEdgeDataList.data.Add(newData);
 
             EditorUtility.SetDirty(_meshEdgeDataList);

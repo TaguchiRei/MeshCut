@@ -13,6 +13,7 @@ namespace MeshBreak.MeshBooleanOperator
     [Serializable]
     public class MeshEdgeData
     {
+        public string MeshName;
         public List<EdgeData> Edges;
     }
 
@@ -34,7 +35,7 @@ namespace MeshBreak.MeshBooleanOperator
             if (ReferenceEquals(this, other)) return true;
             return (Start == other.Start && End == other.End) || (Start == other.End && End == other.Start);
         }
-        
+
         public override bool Equals(object obj) => Equals(obj as EdgeData);
 
         public override int GetHashCode()
