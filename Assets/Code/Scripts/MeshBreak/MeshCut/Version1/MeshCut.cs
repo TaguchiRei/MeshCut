@@ -88,7 +88,7 @@ namespace MeshBreak.MeshCut
 
                     var left = _baseVerticesSide[p1] || _baseVerticesSide[p2] || _baseVerticesSide[p3];
                     var right = !_baseVerticesSide[p1] || !_baseVerticesSide[p2] || !_baseVerticesSide[p3];
-
+                    
                     // 完全に片側なら即追加
                     if (left && !right)
                     {

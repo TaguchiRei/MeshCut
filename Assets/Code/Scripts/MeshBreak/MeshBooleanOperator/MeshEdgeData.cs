@@ -17,9 +17,31 @@ namespace MeshBreak.MeshBooleanOperator
     }
 
     [Serializable]
-    public class EdgeData
+    public class EdgeData : IEquatable<EdgeData>
     {
-        public int Start;
-        public int End;
+        public readonly int Start;
+        public readonly int End;
+
+        public EdgeData(int start, int end)
+        {
+            Start = start;
+            End = end;
+        }
+
+        public bool Equals(EdgeData other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return (Start == other.Start && End == other.End) || (Start == other.End && End == other.Start);
+        }
+        
+        public override bool Equals(object obj) => Equals(obj as EdgeData);
+
+        public override int GetHashCode()
+        {
+            int min = Math.Min(Start, End);
+            int max = Math.Max(Start, End);
+            return HashCode.Combine(min, max);
+        }
     }
 }
