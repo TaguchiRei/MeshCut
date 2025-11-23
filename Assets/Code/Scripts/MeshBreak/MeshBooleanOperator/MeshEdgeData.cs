@@ -13,7 +13,7 @@ namespace MeshBreak.MeshBooleanOperator
     [Serializable]
     public class MeshEdgeData
     {
-        public string MeshName;
+        public int Hash;
         public List<EdgeData> Edges;
     }
 

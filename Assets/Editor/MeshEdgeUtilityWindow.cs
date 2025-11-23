@@ -19,7 +19,7 @@ public class MeshEdgeUtilityWindow : EditorWindow
     private void OnGUI()
     {
         _mesh = (Mesh)EditorGUILayout.ObjectField("Mesh", _mesh, typeof(Mesh), true);
-        _meshEdgeDataList = (MeshEdgeDataList)EditorGUILayout.ObjectField(("MeshEdgeDataList"), _meshEdgeDataList,
+        _meshEdgeDataList = (MeshEdgeDataList)EditorGUILayout.ObjectField("MeshEdgeDataList", _meshEdgeDataList,
             typeof(MeshEdgeDataList), true);
 
         if (_mesh || _meshEdgeDataList) return;
@@ -28,9 +28,20 @@ public class MeshEdgeUtilityWindow : EditorWindow
         {
             Undo.RecordObject(_meshEdgeDataList, "Bake MeshEdgeData");
 
+            var ver0 = _mesh.vertices[0];
+
+            int vertexHash = Mathf.RoundToInt(ver0.x * 1000f)
+                             + Mathf.RoundToInt(ver0.y * 1000f)
+                             + Mathf.RoundToInt(ver0.z * 1000f);
+            if (_meshEdgeDataList.data.Any(x => x.Hash == vertexHash))
+            {
+                Debug.Log("This Mesh Is Already Baked");
+                return;
+            } 
+
             MeshEdgeData newData = new MeshEdgeData
             {
-                MeshName = _mesh.name,
+                Hash = StableHash.GetHash(_mesh.name + vertexHash),
                 Edges = BakeMeshEdge()
             };
             _meshEdgeDataList.data.Add(newData);
