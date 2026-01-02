@@ -105,30 +105,6 @@ namespace MeshBreak
             Uvs.Add(_baseUvs[index]);
             return newIndex;
         }
-
-        public Mesh ToMesh(string meshName)
-        {
-            Mesh mesh = new()
-            {
-                name = meshName
-            };
-
-            if (Vertices.Count > 65535)
-            {
-                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-
-            mesh.SetVertices(Vertices);
-            mesh.SetNormals(Normals);
-            mesh.SetUVs(0, Uvs);
-            mesh.subMeshCount = _subIndices.Count;
-            for (int i = 0; i < _subIndices.Count; i++)
-            {
-                mesh.SetIndices(_subIndices[i], MeshTopology.Triangles, i);
-            }
-
-            return mesh;
-        }
     }
 
     public class TriangleData
@@ -167,6 +143,33 @@ namespace MeshBreak
             UV0 = uv0;
             UV1 = uv1;
             UV2 = uv2;
+        }
+    }
+
+    public static class BreakMeshDataUtil
+    {
+        public static Mesh ToMesh(BreakMeshData breakMeshData, string meshName = "mesh")
+        {
+            Mesh mesh = new()
+            {
+                name = meshName
+            };
+
+            if (breakMeshData.Vertices.Count > 65535)
+            {
+                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            }
+
+            mesh.SetVertices(breakMeshData.Vertices);
+            mesh.SetNormals(breakMeshData.Normals);
+            mesh.SetUVs(0, breakMeshData.Uvs);
+            mesh.subMeshCount = breakMeshData._subIndices.Count;
+            for (int i = 0; i < breakMeshData._subIndices.Count; i++)
+            {
+                mesh.SetIndices(breakMeshData._subIndices[i], MeshTopology.Triangles, i);
+            }
+
+            return mesh;
         }
     }
 }

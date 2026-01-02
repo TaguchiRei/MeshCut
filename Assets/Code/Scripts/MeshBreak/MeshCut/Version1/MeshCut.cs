@@ -88,7 +88,7 @@ namespace MeshBreak.MeshCut
 
                     var left = _baseVerticesSide[p1] || _baseVerticesSide[p2] || _baseVerticesSide[p3];
                     var right = !_baseVerticesSide[p1] || !_baseVerticesSide[p2] || !_baseVerticesSide[p3];
-                    
+
                     // 完全に片側なら即追加
                     if (left && !right)
                     {
@@ -136,22 +136,24 @@ namespace MeshBreak.MeshCut
 
             if (_leftMeshData.Vertices.Count >= 2)
             {
-                Mesh leftMesh = _leftMeshData.ToMesh("Split Mesh Right");
+                Mesh leftMesh = BreakMeshDataUtil.ToMesh(_leftMeshData, "Split Mesh Right");
 
                 var leftResult = _cutObjectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
 
                 leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
                 leftObj = leftResult.Item1;
+                Debug.Log($"左側頂点数 {_leftMeshData.Vertices.Count}");
             }
 
-            Mesh rightMesh = _rightMeshData.ToMesh("Split Mesh Left");
+            Mesh rightMesh = BreakMeshDataUtil.ToMesh(_leftMeshData, "Split Mesh Left");
 
             var result = _cutObjectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
             if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
 
             result.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
             rightObj = result.Item1;
+            Debug.Log($"右側頂点数 {_rightMeshData.Vertices.Count}");
 
 
             target.SetActive(false);
@@ -319,6 +321,7 @@ namespace MeshBreak.MeshCut
 
         /// <summary>
         /// 新しく生成された頂点からループを作り、作ったループごとに面を埋める処理
+        /// 切断面の頂点にUV座標を設定するためのループ捜索
         /// </summary>
         private void Capping()
         {
@@ -356,6 +359,7 @@ namespace MeshBreak.MeshCut
 
         /// <summary>
         /// 与えられたループをもとに面を埋める処理
+        /// 切断面を面の重心をもとに三角形で分割しつつ、切断面の頂点にUV座標を与える
         /// </summary>
         /// <param name="vertices">ポリゴンを形成する頂点リスト</param>
         private void FillCap(List<Vector3> vertices)

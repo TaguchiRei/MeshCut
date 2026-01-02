@@ -134,7 +134,7 @@ public class BurstMeshCut : MonoBehaviour
 
             if (_leftMeshData.Vertices.Count >= 2)
             {
-                Mesh leftMesh = _leftMeshData.ToMesh("Split Mesh Right");
+                Mesh leftMesh = BreakMeshDataUtil.ToMesh(_leftMeshData, "Split Mesh Right");
 
                 var leftResult = _cutObjectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
@@ -143,7 +143,7 @@ public class BurstMeshCut : MonoBehaviour
                 leftObj = leftResult.Item1;
             }
 
-            Mesh rightMesh = _rightMeshData.ToMesh("Split Mesh Left");
+            Mesh rightMesh = BreakMeshDataUtil.ToMesh(_rightMeshData, "Split Mesh Left");
 
             var result = _cutObjectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
             if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
