@@ -15,11 +15,29 @@ public static class MeshDataSupport
         Mesh mesh,
         NativeArray<float3> vertices,
         NativeArray<float3> normals,
-        NativeArray<float2> uvs)
+        NativeArray<float2> uvs,
+        NativeParallelMultiHashMap<int, int> subIndices)
     {
         using Mesh.MeshDataArray meshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
-        meshDataArray[0].GetVertices(vertices.Reinterpret<Vector3>());
-        meshDataArray[0].GetNormals(normals.Reinterpret<Vector3>());
-        meshDataArray[0].GetUVs(0, uvs.Reinterpret<Vector2>());
+        var data = meshDataArray[0];
+        data.GetVertices(vertices.Reinterpret<Vector3>());
+        data.GetNormals(normals.Reinterpret<Vector3>());
+        data.GetUVs(0, uvs.Reinterpret<Vector2>());
+
+        for (int i = 0; i < data.subMeshCount; i++)
+        {
+            // サブメッシュごとのインデックス数を取得
+            int indexCount = data.GetSubMesh(i).indexCount;
+
+            // 一時的な NativeArray としてインデックスバッファを参照（コピーが発生しない）
+            using var indices = new NativeArray<int>(indexCount, Allocator.Temp);
+            data.GetIndices(indices, i);
+
+            // MultiHashMapに追加
+            foreach (var vertIndex in indices)
+            {
+                subIndices.Add(i, vertIndex);
+            }
+        }
     }
 }

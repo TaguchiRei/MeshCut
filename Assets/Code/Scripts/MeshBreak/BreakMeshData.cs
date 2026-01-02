@@ -12,7 +12,7 @@ namespace MeshBreak
         public List<Vector3> Vertices;
         public List<Vector3> Normals;
         public List<Vector2> Uvs;
-        public List<List<int>> _subIndices;
+        public List<List<int>> SubIndices;
 
         private readonly Vector3[] _baseMeshVertices;
         private readonly Vector3[] _baseMeshNormals;
@@ -23,7 +23,7 @@ namespace MeshBreak
 
         public BreakMeshData(Vector3[] baseMeshVertices, Vector3[] baseMeshNormals, Vector2[] baseUvs)
         {
-            _subIndices = new List<List<int>>();
+            SubIndices = new List<List<int>>();
             Vertices = new List<Vector3>();
             Normals = new List<Vector3>();
             Uvs = new List<Vector2>();
@@ -38,14 +38,14 @@ namespace MeshBreak
 
         public void AddSubMesh()
         {
-            _subIndices.Add(new List<int>());
+            SubIndices.Add(new List<int>());
         }
 
         public void AddTriangle(int p1, int p2, int p3, int submesh)
         {
-            _subIndices[submesh].Add(GetOrAddVertex(p1));
-            _subIndices[submesh].Add(GetOrAddVertex(p2));
-            _subIndices[submesh].Add(GetOrAddVertex(p3));
+            SubIndices[submesh].Add(GetOrAddVertex(p1));
+            SubIndices[submesh].Add(GetOrAddVertex(p2));
+            SubIndices[submesh].Add(GetOrAddVertex(p3));
         }
 
         public void AddTriangle(TriangleData triangleData, Vector3 faceNormal, int submesh)
@@ -57,9 +57,9 @@ namespace MeshBreak
 
             int baseIndex = Vertices.Count;
 
-            _subIndices[submesh].Add(baseIndex);
-            _subIndices[submesh].Add(baseIndex + 1);
-            _subIndices[submesh].Add(baseIndex + 2);
+            SubIndices[submesh].Add(baseIndex);
+            SubIndices[submesh].Add(baseIndex + 1);
+            SubIndices[submesh].Add(baseIndex + 2);
 
             if (Vector3.Dot(calculatedNormal, faceNormal) < 0)
             {
@@ -163,10 +163,10 @@ namespace MeshBreak
             mesh.SetVertices(breakMeshData.Vertices);
             mesh.SetNormals(breakMeshData.Normals);
             mesh.SetUVs(0, breakMeshData.Uvs);
-            mesh.subMeshCount = breakMeshData._subIndices.Count;
-            for (int i = 0; i < breakMeshData._subIndices.Count; i++)
+            mesh.subMeshCount = breakMeshData.SubIndices.Count;
+            for (int i = 0; i < breakMeshData.SubIndices.Count; i++)
             {
-                mesh.SetIndices(breakMeshData._subIndices[i], MeshTopology.Triangles, i);
+                mesh.SetIndices(breakMeshData.SubIndices[i], MeshTopology.Triangles, i);
             }
 
             return mesh;

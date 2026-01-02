@@ -265,8 +265,6 @@ namespace MeshBreak.MeshCut
             Vector2 newUv1 = leftUvs[0] + (rightUvs[0] - leftUvs[0]) * t1;
             Vector3 newNormal1 = leftNormals[0] + (rightNormals[0] - leftNormals[0]) * t1;
 
-            // 新頂点郡に追加
-
             #endregion
 
             #region 新規頂点２を生成
@@ -415,13 +413,13 @@ namespace MeshBreak.MeshCut
                 _leftMeshData.AddTriangle(
                     _triangleData,
                     -_blade.normal,
-                    _leftMeshData._subIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
+                    _leftMeshData.SubIndices.Count - 1 // カット面。最後のサブメッシュとしてトライアングルを追加
                 );
 
                 _triangleData.SetVertexes(vertices[i], vertices[(i + 1) % vertices.Count], center);
                 _triangleData.SetNormals(_blade.normal, _blade.normal, _blade.normal);
                 _triangleData.SetUVs(newUV1, newUV2, new(0.5f, 0.5f));
-                _rightMeshData.AddTriangle(_triangleData, _blade.normal, _rightMeshData._subIndices.Count - 1);
+                _rightMeshData.AddTriangle(_triangleData, _blade.normal, _rightMeshData.SubIndices.Count - 1);
             }
         }
 
