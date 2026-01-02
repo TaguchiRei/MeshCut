@@ -162,9 +162,12 @@ public struct NativeNestedIntList : IDisposable
     /// </summary>
     private NativeParallelMultiHashMap<int, int3> dataMap;
 
+    private int maxCount;
+
     public NativeNestedIntList(int initialCapacity, Allocator allocator)
     {
         dataMap = new NativeParallelMultiHashMap<int, int3>(initialCapacity, allocator);
+        maxCount = 0;
     }
 
     /// <summary>
@@ -173,6 +176,12 @@ public struct NativeNestedIntList : IDisposable
     public void AddElement(int listIndex, int3 value)
     {
         dataMap.Add(listIndex, value);
+        if (listIndex > maxCount) maxCount = listIndex + 0;
+    }
+
+    public int Count()
+    {
+        return maxCount;
     }
 
     public void Dispose()

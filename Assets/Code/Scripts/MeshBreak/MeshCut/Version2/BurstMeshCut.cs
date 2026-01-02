@@ -1,56 +1,42 @@
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct BurstMeshCut
+public struct BurstMeshCut : IJob
 {
+    // --- 外部から渡すデータ ---
+    [ReadOnly] public BaseMeshData BaseMeshData;
+    public float3 BladePosition;
+    public float3 BladeNormal;
+    public int ConnectionCapacity;
+
+    // --- 結果を格納するリスト (外部で生成して渡す) ---
+    public NativeList<NativeBreakMeshData> Results;
+
+    // --- 内部ワーク用 (Execute内で初期化) ---
     private NativeBreakMeshData _leftMeshData;
     private NativeBreakMeshData _rightMeshData;
-
-    /// <summary> 切断面の頂点同士のつながりを保存する </summary>
     private NativeParallelMultiHashMap<float3, float3> _capConnections;
-
-    /// <summary> 面と重なった三角形を保存する </summary>
     private NativeParallelMultiHashMap<int, int3> _overlapTriangles;
-
-    private float3 _bladePosition;
-    private float3 _bladeNormal;
+    private NativeArray<bool> _baseVerticesSide;
+    private NativeTriangleData _triangleData;
     private float _bladeDistance;
 
-    private BaseMeshData _baseMeshData;
-
-    /// <summary> 全頂点の方向を保存する </summary>
-    private NativeArray<bool> _baseVerticesSide;
-
-    private NativeTriangleData _triangleData;
-
-
     [BurstCompile]
-    public NativeBreakMeshData[] Cut(BaseMeshData baseMesh, float3 bladePosition, float3 bladeNormal,
-        int connectionCapacity)
+    public void Cut()
     {
-        //フィールド変数初期化
-        _bladePosition = bladePosition;
-        _bladeNormal = bladeNormal;
-        _bladeDistance = -math.dot(_bladeNormal, _bladePosition);
-        _baseMeshData = baseMesh;
-        //切断後メッシュを入れる構造体の生成(数フレームかかる可能性を考慮してTempJob)
-        _leftMeshData = new NativeBreakMeshData(baseMesh, Allocator.TempJob);
-        _rightMeshData = new NativeBreakMeshData(baseMesh, Allocator.TempJob);
-        _capConnections = new NativeParallelMultiHashMap<float3, float3>(connectionCapacity, Allocator.TempJob);
-
         //すべての頂点がどちら側なのかを調べる
-        for (int i = 0; i < baseMesh.Vertices.Length; i++)
+        for (int i = 0; i < BaseMeshData.Vertices.Length; i++)
         {
-            _baseVerticesSide[i] = math.dot(baseMesh.Vertices[i] - _bladePosition, _bladeNormal) > 0f;
+            _baseVerticesSide[i] = math.dot(BaseMeshData.Vertices[i] - BladePosition, BladeNormal) > 0f;
         }
 
         //サブメッシュごとに左右を分けるためのループ
-        for (int submesh = 0; submesh < _baseMeshData.SubMeshCount; submesh++)
+        for (int submesh = 0; submesh < BaseMeshData.SubMeshCount; submesh++)
         {
-            var allTriangles = _baseMeshData.SubIndices;
+            var allTriangles = BaseMeshData.SubIndices;
 
             //サブメッシュ毎に処理を行う
             if (allTriangles.TryGetFirstValue(submesh, out int3 triangle, out var iterator))
@@ -83,17 +69,22 @@ public struct BurstMeshCut
             }
         }
 
+        _baseVerticesSide.Dispose();
+
         //切断を要する面をまとめて切断
         CutFaces();
+        //ループを作って面を埋める
+        CreateLoop();
 
-        //エラーを出さないための狩りの戻り値。完成時はBreakMeshData[]を返す
-        return default;
+        Results.Add(_leftMeshData);
+        Results.Add(_rightMeshData);
+        return;
     }
 
     [BurstCompile]
     private void CutFaces()
     {
-        for (int submesh = 0; submesh < _baseMeshData.SubMeshCount; submesh++)
+        for (int submesh = 0; submesh < BaseMeshData.SubMeshCount; submesh++)
         {
             if (_overlapTriangles.TryGetFirstValue(submesh, out int3 triangle, out var iterator))
             {
@@ -146,9 +137,9 @@ public struct BurstMeshCut
                 {
                     setLeft = true;
                     // 頂点およびUV、法線の設定
-                    leftPoints[0] = _baseMeshData.Vertices[p];
-                    leftUvs[0] = _baseMeshData.Uvs[p];
-                    leftNormals[0] = _baseMeshData.Normals[p];
+                    leftPoints[0] = BaseMeshData.Vertices[p];
+                    leftUvs[0] = BaseMeshData.Uvs[p];
+                    leftNormals[0] = BaseMeshData.Normals[p];
 
                     //アクセスされる可能性のある[1]に値を複製
                     leftPoints[1] = leftPoints[0];
@@ -158,9 +149,9 @@ public struct BurstMeshCut
                 else
                 {
                     // 2頂点目の場合は2番目に直接頂点情報を設定する
-                    leftPoints[1] = _baseMeshData.Vertices[p];
-                    leftUvs[1] = _baseMeshData.Uvs[p];
-                    leftNormals[1] = _baseMeshData.Normals[p];
+                    leftPoints[1] = BaseMeshData.Vertices[p];
+                    leftUvs[1] = BaseMeshData.Uvs[p];
+                    leftNormals[1] = BaseMeshData.Normals[p];
                 }
             }
             else
@@ -170,9 +161,9 @@ public struct BurstMeshCut
                 {
                     setRight = true;
 
-                    rightPoints[0] = _baseMeshData.Vertices[p];
-                    rightUvs[0] = _baseMeshData.Uvs[p];
-                    rightNormals[0] = _baseMeshData.Normals[p];
+                    rightPoints[0] = BaseMeshData.Vertices[p];
+                    rightUvs[0] = BaseMeshData.Uvs[p];
+                    rightNormals[0] = BaseMeshData.Normals[p];
 
                     rightPoints[1] = rightPoints[0];
                     rightUvs[1] = rightUvs[0];
@@ -180,9 +171,9 @@ public struct BurstMeshCut
                 }
                 else
                 {
-                    rightPoints[1] = _baseMeshData.Vertices[p];
-                    rightUvs[1] = _baseMeshData.Uvs[p];
-                    rightNormals[1] = _baseMeshData.Normals[p];
+                    rightPoints[1] = BaseMeshData.Vertices[p];
+                    rightUvs[1] = BaseMeshData.Uvs[p];
+                    rightNormals[1] = BaseMeshData.Normals[p];
                 }
             }
         }
@@ -190,12 +181,12 @@ public struct BurstMeshCut
         #region 新規頂点を生成
 
         float3 dir1 = rightPoints[0] - leftPoints[0];
-        float dot1 = math.dot(_bladeNormal, dir1);
+        float dot1 = math.dot(BladeNormal, dir1);
         float t1 = 0.5f;
 
         if (math.abs(dot1) > 0.000001f)
         {
-            t1 = (-math.dot(_bladeNormal, leftPoints[0]) - _bladeDistance) / dot1;
+            t1 = (-math.dot(BladeNormal, leftPoints[0]) - _bladeDistance) / dot1;
         }
 
         t1 = math.clamp(t1, 0f, 1f); // 0~1の範囲に収める
@@ -205,11 +196,11 @@ public struct BurstMeshCut
         float3 newNormal1 = leftNormals[0] + (rightNormals[0] - leftNormals[0]) * t1;
 
         float3 dir2 = rightPoints[1] - leftPoints[1];
-        float dot2 = math.dot(_bladeNormal, dir2);
+        float dot2 = math.dot(BladeNormal, dir2);
         float t2 = 0.5f;
         if (math.abs(dot2) > 0.000001f)
         {
-            t2 = (-math.dot(_bladeNormal, leftPoints[1]) - _bladeDistance) / dot2;
+            t2 = (-math.dot(BladeNormal, leftPoints[1]) - _bladeDistance) / dot2;
         }
 
         t2 = math.clamp(t2, 0f, 1f);
@@ -282,7 +273,7 @@ public struct BurstMeshCut
                 visited.Add(current);
                 float3 next = new float3(float.NaN);
                 bool foundNext = false;
-                if (_capConnections.TryGetFirstValue(key, out float3 neighbor, out var iterator))
+                if (_capConnections.TryGetFirstValue(current, out float3 neighbor, out var iterator))
                 {
                     do
                     {
@@ -313,8 +304,184 @@ public struct BurstMeshCut
         }
     }
 
+    [BurstCompile]
     private void ExecuteEarClipping(NativeList<float3> polygon)
     {
+        int vertexCount = polygon.Length;
+        if (vertexCount < 3) return;
+
+        //UV座標系を作成
+        float3 absoluteNormal = math.abs(BladeNormal);
+        float3 helper = absoluteNormal.x < 0.9f ? new float3(1, 0, 0) : new float3(0, 1, 0);
+        float3 u = math.normalize(math.cross(BladeNormal, helper));
+        float3 v = math.cross(BladeNormal, u);
+        float3 center = float3.zero;
+        for (int i = 0; i < vertexCount; i++)
+        {
+            center += polygon[i];
+        }
+
+        center /= vertexCount;
+
+        NativeArray<float2> uvPosition = new(vertexCount, Allocator.Temp);
+        for (int i = 0; i < vertexCount; i++)
+        {
+            uvPosition[i] = new(math.dot(polygon[i], u), math.dot(polygon[i], v));
+        }
+
+        int leftIndex = _leftMeshData.SubIndices.Count();
+        int rightIndex = _rightMeshData.SubIndices.Count();
+
+
+        // 3D頂点を2D座標(UV)に投影
+        float3 origin = polygon[0];
+        NativeArray<float2> points2D = new NativeArray<float2>(vertexCount, Allocator.Temp);
+        NativeList<int> activeIndices = new NativeList<int>(vertexCount, Allocator.Temp);
+
+        for (int i = 0; i < vertexCount; i++)
+        {
+            float3 rel = polygon[i] - origin;
+            points2D[i] = new float2(math.dot(rel, u), math.dot(rel, v));
+            activeIndices.Add(i);
+        }
+
+        //面積を確認し、時計回りなら反転させる
+        float area = 0;
+        for (int i = 0; i < vertexCount; i++)
+        {
+            int next = (i + 1) % vertexCount;
+            area += (points2D[i].x * points2D[next].y) - (points2D[next].x * points2D[i].y);
+        }
+
+        if (area < 0)
+        {
+            // インデックスを反転してCCW（反時計回り）として扱う
+            for (int i = 0; i < activeIndices.Length / 2; i++)
+            {
+                (activeIndices[i], activeIndices[activeIndices.Length - 1 - i]) =
+                    (activeIndices[activeIndices.Length - 1 - i], activeIndices[i]);
+            }
+        }
+
+        // 4. 耳切メインループ
+        int timeout = activeIndices.Length * 2; // 無限ループ防止用
+        while (activeIndices.Length > 3 && timeout > 0)
+        {
+            timeout--;
+            bool earFound = false;
+
+            for (int i = 0; i < activeIndices.Length; i++)
+            {
+                int prevIdx = activeIndices[GetWrappedIndex(i - 1, activeIndices.Length)];
+                int currIdx = activeIndices[i];
+                int nextIdx = activeIndices[GetWrappedIndex(i + 1, activeIndices.Length)];
+
+                if (IsEar(prevIdx, currIdx, nextIdx, activeIndices, points2D))
+                {
+                    //左側の三角形を登録
+                    _triangleData.SetVertices(polygon[prevIdx], polygon[currIdx], polygon[nextIdx]);
+                    _triangleData.SetNormals(-BladeNormal, -BladeNormal, -BladeNormal);
+                    _triangleData.SetUvs(uvPosition[prevIdx], uvPosition[currIdx], uvPosition[nextIdx]);
+                    _leftMeshData.AddTriangle(_triangleData, -BladeNormal, leftIndex);
+
+                    //右側の三角形を登録
+                    _triangleData.SetNormals(BladeNormal, BladeNormal, BladeNormal);
+                    _rightMeshData.AddTriangle(_triangleData, BladeNormal, rightIndex);
+
+                    // 耳を切り落とす
+                    activeIndices.RemoveAt(i);
+                    earFound = true;
+                    break;
+                }
+            }
+
+            if (!earFound) break;
+        }
+
+        // 最後に残った3点を追加
+        if (activeIndices.Length == 3)
+        {
+            _triangleData.SetVertices(polygon[activeIndices[0]], polygon[activeIndices[1]], polygon[activeIndices[2]]);
+            _triangleData.SetNormals(BladeNormal, BladeNormal, BladeNormal);
+            _triangleData.SetUvs(uvPosition[activeIndices[0]], uvPosition[activeIndices[1]],
+                uvPosition[activeIndices[2]]);
+            _rightMeshData.AddTriangle(_triangleData, BladeNormal, rightIndex);
+
+            _triangleData.SetNormals(-BladeNormal, -BladeNormal, -BladeNormal);
+            _leftMeshData.AddTriangle(_triangleData, -BladeNormal, leftIndex);
+        }
+
+        uvPosition.Dispose();
+        points2D.Dispose();
+        activeIndices.Dispose();
+    }
+
+
+    #region ヘルパー関数
+
+    private static int GetWrappedIndex(int i, int length) => (i % length + length) % length;
+
+    private static bool IsEar(int p, int c, int n, NativeList<int> activeIndices, NativeArray<float2> points2D)
+    {
+        float2 a = points2D[p];
+        float2 b = points2D[c];
+        float2 d = points2D[n];
+
+        // 凸判定: 外積が正なら左に曲がっている（CCWにおいて凸）
+        if ((b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x) <= 0) return false;
+
+        // 三角形内に他の頂点が含まれていないかチェック
+        for (int i = 0; i < activeIndices.Length; i++)
+        {
+            int testIdx = activeIndices[i];
+            if (testIdx == p || testIdx == c || testIdx == n) continue;
+
+            if (IsPointInTriangle(points2D[testIdx], a, b, d)) return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPointInTriangle(float2 p, float2 a, float2 b, float2 c)
+    {
+        float d1 = CrossProduct(a, b, p);
+        float d2 = CrossProduct(b, c, p);
+        float d3 = CrossProduct(c, a, p);
+        bool hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        bool hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+        return !(hasNeg && hasPos);
+    }
+
+    private static float CrossProduct(float2 a, float2 b, float2 c)
+        => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+
+    #endregion
+
+    public void Execute()
+    {
+        // 1. 内部ワーク用データの初期化 (Allocator.Temp で高速化)
+        _bladeDistance = -math.dot(BladeNormal, BladePosition);
+        _baseVerticesSide = new NativeArray<bool>(BaseMeshData.Vertices.Length, Allocator.Temp);
+        _triangleData = new NativeTriangleData();
         
+        // 結果格納用のMeshDataを初期化 (Resultsに追加するため、ここではTempを使う)
+        _leftMeshData = new NativeBreakMeshData(BaseMeshData, Allocator.Temp);
+        _rightMeshData = new NativeBreakMeshData(BaseMeshData, Allocator.Temp);
+        _capConnections = new NativeParallelMultiHashMap<float3, float3>(ConnectionCapacity, Allocator.Temp);
+        _overlapTriangles = new NativeParallelMultiHashMap<int, int3>(ConnectionCapacity, Allocator.Temp);
+
+        // 2. メインロジックの実行
+        Cut();
+
+        // 3. 結果を外部のリストに格納
+        // (注: NativeBreakMeshDataが内部でNativeArrayを持つ場合、
+        // 呼び出し側で適切にDisposeできるようコピー管理に注意してください)
+        Results.Add(_leftMeshData);
+        Results.Add(_rightMeshData);
+
+        // 4. 解放 (Allocator.Tempなので自動ですが明示的に)
+        _baseVerticesSide.Dispose();
+        _capConnections.Dispose();
+        _overlapTriangles.Dispose();
     }
 }
