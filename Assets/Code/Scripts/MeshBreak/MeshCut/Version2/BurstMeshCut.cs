@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -82,6 +83,9 @@ public struct BurstMeshCut
             }
         }
 
+        //切断を要する面をまとめて切断
+        CutFaces();
+
         //エラーを出さないための狩りの戻り値。完成時はBreakMeshData[]を返す
         return default;
     }
@@ -98,6 +102,7 @@ public struct BurstMeshCut
                     var p1 = triangle.x;
                     var p2 = triangle.y;
                     var p3 = triangle.z;
+                    CutFace(submesh, p1, p2, p3);
                 } while (_overlapTriangles.TryGetNextValue(out triangle, ref iterator));
             }
         }
@@ -206,6 +211,7 @@ public struct BurstMeshCut
         {
             t2 = (-math.dot(_bladeNormal, leftPoints[1]) - _bladeDistance) / dot2;
         }
+
         t2 = math.clamp(t2, 0f, 1f);
 
         float3 newVertex2 = leftPoints[1] + dir2 * t2;
@@ -254,5 +260,61 @@ public struct BurstMeshCut
         rightPoints.Dispose();
         rightNormals.Dispose();
         rightUvs.Dispose();
+    }
+
+    [BurstCompile]
+    private void CreateLoop()
+    {
+        NativeList<float3> visited = new(20, Allocator.Temp);
+        using var keys = _capConnections.GetKeyArray(Allocator.Temp);
+
+        for (int i = 0; i < keys.Length; i++)
+        {
+            var key = keys[i];
+            if (visited.Contains(key)) continue;
+            NativeList<float3> polygon = new(Allocator.Temp);
+            float3 current = key;
+            bool loopClosed = false;
+
+            while (true)
+            {
+                polygon.Add(current);
+                visited.Add(current);
+                float3 next = new float3(float.NaN);
+                bool foundNext = false;
+                if (_capConnections.TryGetFirstValue(key, out float3 neighbor, out var iterator))
+                {
+                    do
+                    {
+                        if (!visited.Contains(neighbor))
+                        {
+                            next = neighbor;
+                            foundNext = true;
+                            break;
+                        }
+                        // もし隣接が「開始地点」ならループ完成
+                        else if (neighbor.Equals(key) && polygon.Length > 2)
+                        {
+                            loopClosed = true;
+                        }
+                    } while (_capConnections.TryGetNextValue(out neighbor, ref iterator));
+                }
+
+                if (!foundNext) break;
+                current = next;
+            }
+
+            if (polygon.Length > 3)
+            {
+                ExecuteEarClipping(polygon);
+            }
+
+            polygon.Dispose();
+        }
+    }
+
+    private void ExecuteEarClipping(NativeList<float3> polygon)
+    {
+        
     }
 }
