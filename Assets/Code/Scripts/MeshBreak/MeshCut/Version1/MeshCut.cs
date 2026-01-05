@@ -163,6 +163,8 @@ namespace MeshBreak.MeshCut
             // 新規生成したマテリアルリストをそれぞれのオブジェクトに適用する
 #if UNITY_EDITOR
             Debug.Log($"オブジェクト生成完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
+            Debug.Log(
+                $"左側 addCount{_leftMeshData.AddCount}　getCount{_leftMeshData.GetCount}\n右側 addCount{_rightMeshData.AddCount} getCount{_rightMeshData.GetCount}");
             stopwatch.Stop();
 #endif
 

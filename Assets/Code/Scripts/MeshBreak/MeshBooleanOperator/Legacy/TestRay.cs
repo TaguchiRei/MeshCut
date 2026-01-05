@@ -26,7 +26,7 @@ public class TestRay : MonoBehaviour
         Gizmos.color = Color.blue;
         Gizmos.DrawLine(_rayStartPos.transform.position, _rayEndPos.transform.position);
 
-        TriangleData triangle = new TriangleData();
+        TriangleData triangle = new();
         triangle.SetVertexes(_triangle[0].transform.position, _triangle[1].transform.position,
             _triangle[2].transform.position);
         var isHit = MeshCalculationSupport.RayCast(triangle, _rayStartPos.transform.position,

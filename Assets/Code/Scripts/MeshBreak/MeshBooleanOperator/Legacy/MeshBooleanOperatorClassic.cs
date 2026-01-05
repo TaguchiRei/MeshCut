@@ -30,7 +30,7 @@ namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 
         private bool[] _baseVerticesIsInside;
 
-        private TriangleData _triangleData;
+        private NativeVertexData _triangleData;
 
 
         [MethodExecutor("BooleanTest", false)]

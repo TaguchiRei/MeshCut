@@ -21,6 +21,10 @@ namespace MeshBreak
         /// <summary> 追加した頂点の配列。重複追加の防止</summary>
         private readonly int[] _addVerticesArray;
 
+
+        public int AddCount = 0;
+        public int GetCount = 0;
+
         public BreakMeshData(Vector3[] baseMeshVertices, Vector3[] baseMeshNormals, Vector2[] baseUvs)
         {
             SubIndices = new List<List<int>>();
@@ -35,8 +39,7 @@ namespace MeshBreak
             _addVerticesArray = new int[baseMeshVertices.Length];
             Array.Fill(_addVerticesArray, -1);
         }
-        
-        
+
 
         public void AddSubMesh()
         {
@@ -100,11 +103,7 @@ namespace MeshBreak
         /// <returns></returns>
         private int GetOrAddVertex(int index)
         {
-            if (_addVerticesArray[index] != -1)
-            {
-                return _addVerticesArray[index];
-            }
-
+            AddCount++;
             int newIndex = Vertices.Count;
             _addVerticesArray[index] = newIndex;
             Vertices.Add(_baseMeshVertices[index]);
