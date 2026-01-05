@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -17,11 +16,10 @@ public class BurstPrime : MonoBehaviour
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-        int maxNumber = 50; // 例: 1~50までの素数判定
         NativeList<int> primes = new NativeList<int>(Allocator.Temp);
 
         // Burst Direct Call
-        PrimeUtility.GetPrimesUpTo(maxNumber, ref primes);
+        PrimeUtility.GetPrimesUpTo(_checkNum, ref primes);
 
         List<int> a = new List<int>(primes.Length);
         for (int i = 0; i < primes.Length; i++)
@@ -32,7 +30,7 @@ public class BurstPrime : MonoBehaviour
         primes.Dispose();
 
         stopwatch.Stop();
-        Debug.Log($"{stopwatch.ElapsedMilliseconds} ms");
+        Debug.Log($"{stopwatch.ElapsedMilliseconds} ms \n {string.Join(" ", a)}");
     }
 }
 

@@ -8,21 +8,27 @@ using UnityEngine;
 namespace UsefllAttribute
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class MethodExecutorAttribute : Attribute
+    public class MethodExecutorAttribute : System.Attribute
     {
         public string ButtonName { get; }
         public bool CanExecuteInEditMode { get; }
 
-        public MethodExecutorAttribute(string buttonName = "テスト" , bool canExecuteInEditMode = false)
+        public MethodExecutorAttribute(string buttonName , bool canExecuteInEditMode)
         {
             ButtonName = buttonName;
             CanExecuteInEditMode = canExecuteInEditMode;
+        }
+
+        public MethodExecutorAttribute()
+        {
+            ButtonName = "Test";
+            CanExecuteInEditMode = false;
         }
     }
 
 
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class InspectorButtonEditor : Editor
+    public class InspectorButtonEditor : UnityEditor.Editor
     {
         #if UNITY_EDITOR
         public override void OnInspectorGUI()

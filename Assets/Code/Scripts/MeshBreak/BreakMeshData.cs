@@ -35,6 +35,8 @@ namespace MeshBreak
             _addVerticesArray = new int[baseMeshVertices.Length];
             Array.Fill(_addVerticesArray, -1);
         }
+        
+        
 
         public void AddSubMesh()
         {
@@ -143,33 +145,6 @@ namespace MeshBreak
             UV0 = uv0;
             UV1 = uv1;
             UV2 = uv2;
-        }
-    }
-
-    public static class BreakMeshDataUtil
-    {
-        public static Mesh ToMesh(BreakMeshData breakMeshData, string meshName = "mesh")
-        {
-            Mesh mesh = new()
-            {
-                name = meshName
-            };
-
-            if (breakMeshData.Vertices.Count > 65535)
-            {
-                mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            }
-
-            mesh.SetVertices(breakMeshData.Vertices);
-            mesh.SetNormals(breakMeshData.Normals);
-            mesh.SetUVs(0, breakMeshData.Uvs);
-            mesh.subMeshCount = breakMeshData.SubIndices.Count;
-            for (int i = 0; i < breakMeshData.SubIndices.Count; i++)
-            {
-                mesh.SetIndices(breakMeshData.SubIndices[i], MeshTopology.Triangles, i);
-            }
-
-            return mesh;
         }
     }
 }

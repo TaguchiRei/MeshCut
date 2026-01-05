@@ -33,7 +33,7 @@ namespace Code.Scripts.MeshBreak.MeshBooleanOperator
         private TriangleData _triangleData;
 
 
-        [MethodExecutor]
+        [MethodExecutor("BooleanTest", false)]
         private void Test()
         {
             Boolean(_target, _target2, _capMat).Forget();

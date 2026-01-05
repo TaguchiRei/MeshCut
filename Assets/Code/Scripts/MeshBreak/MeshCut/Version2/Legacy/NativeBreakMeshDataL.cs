@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 
 /// <summary>
 /// 破壊したメッシュのデータを保持するための構造体
 /// </summary>
-public struct NativeBreakMeshData : IDisposable
+public struct NativeBreakMeshDataL : IDisposable
 {
     public NativeList<float3> Vertices;
     public NativeList<float3> Normals;
@@ -20,7 +21,7 @@ public struct NativeBreakMeshData : IDisposable
 
     private NativeArray<int> _addVerticesArray;
 
-    public NativeBreakMeshData(BaseMeshData baseMeshData, Allocator allocator)
+    public NativeBreakMeshDataL(BaseMeshData baseMeshData, Allocator allocator)
     {
         Vertices = new NativeList<float3>(allocator);
         Normals = new NativeList<float3>(allocator);
@@ -116,6 +117,16 @@ public struct BaseMeshData
     public NativeArray<float2> Uvs;
     public NativeParallelMultiHashMap<int, int3> SubIndices;
     public int SubMeshCount;
+
+    public BaseMeshData(NativeArray<float3> vertices, NativeArray<float3> normals, NativeArray<float2> uvs,
+        NativeParallelMultiHashMap<int, int3> subIndices, int subMeshCount)
+    {
+        Vertices = vertices;
+        Normals = normals;
+        Uvs = uvs;
+        SubIndices = subIndices;
+        SubMeshCount = subMeshCount;
+    }
 }
 
 public struct NativeTriangleData
@@ -176,7 +187,23 @@ public struct NativeNestedIntList : IDisposable
     public void AddElement(int listIndex, int3 value)
     {
         dataMap.Add(listIndex, value);
-        if (listIndex > maxCount) maxCount = listIndex + 0;
+        if (listIndex > maxCount) maxCount = listIndex;
+    }
+
+    public NativeArray<int3> GetElements(int listIndex, Allocator allocator)
+    {
+        // 特定のサブメッシュの三角形数をカウント
+        int count = dataMap.CountValuesForKey(listIndex);
+        NativeArray<int3> result = new NativeArray<int3>(count, allocator);
+
+        int i = 0;
+        
+        foreach (var value in dataMap.GetValuesForKey(listIndex))
+        {
+            result[i++] = value;
+        }
+
+        return result;
     }
 
     public int Count()

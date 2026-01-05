@@ -136,7 +136,7 @@ namespace MeshBreak.MeshCut
 
             if (_leftMeshData.Vertices.Count >= 2)
             {
-                Mesh leftMesh = BreakMeshDataUtil.ToMesh(_leftMeshData, "Split Mesh Right");
+                Mesh leftMesh = MeshDataSupport.ToMesh(_leftMeshData, "Split Mesh Right");
 
                 var leftResult = _cutObjectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
@@ -146,7 +146,7 @@ namespace MeshBreak.MeshCut
                 Debug.Log($"左側頂点数 {_leftMeshData.Vertices.Count}");
             }
 
-            Mesh rightMesh = BreakMeshDataUtil.ToMesh(_leftMeshData, "Split Mesh Left");
+            Mesh rightMesh = MeshDataSupport.ToMesh(_rightMeshData, "Split Mesh Left");
 
             var result = _cutObjectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
             if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
