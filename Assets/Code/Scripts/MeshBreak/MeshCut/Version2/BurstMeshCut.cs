@@ -14,7 +14,7 @@ public class BurstMeshCut : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
 
-    [MethodExecutor]
+    [MethodExecutor("DirectCallTest", false)]
     public void Cut()
     {
         Stopwatch allTime = new Stopwatch();
@@ -23,6 +23,7 @@ public class BurstMeshCut : MonoBehaviour
         #region 必要配列やリストを初期化する
 
         var mesh = _cutObj.GetComponent<MeshFilter>().mesh;
+        var blade = new NativePlane(transform.position, transform.up);
         NativeArray<float3> verts = new(mesh.vertices.Length, Allocator.TempJob);
         NativeArray<float3> normals = new(mesh.normals.Length, Allocator.TempJob);
         NativeArray<float2> uvs = new(mesh.uv.Length, Allocator.TempJob);
@@ -44,7 +45,9 @@ public class BurstMeshCut : MonoBehaviour
 
         #region 調べる処理
 
-        NativeArray<bool> result = new NativeArray<bool>(verts.Length, Allocator.TempJob);
+        NativeArray<int> result = new(verts.Length, Allocator.TempJob);
+
+        BurstGetSide.CalculateDirect(verts, blade, ref result);
 
         stopwatch.Stop();
 
@@ -157,5 +160,17 @@ public struct BurstGetSide : IJobParallelFor
     public void Execute(int index)
     {
         VertsSide[index] = Blade.GetSide(Vertices[index]);
+    }
+
+    [BurstCompile]
+    public static void CalculateDirect(
+        [ReadOnly] in NativeArray<float3> verts,
+        in NativePlane blade,
+        ref NativeArray<int> result)
+    {
+        for (int i = 0; i < verts.Length; i++)
+        {
+            result[i] = blade.GetSide(verts[i]);
+        }
     }
 }
