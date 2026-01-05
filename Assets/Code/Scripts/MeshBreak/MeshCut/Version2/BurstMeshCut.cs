@@ -1,5 +1,5 @@
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -10,8 +10,7 @@ using Debug = UnityEngine.Debug;
 public class BurstMeshCut : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
-
-
+    
     [MethodExecutor]
     public void Cut()
     {
@@ -85,8 +84,15 @@ public static class BurstCutUtility
             results[i] = math.dot(vertices[i] - bladePos, bladeNormal) > 0f;
         }
     }
+}
 
-    public static void Cut(BurstMeshData baseMeshData, float3 bladePos, float3 bladeNormal, int connectionCapacity)
+public class Hoge
+{
+    private void Test(int a, int b, int c, int id, ref List<List<int>> list)
     {
+        //abcはそれぞれ結果を1がtrue、0がfalseになるよう数学的に求めた結果が入っている
+        
+        int result = a + b + c;
+        list[result].Add(id);
     }
 }

@@ -93,6 +93,11 @@ namespace MeshBreak
             }
         }
 
+        /// <summary>
+        /// 頂点追加時の重複防止を行う
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         private int GetOrAddVertex(int index)
         {
             if (_addVerticesArray[index] != -1)

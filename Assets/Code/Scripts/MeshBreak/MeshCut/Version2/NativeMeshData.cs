@@ -1,14 +1,14 @@
 using Unity.Collections;
 using Unity.Mathematics;
 
-public struct BurstMeshData
+public struct NativeMeshData
 {
     public NativeList<float3> Vertices;
     public NativeList<float3> Normals;
     public NativeList<float2> Uvs;
     public NativeList<SubmeshTriangleData> SubMesh;
 
-    public BurstMeshData(
+    public NativeMeshData(
         NativeList<float3> vertices, NativeList<float3> normals, NativeList<float2> uvs,
         NativeList<SubmeshTriangleData> subMesh)
     {
