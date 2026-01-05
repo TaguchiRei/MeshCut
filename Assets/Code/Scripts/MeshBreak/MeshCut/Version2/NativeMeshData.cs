@@ -27,3 +27,21 @@ public struct SubmeshTriangleData
 
     public int SubmeshId;
 }
+
+public struct NativePlane
+{
+    public float3 Position;
+    public float3 Normal;
+
+    /// <summary>
+    /// 面の法線方向にあれば
+    /// </summary>
+    /// <param name="position"></param>
+    /// <returns></returns>
+    public readonly int GetSide(float3 position)
+    {
+        float d = math.dot(position - Position, Normal);
+        return d > 0.0f ? 1 : 0;
+        // return math.select(0, 1, d > 0);
+    }
+}

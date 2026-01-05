@@ -10,7 +10,7 @@ using Debug = UnityEngine.Debug;
 public class BurstMeshCut : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
-    
+
     [MethodExecutor]
     public void Cut()
     {
@@ -74,6 +74,26 @@ public static class BurstCutUtility
 {
     [BurstCompile(OptimizeFor = OptimizeFor.Performance, FloatPrecision = FloatPrecision.Low,
         FloatMode = FloatMode.Fast)]
+    public static void GetTriangleSide(
+        [ReadOnly] in NativeMeshData baseMesh,
+        in NativePlane blade)
+    {
+        int vertCount = baseMesh.Vertices.Length;
+        
+        //各種頂点が面に対してどの方向にあるのかを調べる
+        NativeArray<int> vertsSide = new(vertCount, Allocator.TempJob);
+        for (int i = 0; i < baseMesh.Vertices.Length; i++)
+        {
+            vertsSide[i] = blade.GetSide(baseMesh.Vertices[i]);
+        }
+        
+        //各面が面に対してどの位置にあるのかを調べる
+        
+        
+    }
+
+    [BurstCompile(OptimizeFor = OptimizeFor.Performance, FloatPrecision = FloatPrecision.Low,
+        FloatMode = FloatMode.Fast)]
     public static void GetSide(
         [ReadOnly] in NativeArray<float3> vertices,
         in float3 bladePos, in float3 bladeNormal,
@@ -91,7 +111,7 @@ public class Hoge
     private void Test(int a, int b, int c, int id, ref List<List<int>> list)
     {
         //abcはそれぞれ結果を1がtrue、0がfalseになるよう数学的に求めた結果が入っている
-        
+
         int result = a + b + c;
         list[result].Add(id);
     }
