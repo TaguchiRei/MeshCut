@@ -1,35 +1,57 @@
+using System;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 /// <summary>
 /// データを渡す、あるいは受け取るときのフォーマット
 /// </summary>
-public struct NativeMeshData
+public struct NativeMeshData : IDisposable
+{
+    public NativeArray<float3> Vertices;
+    public NativeArray<float3> Normals;
+    public NativeArray<float2> Uvs;
+    public NativeList<SubmeshTriangleData> SubMesh;
+
+    public readonly int SubMeshCount;
+
+
+    public NativeMeshData(int vertexCount, int subMeshCount)
+    {
+        Vertices = new(vertexCount, Allocator.Persistent);
+        Normals = new(vertexCount, Allocator.Persistent);
+        Uvs = new(vertexCount, Allocator.Persistent);
+        SubMesh = new(vertexCount * subMeshCount, Allocator.Persistent);
+        SubMeshCount = subMeshCount;
+    }
+
+    public void Dispose()
+    {
+        Vertices.Dispose();
+        Normals.Dispose();
+        Uvs.Dispose();
+        SubMesh.Dispose();
+    }
+}
+
+/// <summary>
+/// マルチスレッドからの書き込みを要するときに使用する
+/// </summary>
+public struct NativeMeshDataParallel : IDisposable
 {
     public NativeParallelHashMap<int, float3> Vertices;
     public NativeParallelHashMap<int, float3> Normals;
     public NativeParallelHashMap<int, float2> Uvs;
     public NativeList<SubmeshTriangleData> SubMesh;
 
-    public int SubMeshCount;
-
-
-    public NativeMeshData(
-        NativeParallelHashMap<int, float3> vertices,
-        NativeParallelHashMap<int, float3> normals,
-        NativeParallelHashMap<int, float2> uvs,
-        NativeList<SubmeshTriangleData> subMesh, int subMeshCount)
+    public NativeMeshDataParallel(int vertexCount, int submeshCount, Allocator allocator)
     {
-        Vertices = vertices;
-        Normals = normals;
-        Uvs = uvs;
-        SubMesh = subMesh;
-        SubMeshCount = subMeshCount;
+        Vertices = new(vertexCount, allocator);
+        Normals = new(vertexCount, allocator);
+        Uvs = new(vertexCount, allocator);
+        SubMesh = new(vertexCount * submeshCount, allocator);
     }
 
-    /// <summary>
-    /// マルチスレッドからの書き込みを要するときに使用する
-    /// </summary>
     public struct ParallelWriter
     {
         public NativeParallelHashMap<int, float3>.ParallelWriter Vertices;
@@ -37,16 +59,12 @@ public struct NativeMeshData
         public NativeParallelHashMap<int, float2>.ParallelWriter Uvs;
         public NativeList<SubmeshTriangleData>.ParallelWriter SubMesh;
 
-        public ParallelWriter(
-            NativeParallelHashMap<int, float3>.ParallelWriter vertices,
-            NativeParallelHashMap<int, float3>.ParallelWriter normals,
-            NativeParallelHashMap<int, float2>.ParallelWriter uvs,
-            NativeList<SubmeshTriangleData>.ParallelWriter subMesh)
+        public ParallelWriter(NativeMeshDataParallel owner)
         {
-            Vertices = vertices;
-            Normals = normals;
-            Uvs = uvs;
-            SubMesh = subMesh;
+            Vertices = owner.Vertices.AsParallelWriter();
+            Normals = owner.Normals.AsParallelWriter();
+            Uvs = owner.Uvs.AsParallelWriter();
+            SubMesh = owner.SubMesh.AsParallelWriter();
         }
 
         /// <summary>
@@ -91,6 +109,16 @@ public struct NativeMeshData
                 SubmeshId = submesh
             });
         }
+    }
+
+    public ParallelWriter GetParallelWriter() => new ParallelWriter(this);
+
+    public void Dispose()
+    {
+        Vertices.Dispose();
+        Normals.Dispose();
+        Uvs.Dispose();
+        SubMesh.Dispose();
     }
 }
 
@@ -145,7 +173,7 @@ public struct NativeTriangleDetailData
     public int Submesh;
     public int SoloVertex;
 
-    public NativeTriangleDetailData(NativeVertexData v0, NativeVertexData v1, NativeVertexData v2, 
+    public NativeTriangleDetailData(NativeVertexData v0, NativeVertexData v1, NativeVertexData v2,
         int submesh, int soloVertex)
     {
         V0 = v0;

@@ -13,9 +13,10 @@ using Debug = UnityEngine.Debug;
 public class BurstMeshCut : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
+    [SerializeField] private int _quantizationPrecision = 10000;
 
     [MethodExecutor("DirectCallTest", false)]
-    public void Cut()
+    public void DirectCallTest()
     {
         Stopwatch allTime = new Stopwatch();
         allTime.Start();
@@ -24,48 +25,52 @@ public class BurstMeshCut : MonoBehaviour
 
         var mesh = _cutObj.GetComponent<MeshFilter>().mesh;
         var blade = new NativePlane(transform.position, transform.up);
-        NativeArray<float3> verts = new(mesh.vertices.Length, Allocator.TempJob);
-        NativeArray<float3> normals = new(mesh.normals.Length, Allocator.TempJob);
-        NativeArray<float2> uvs = new(mesh.uv.Length, Allocator.TempJob);
-        NativeParallelMultiHashMap<int, int3> subIndices = new(mesh.vertices.Length * mesh.subMeshCount,
-            Allocator.TempJob);
-        MeshDataSupport.ReadMeshDataSafely(mesh, verts, normals, uvs, subIndices);
+        NativeMeshData baseMesh = new NativeMeshData(mesh.vertexCount, mesh.subMeshCount);
+        NativeMeshDataUtility.ReadMeshDataSafely(
+            mesh, baseMesh.Vertices, baseMesh.Normals, baseMesh.Uvs, baseMesh.SubMesh);
         float3 pos = new(gameObject.transform.position.x, gameObject.transform.position.y,
             gameObject.transform.position.z);
         float3 normal = new(gameObject.transform.up.x, gameObject.transform.up.y, gameObject.transform.up.z);
 
         #endregion
 
-        #region 処理タイマー初期化
-
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        #endregion
-
         #region 調べる処理
 
-        NativeArray<int> result = new(verts.Length, Allocator.TempJob);
+        Stopwatch individualStopwatch = new Stopwatch();
+        NativeArray<int> vertSide = new(baseMesh.Vertices.Length, Allocator.Persistent);
+        BurstGetSide.CalculateDirect(baseMesh.Vertices, blade, ref vertSide);
 
-        BurstGetSide.CalculateDirect(verts, blade, ref result);
+        Debug.Log($"頂点左右分け所要時間{individualStopwatch.ElapsedMilliseconds}ms {vertSide[0]}");
 
-        stopwatch.Stop();
+        individualStopwatch.Restart();
 
-        #endregion
+        NativeMeshDataParallel frontSideMesh =
+            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+        NativeMeshDataParallel backSideMesh =
+            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+        NativeList<NativeTriangleDetailData> overlapFront =
+            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+        NativeList<NativeTriangleDetailData> overlapBack =
+            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
 
-        #region 結果出力
 
-        Debug.Log($"完了 処理時間{stopwatch.ElapsedMilliseconds}ms");
+        BurstGetFaceDirection.CalculateFaceDirectionDirect(
+            baseMesh, vertSide, _quantizationPrecision,
+            frontSideMesh.GetParallelWriter(), backSideMesh.GetParallelWriter(),
+            overlapFront.AsParallelWriter(), overlapBack.AsParallelWriter());
+
+        Debug.Log($"面左右分け所要時間{individualStopwatch.ElapsedMilliseconds}ms \n overlapFront{overlapFront.Length}");
 
         #endregion
 
         #region 必要配列やリストを破棄する
 
-        verts.Dispose();
-        normals.Dispose();
-        uvs.Dispose();
-        subIndices.Dispose();
-        result.Dispose();
+        frontSideMesh.Dispose();
+        backSideMesh.Dispose();
+        overlapFront.Dispose();
+        overlapBack.Dispose();
+        baseMesh.Dispose();
+        vertSide.Dispose();
 
         #endregion
 
@@ -88,59 +93,73 @@ public class BurstMeshCut : MonoBehaviour
 
         var mesh = _cutObj.GetComponent<MeshFilter>().mesh;
         var blade = new NativePlane(transform.position, transform.up);
-        NativeArray<float3> verts = new(mesh.vertices.Length, Allocator.TempJob);
-        NativeArray<float3> normals = new(mesh.normals.Length, Allocator.TempJob);
-        NativeArray<float2> uvs = new(mesh.uv.Length, Allocator.TempJob);
-        NativeParallelMultiHashMap<int, int3> subIndices = new(mesh.vertices.Length * mesh.subMeshCount,
-            Allocator.TempJob);
-        MeshDataSupport.ReadMeshDataSafely(mesh, verts, normals, uvs, subIndices);
+        NativeMeshData baseMesh = new NativeMeshData(mesh.vertexCount, mesh.subMeshCount);
+        NativeMeshDataUtility.ReadMeshDataSafely(
+            mesh, baseMesh.Vertices, baseMesh.Normals, baseMesh.Uvs, baseMesh.SubMesh);
         float3 pos = new(gameObject.transform.position.x, gameObject.transform.position.y,
             gameObject.transform.position.z);
         float3 normal = new(gameObject.transform.up.x, gameObject.transform.up.y, gameObject.transform.up.z);
 
         #endregion
 
-        #region 処理タイマー初期化
-
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
-
-        #endregion
-
         #region 調べる処理
 
-        NativeArray<int> result = new(verts.Length, Allocator.TempJob);
-        var job = new BurstGetSide
+        Stopwatch individualStopwatch = new Stopwatch();
+        individualStopwatch.Start();
+
+        NativeArray<int> result = new(baseMesh.Vertices.Length, Allocator.Persistent);
+        var getSideJob = new BurstGetSide
         {
-            Vertices = verts,
+            Vertices = baseMesh.Vertices,
             Blade = blade,
             VertsSide = result,
         };
 
-        var jobHandle = job.Schedule(verts.Length, 64);
+        var jobHandle = getSideJob.Schedule(baseMesh.Vertices.Length, 64);
 
         await UniTask.WaitUntil(() => jobHandle.IsCompleted);
         jobHandle.Complete();
 
-        Debug.Log($"TaskComplete  FirstResult:{result[0]}");
+        Debug.Log($"頂点左右分け所要時間 {individualStopwatch.ElapsedMilliseconds}ms FirstResult:{result[0]}");
 
-        stopwatch.Stop();
+        individualStopwatch.Restart();
 
-        #endregion
+        NativeMeshDataParallel frontSideMesh =
+            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+        NativeMeshDataParallel backSideMesh =
+            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+        NativeList<NativeTriangleDetailData> overlapFront =
+            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+        NativeList<NativeTriangleDetailData> overlapBack =
+            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
 
-        #region 結果出力
+        var getSideFaceJob = new BurstGetFaceDirection
+        {
+            BaseMesh = baseMesh,
+            VerticesSide = getSideJob.VertsSide,
+            Quantize = _quantizationPrecision,
+            FrontSideMesh = frontSideMesh.GetParallelWriter(),
+            BackSideMesh = backSideMesh.GetParallelWriter(),
+            OverlapFrontDominant = overlapFront.AsParallelWriter(),
+            OverlapBackDominant = overlapBack.AsParallelWriter(),
+        };
 
-        Debug.Log($"完了 処理時間{stopwatch.ElapsedMilliseconds}ms");
+        jobHandle = getSideFaceJob.Schedule(baseMesh.SubMesh.Length, 64);
+        await UniTask.WaitUntil(() => jobHandle.IsCompleted);
+        jobHandle.Complete();
+
+        Debug.Log($"面左右分け所要時間{individualStopwatch.ElapsedMilliseconds}ms {overlapBack.Length}");
 
         #endregion
 
         #region 必要配列やリストを破棄する
 
-        verts.Dispose();
-        normals.Dispose();
-        uvs.Dispose();
-        subIndices.Dispose();
+        baseMesh.Dispose();
         result.Dispose();
+        frontSideMesh.Dispose();
+        backSideMesh.Dispose();
+        overlapFront.Dispose();
+        overlapBack.Dispose();
 
         #endregion
 
