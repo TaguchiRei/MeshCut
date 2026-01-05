@@ -85,9 +85,9 @@ public struct NativeMeshData
             // 3. 三角形データの登録
             SubMesh.AddNoResize(new SubmeshTriangleData
             {
-                Index1 = k1,
-                Index2 = k2,
-                Index3 = k3,
+                Index0 = k1,
+                Index1 = k2,
+                Index2 = k3,
                 SubmeshId = submesh
             });
         }
@@ -105,9 +105,9 @@ public struct GridVertexData
 /// </summary>
 public struct SubmeshTriangleData
 {
+    public int Index0;
     public int Index1;
     public int Index2;
-    public int Index3;
 
     public int SubmeshId;
 }
@@ -134,6 +134,25 @@ public struct NativeVertexData
 
         // 3. 最終的な1つのハッシュ値にまとめる
         return (int)math.hash(new uint4(h1, h2, h3, (uint)submesh));
+    }
+}
+
+public struct NativeTriangleDetailData
+{
+    public NativeVertexData V0;
+    public NativeVertexData V1;
+    public NativeVertexData V2;
+    public int Submesh;
+    public int SoloVertex;
+
+    public NativeTriangleDetailData(NativeVertexData v0, NativeVertexData v1, NativeVertexData v2, 
+        int submesh, int soloVertex)
+    {
+        V0 = v0;
+        V1 = v1;
+        V2 = v2;
+        Submesh = submesh;
+        SoloVertex = soloVertex;
     }
 }
 
