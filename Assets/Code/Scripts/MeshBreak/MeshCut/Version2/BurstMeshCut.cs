@@ -14,6 +14,7 @@ public class BurstMeshCut : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
     [SerializeField] private int _quantizationPrecision = 10000;
+    [SerializeField] private int _lnnerLoopBatchCount = 64;
 
     [MethodExecutor("DirectCallTest", false)]
     public void DirectCallTest()
@@ -117,7 +118,7 @@ public class BurstMeshCut : MonoBehaviour
             VertsSide = result,
         };
 
-        var jobHandle = getSideJob.Schedule(baseMesh.Vertices.Length, 64);
+        var jobHandle = getSideJob.Schedule(baseMesh.Vertices.Length, _lnnerLoopBatchCount);
 
         await UniTask.WaitUntil(() => jobHandle.IsCompleted);
         jobHandle.Complete();
@@ -147,7 +148,7 @@ public class BurstMeshCut : MonoBehaviour
             OverlapBackDominant = overlapBack.AsParallelWriter(),
         };
 
-        jobHandle = getSideFaceJob.Schedule(baseMesh.SubMesh.Length, 64);
+        jobHandle = getSideFaceJob.Schedule(baseMesh.SubMesh.Length, _lnnerLoopBatchCount);
         await UniTask.WaitUntil(() => jobHandle.IsCompleted);
         jobHandle.Complete();
 
