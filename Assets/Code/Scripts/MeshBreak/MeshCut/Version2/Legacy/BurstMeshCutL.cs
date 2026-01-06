@@ -1,4 +1,5 @@
-using Unity.Burst;
+
+/*using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -485,3 +486,4 @@ public struct BurstMeshCutL : IJob
         _overlapTriangles.Dispose();
     }
 }
+*/

@@ -1,3 +1,4 @@
+/*
 using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Burst;
@@ -106,3 +107,4 @@ public static class BurstMeshCutUtil
     {
     }
 }
+*/

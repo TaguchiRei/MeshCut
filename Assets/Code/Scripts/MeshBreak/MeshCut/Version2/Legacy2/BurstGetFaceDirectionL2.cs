@@ -1,20 +1,19 @@
+/*
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.Rendering.Universal;
 
-public struct BurstGetFaceDirection : IJobParallelFor
+[BurstCompile]
+public struct BurstGetFaceDirectionL2 : IJobParallelFor
 {
-    [ReadOnly] public NativeMeshData BaseMesh;
     [ReadOnly] public NativeArray<int> VerticesSide;
+    public NativeMeshDataL2 BaseMesh;
     public int Quantize;
 
-    public NativeMeshDataParallel.ParallelWriter FrontSideMesh;
-    public NativeMeshDataParallel.ParallelWriter BackSideMesh;
-    public NativeList<NativeTriangleDetailData>.ParallelWriter OverlapFrontDominant;
-    public NativeList<NativeTriangleDetailData>.ParallelWriter OverlapBackDominant;
+    public NativeMeshDataParallel FrontSideMesh;
+    public NativeMeshDataParallel BackSideMesh;
+    public NativeList<NativeTriangleDetailData> OverlapFrontDominant;
+    public NativeList<NativeTriangleDetailData> OverlapBackDominant;
 
     /// <summary>
     /// サブメッシュ配列の長さ分実行させる
@@ -52,10 +51,10 @@ public struct BurstGetFaceDirection : IJobParallelFor
         switch (count)
         {
             case 0:
-                BackSideMesh.AddTriangle(v0, v1, v2, submeshData.SubmeshId, Quantize);
+                BackSideMesh.GetParallelWriter().AddTriangle(v0, v1, v2, submeshData.SubmeshId, Quantize);
                 break;
             case 111:
-                FrontSideMesh.AddTriangle(v0, v1, v2, submeshData.SubmeshId, Quantize);
+                FrontSideMesh.GetParallelWriter().AddTriangle(v0, v1, v2, submeshData.SubmeshId, Quantize);
                 break;
             //以下孤立している頂点が表側の時
             case 100:
@@ -82,7 +81,7 @@ public struct BurstGetFaceDirection : IJobParallelFor
 
     [BurstCompile]
     public static void CalculateFaceDirectionDirect(
-        in NativeMeshData baseMesh,
+        in NativeMeshDataL2 baseMesh,
         [ReadOnly] NativeArray<int> verticesSide,
         int quantize,
         NativeMeshDataParallel.ParallelWriter frontSideMesh,
@@ -133,4 +132,4 @@ public struct BurstGetFaceDirection : IJobParallelFor
             }
         }
     }
-}
+}*/

@@ -1,3 +1,4 @@
+/*
 using System;
 using Unity.Collections;
 using Unity.Jobs;
@@ -6,7 +7,7 @@ using Unity.Mathematics;
 /// <summary>
 /// データを渡す、あるいは受け取るときのフォーマット
 /// </summary>
-public struct NativeMeshData : IDisposable
+public struct NativeMeshDataL2 : IDisposable
 {
     public NativeArray<float3> Vertices;
     public NativeArray<float3> Normals;
@@ -16,13 +17,12 @@ public struct NativeMeshData : IDisposable
     public readonly int SubMeshCount;
 
 
-    public NativeMeshData(int vertexCount, int subMeshCount)
+    public NativeMeshDataL2(int vertexCount, int subMeshCount)
     {
-        var worstCase = vertexCount * subMeshCount;
-        Vertices = new(worstCase, Allocator.Persistent);
-        Normals = new(worstCase, Allocator.Persistent);
-        Uvs = new(worstCase, Allocator.Persistent);
-        SubMesh = new(worstCase, Allocator.Persistent);
+        Vertices = new(vertexCount, Allocator.TempJob);
+        Normals = new(vertexCount, Allocator.TempJob);
+        Uvs = new(vertexCount, Allocator.TempJob);
+        SubMesh = new(subMeshCount * vertexCount, Allocator.TempJob);
         SubMeshCount = subMeshCount;
     }
 
@@ -46,7 +46,7 @@ public struct NativeMeshDataParallel : IDisposable
     public NativeMeshDataParallel(int vertexCapacity, int submeshCapacity, Allocator allocator)
     {
         Vertices = new(vertexCapacity, allocator);
-        SubMesh = new(vertexCapacity * submeshCapacity, allocator);
+        SubMesh = new(vertexCapacity, allocator);
     }
 
     public struct ParallelWriter
@@ -193,3 +193,4 @@ public struct NativePlane
         // return math.select(0, 1, d > 0);
     }
 }
+*/

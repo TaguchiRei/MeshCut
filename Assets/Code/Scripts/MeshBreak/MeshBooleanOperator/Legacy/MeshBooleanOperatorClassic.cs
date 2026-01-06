@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using MeshBreak;
@@ -30,7 +29,7 @@ namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 
         private bool[] _baseVerticesIsInside;
 
-        private NativeVertexData _triangleData;
+        private TriangleData _triangleData;
 
 
         [MethodExecutor("BooleanTest", false)]

@@ -1,3 +1,4 @@
+/*
 using System;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -216,3 +217,4 @@ public struct NativeNestedIntList : IDisposable
         }
     }
 }
+*/

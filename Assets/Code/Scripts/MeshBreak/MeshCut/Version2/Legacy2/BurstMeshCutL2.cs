@@ -1,7 +1,6 @@
-using System.Collections.Generic;
+/*
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
-using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -10,7 +9,7 @@ using UnityEngine;
 using UsefllAttribute;
 using Debug = UnityEngine.Debug;
 
-public class BurstMeshCut : MonoBehaviour
+public class BurstMeshCutL2 : MonoBehaviour
 {
     [SerializeField] private GameObject _cutObj;
     [SerializeField] private int _quantizationPrecision = 10000;
@@ -26,7 +25,7 @@ public class BurstMeshCut : MonoBehaviour
 
         var mesh = _cutObj.GetComponent<MeshFilter>().mesh;
         var blade = new NativePlane(transform.position, transform.up);
-        NativeMeshData baseMesh = new NativeMeshData(mesh.vertexCount, mesh.subMeshCount);
+        NativeMeshDataL2 baseMesh = new NativeMeshDataL2(mesh.vertexCount, mesh.subMeshCount);
         NativeMeshDataUtility.ReadMeshDataSafely(
             mesh, baseMesh.Vertices, baseMesh.Normals, baseMesh.Uvs, baseMesh.SubMesh);
         float3 pos = new(gameObject.transform.position.x, gameObject.transform.position.y,
@@ -39,8 +38,8 @@ public class BurstMeshCut : MonoBehaviour
 
         Stopwatch individualStopwatch = new Stopwatch();
         individualStopwatch.Start();
-        NativeArray<int> vertSide = new(baseMesh.Vertices.Length, Allocator.Persistent);
-        BurstGetSide.CalculateDirect(baseMesh.Vertices, blade, ref vertSide);
+        NativeArray<int> vertSide = new(baseMesh.Vertices.Length, Allocator.TempJob);
+        BurstGetSide.CalculateDirect(baseMesh.Vertices, blade,  vertSide);
 
         Debug.Log($"頂点左右分け所要時間{individualStopwatch.ElapsedMilliseconds}ms {vertSide[0]}");
 
@@ -48,16 +47,16 @@ public class BurstMeshCut : MonoBehaviour
 
         int triangleCount = baseMesh.SubMesh.Length;
         NativeMeshDataParallel frontSideMesh =
-            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.TempJob);
         NativeMeshDataParallel backSideMesh =
-            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.TempJob);
         NativeList<NativeTriangleDetailData> overlapFront =
-            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.TempJob);
         NativeList<NativeTriangleDetailData> overlapBack =
-            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.TempJob);
 
 
-        BurstGetFaceDirection.CalculateFaceDirectionDirect(
+        BurstGetFaceDirectionL2.CalculateFaceDirectionDirect(
             baseMesh, vertSide, _quantizationPrecision,
             frontSideMesh.GetParallelWriter(), backSideMesh.GetParallelWriter(),
             overlapFront.AsParallelWriter(), overlapBack.AsParallelWriter());
@@ -96,7 +95,7 @@ public class BurstMeshCut : MonoBehaviour
 
         var mesh = _cutObj.GetComponent<MeshFilter>().mesh;
         var blade = new NativePlane(transform.position, transform.up);
-        NativeMeshData baseMesh = new NativeMeshData(mesh.vertexCount, mesh.subMeshCount);
+        NativeMeshDataL2 baseMesh = new NativeMeshDataL2(mesh.vertexCount, mesh.subMeshCount);
         NativeMeshDataUtility.ReadMeshDataSafely(
             mesh, baseMesh.Vertices, baseMesh.Normals, baseMesh.Uvs, baseMesh.SubMesh);
         float3 pos = new(gameObject.transform.position.x, gameObject.transform.position.y,
@@ -110,7 +109,7 @@ public class BurstMeshCut : MonoBehaviour
         Stopwatch individualStopwatch = new Stopwatch();
         individualStopwatch.Start();
 
-        NativeArray<int> result = new(baseMesh.Vertices.Length, Allocator.Persistent);
+        NativeArray<int> result = new(baseMesh.Vertices.Length, Allocator.TempJob);
         var getSideJob = new BurstGetSide
         {
             Vertices = baseMesh.Vertices,
@@ -129,23 +128,23 @@ public class BurstMeshCut : MonoBehaviour
 
         int triangleCount = baseMesh.SubMesh.Length;
         NativeMeshDataParallel frontSideMesh =
-            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.TempJob);
         NativeMeshDataParallel backSideMesh =
-            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.TempJob);
         NativeList<NativeTriangleDetailData> overlapFront =
-            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.TempJob);
         NativeList<NativeTriangleDetailData> overlapBack =
-            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.TempJob);
 
-        var getSideFaceJob = new BurstGetFaceDirection
+        var getSideFaceJob = new BurstGetFaceDirectionL2
         {
             BaseMesh = baseMesh,
             VerticesSide = getSideJob.VertsSide,
             Quantize = _quantizationPrecision,
-            FrontSideMesh = frontSideMesh.GetParallelWriter(),
-            BackSideMesh = backSideMesh.GetParallelWriter(),
-            OverlapFrontDominant = overlapFront.AsParallelWriter(),
-            OverlapBackDominant = overlapBack.AsParallelWriter(),
+            FrontSideMesh = frontSideMesh,
+            BackSideMesh = backSideMesh,
+            OverlapFrontDominant = overlapFront,
+            OverlapBackDominant = overlapBack,
         };
 
         jobHandle = getSideFaceJob.Schedule(baseMesh.SubMesh.Length, _lnnerLoopBatchCount);
@@ -182,18 +181,19 @@ public struct BurstGetSide : IJobParallelFor
 
     public void Execute(int index)
     {
-        VertsSide[index] = Blade.GetSide(Vertices[index]);
+        VertsSide[index] = math.dot(Vertices[index] - Blade.Position, Blade.Normal) > 0.0f ? 1 : 0;
     }
 
     [BurstCompile]
     public static void CalculateDirect(
-        [ReadOnly] in NativeArray<float3> verts,
-        in NativePlane blade,
-        ref NativeArray<int> result)
+        NativeArray<float3> verts,
+        NativePlane blade,
+        NativeArray<int> result)
     {
         for (int i = 0; i < verts.Length; i++)
         {
-            result[i] = blade.GetSide(verts[i]);
+            result[i] = math.dot(verts[i] - blade.Position, blade.Normal) > 0.0f ? 1 : 0;
         }
     }
 }
+*/
