@@ -7,7 +7,7 @@ using Random = UnityEngine.Random;
 
 namespace MeshBreak
 {
-    public class BreakableObject : MonoBehaviour
+    public class BreakableObjectL : MonoBehaviour
     {
         public List<Vector3> CutFaceVertices { get; private set; }
         public MeshFilter MeshFilter;

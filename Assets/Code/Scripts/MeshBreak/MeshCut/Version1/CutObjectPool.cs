@@ -34,7 +34,7 @@ public class CutObjectPool : MonoBehaviour
     {
         if (_preCutPool.Count > 0)
         {
-            var cuttable = _preCutPool[0].GetComponent<BreakableObject>();
+            var cuttable = _preCutPool[0].GetComponent<MeshBreak.BreakableObjectL>();
             _preCutPool.RemoveAt(0);
             cuttable.SetParentHash(baseObject.GetInstanceID());
             cuttable.transform.position = baseObject.transform.position;
