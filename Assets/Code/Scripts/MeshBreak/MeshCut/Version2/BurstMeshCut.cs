@@ -37,6 +37,7 @@ public class BurstMeshCut : MonoBehaviour
         #region 調べる処理
 
         Stopwatch individualStopwatch = new Stopwatch();
+        individualStopwatch.Start();
         NativeArray<int> vertSide = new(baseMesh.Vertices.Length, Allocator.Persistent);
         BurstGetSide.CalculateDirect(baseMesh.Vertices, blade, ref vertSide);
 
@@ -44,14 +45,15 @@ public class BurstMeshCut : MonoBehaviour
 
         individualStopwatch.Restart();
 
+        int triangleCount = baseMesh.SubMesh.Length;
         NativeMeshDataParallel frontSideMesh =
-            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
         NativeMeshDataParallel backSideMesh =
-            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
         NativeList<NativeTriangleDetailData> overlapFront =
-            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
         NativeList<NativeTriangleDetailData> overlapBack =
-            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
 
 
         BurstGetFaceDirection.CalculateFaceDirectionDirect(
@@ -124,14 +126,15 @@ public class BurstMeshCut : MonoBehaviour
 
         individualStopwatch.Restart();
 
+        int triangleCount = baseMesh.SubMesh.Length;
         NativeMeshDataParallel frontSideMesh =
-            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
         NativeMeshDataParallel backSideMesh =
-            new NativeMeshDataParallel(baseMesh.Vertices.Length, baseMesh.SubMeshCount, Allocator.Persistent);
+            new NativeMeshDataParallel(triangleCount * 3, baseMesh.SubMeshCount, Allocator.Persistent);
         NativeList<NativeTriangleDetailData> overlapFront =
-            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
         NativeList<NativeTriangleDetailData> overlapBack =
-            new NativeList<NativeTriangleDetailData>(baseMesh.Vertices.Length, Allocator.Persistent);
+            new NativeList<NativeTriangleDetailData>(triangleCount, Allocator.Persistent);
 
         var getSideFaceJob = new BurstGetFaceDirection
         {

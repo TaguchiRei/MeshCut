@@ -18,10 +18,11 @@ public struct NativeMeshData : IDisposable
 
     public NativeMeshData(int vertexCount, int subMeshCount)
     {
-        Vertices = new(vertexCount, Allocator.Persistent);
-        Normals = new(vertexCount, Allocator.Persistent);
-        Uvs = new(vertexCount, Allocator.Persistent);
-        SubMesh = new(vertexCount * subMeshCount, Allocator.Persistent);
+        var worstCase = vertexCount * subMeshCount;
+        Vertices = new(worstCase, Allocator.Persistent);
+        Normals = new(worstCase, Allocator.Persistent);
+        Uvs = new(worstCase, Allocator.Persistent);
+        SubMesh = new(worstCase, Allocator.Persistent);
         SubMeshCount = subMeshCount;
     }
 
@@ -39,31 +40,23 @@ public struct NativeMeshData : IDisposable
 /// </summary>
 public struct NativeMeshDataParallel : IDisposable
 {
-    public NativeParallelHashMap<int, float3> Vertices;
-    public NativeParallelHashMap<int, float3> Normals;
-    public NativeParallelHashMap<int, float2> Uvs;
+    public NativeList<VertexData> Vertices;
     public NativeList<SubmeshTriangleData> SubMesh;
 
-    public NativeMeshDataParallel(int vertexCount, int submeshCount, Allocator allocator)
+    public NativeMeshDataParallel(int vertexCapacity, int submeshCapacity, Allocator allocator)
     {
-        Vertices = new(vertexCount, allocator);
-        Normals = new(vertexCount, allocator);
-        Uvs = new(vertexCount, allocator);
-        SubMesh = new(vertexCount * submeshCount, allocator);
+        Vertices = new(vertexCapacity, allocator);
+        SubMesh = new(vertexCapacity * submeshCapacity, allocator);
     }
 
     public struct ParallelWriter
     {
-        public NativeParallelHashMap<int, float3>.ParallelWriter Vertices;
-        public NativeParallelHashMap<int, float3>.ParallelWriter Normals;
-        public NativeParallelHashMap<int, float2>.ParallelWriter Uvs;
+        public NativeList<VertexData>.ParallelWriter Vertices;
         public NativeList<SubmeshTriangleData>.ParallelWriter SubMesh;
 
         public ParallelWriter(NativeMeshDataParallel owner)
         {
             Vertices = owner.Vertices.AsParallelWriter();
-            Normals = owner.Normals.AsParallelWriter();
-            Uvs = owner.Uvs.AsParallelWriter();
             SubMesh = owner.SubMesh.AsParallelWriter();
         }
 
@@ -82,25 +75,10 @@ public struct NativeMeshDataParallel : IDisposable
             int k2 = NativeVertexData.GenerateKey(v2, submesh, quantizationPrecision);
             int k3 = NativeVertexData.GenerateKey(v3, submesh, quantizationPrecision);
 
-            if (Vertices.TryAdd(k1, v1.Vertex))
-            {
-                Normals.TryAdd(k1, v1.Normal);
-                Uvs.TryAdd(k1, v1.Uv);
-            }
+            Vertices.AddNoResize(new(k1, v1.Vertex, v1.Normal, v1.Uv));
+            Vertices.AddNoResize(new(k2, v2.Vertex, v2.Normal, v2.Uv));
+            Vertices.AddNoResize(new(k3, v3.Vertex, v3.Normal, v3.Uv));
 
-            if (Vertices.TryAdd(k2, v2.Vertex))
-            {
-                Normals.TryAdd(k2, v2.Normal);
-                Uvs.TryAdd(k2, v2.Uv);
-            }
-
-            if (Vertices.TryAdd(k3, v3.Vertex))
-            {
-                Normals.TryAdd(k3, v3.Normal);
-                Uvs.TryAdd(k3, v3.Uv);
-            }
-
-            // 3. 三角形データの登録
             SubMesh.AddNoResize(new SubmeshTriangleData
             {
                 Index0 = k1,
@@ -116,16 +94,24 @@ public struct NativeMeshDataParallel : IDisposable
     public void Dispose()
     {
         Vertices.Dispose();
-        Normals.Dispose();
-        Uvs.Dispose();
         SubMesh.Dispose();
     }
-}
 
-public struct GridVertexData
-{
-    public float3 Position;
-    public int OriginalIndex;
+    public struct VertexData
+    {
+        public int Id;
+        public float3 Position;
+        public float3 Normal;
+        public float2 Uv;
+
+        public VertexData(int id, float3 position, float3 normal, float2 uv)
+        {
+            Id = id;
+            Position = position;
+            Normal = normal;
+            Uv = uv;
+        }
+    }
 }
 
 /// <summary>
