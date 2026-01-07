@@ -4,58 +4,65 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct TriangleGetSideJob : IJobParallelFor
+public struct TriangleGetSideJob : IJob
 {
-    NativeArray<int3> ListStartLengthID;
-    public NativeArray<float3> Vertices;
-    public NativeArray<float3> Normals;
-    public NativeArray<float2> Uvs;
-    public NativeArray<int3> TrianglesStartLengthID;
+    //元メッシュデータを入力
+    public NativeArray<int3> TrianglesStartLengthId;
     public NativeArray<SubmeshTriangle> Triangles;
 
-    public NativeArray<int> VerticesSpace;
+    //ほかのJobで取得した値を代入
+    public NativeArray<int> VerticesSide;
 
-    //必要数のVertexDataをnewして割り当てておく。長さは元の頂点数と同じ数にしておく
-    public NativeArray<TriangleData> CutFaceToNotCutFaces;
+    /// <summary> 各三角形がどの配列に入るかを保存している。 </summary>
+    public NativeArray<int> TrianglesArrayNumber;
 
-    public void Execute(int index)
+    /// <summary> 各配列の長さと開始地点を保存している </summary>
+    public NativeArray<int2> LengthAndStart;
+
+    //長さはTrianglesと同じでOK
+    public NativeArray<TriangleData> TrianglePositions;
+    public NativeArray<int3> ResultTrianglesStartLengthId;
+
+    public void Execute()
     {
-        //三角形の各頂点のインデックスを取得するのに必要
-        SubmeshTriangle triangle = Triangles[index];
+        NativeArray<int> length = new NativeArray<int>(8, Allocator.Temp);
 
-        var v0 = new VertexData()
+        for (int i = 0; i < Triangles.Length; i++)
         {
-            ObjectId = ListStartLengthID[triangle.Index0].z,
-            SpaceId = VerticesSpace[triangle.Index0],
-            SubmeshId = triangle.SubmeshIndex,
-            Position = triangle.Index0,
-            Normal = triangle.Index0,
-            Uv = triangle.Index0,
-        };
+            //三角形の各頂点のインデックスを取得するのに必要
+            SubmeshTriangle triangle = Triangles[i];
 
-        var v1 = new VertexData()
-        {
-            ObjectId = ListStartLengthID[triangle.Index1].z,
-            SpaceId = VerticesSpace[triangle.Index1],
-            SubmeshId = triangle.SubmeshIndex,
-            Position = triangle.Index1,
-            Normal = triangle.Index1,
-            Uv = triangle.Index1
-        };
+            var v0 = new VertexData()
+            {
+                ObjectId = TrianglesStartLengthId[triangle.Index0].z,
+                SpaceId = VerticesSide[triangle.Index0],
+                SubmeshId = triangle.SubmeshIndex,
+                VertexId = triangle.Index0,
+            };
 
-        var v2 = new VertexData()
-        {
-            ObjectId = ListStartLengthID[triangle.Index2].z,
-            SpaceId = VerticesSpace[triangle.Index2],
-            SubmeshId = triangle.SubmeshIndex,
-            Position = triangle.Index2,
-            Normal = triangle.Index2,
-            Uv = triangle.Index2
-        };
+            var v1 = new VertexData()
+            {
+                ObjectId = TrianglesStartLengthId[triangle.Index1].z,
+                SpaceId = VerticesSide[triangle.Index1],
+                SubmeshId = triangle.SubmeshIndex,
+                VertexId = triangle.Index1,
+            };
 
-        // すべて同じであれば0になるビット演算で同じ面空間にいるかどうかを調べる
-        int needCutBit = (v0.SpaceId == v1.SpaceId && v1.SpaceId == v2.SpaceId) ? 0 : 1;
-        int writeIndex = index + needCutBit * Vertices.Length;
-        CutFaceToNotCutFaces[writeIndex] = new TriangleData(v0, v1, v2);
+            var v2 = new VertexData()
+            {
+                ObjectId = TrianglesStartLengthId[triangle.Index2].z,
+                SpaceId = VerticesSide[triangle.Index2],
+                SubmeshId = triangle.SubmeshIndex,
+                VertexId = triangle.Index2,
+            };
+
+            var baseIndex = LengthAndStart[TrianglesArrayNumber[i]];
+            var index = baseIndex.x + length[baseIndex.y];
+
+            TrianglePositions[index] = new TriangleData(v0, v1, v2);
+            ResultTrianglesStartLengthId[index] = 
+            
+            length[baseIndex.y]++;
+        }
     }
 }

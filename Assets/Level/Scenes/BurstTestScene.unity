@@ -331,7 +331,7 @@ GameObject:
   - component: {fileID: 729338987}
   - component: {fileID: 729338986}
   - component: {fileID: 729338985}
-  - component: {fileID: 729338984}
+  - component: {fileID: 729338989}
   m_Layer: 0
   m_Name: MeshCutTest
   m_TagString: Untagged
@@ -339,20 +339,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &729338984
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 729338983}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e39f76f6e04592d4890bb67848b3c6ce, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _cutObj: {fileID: 45379601}
-  _quantizationPrecision: 10000
 --- !u!64 &729338985
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -443,6 +429,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &729338989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729338983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54c743d6ec6a2334084241edd53a8330, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CutObject: {fileID: 45379601}
 --- !u!1001 &1121597654
 PrefabInstance:
   m_ObjectHideFlags: 0
