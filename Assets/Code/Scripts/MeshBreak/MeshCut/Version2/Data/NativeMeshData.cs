@@ -9,8 +9,8 @@ using UnityEngine.Rendering;
 /// </summary>
 public struct NativeMeshData : IDisposable
 {
-    public int HashCode => CalculateMeshHash();
-    
+    public readonly int HashCode;
+
     private NativeArray<float3> _vertices;
     private NativeArray<float3> _normals;
     private NativeArray<float2> _uvs;
@@ -66,10 +66,7 @@ public struct NativeMeshData : IDisposable
         {
             meshDataArray.Dispose();
         }
-    }
-
-    public int CalculateMeshHash()
-    {
+        
         unchecked
         {
             int hash = 17;
@@ -81,7 +78,34 @@ public struct NativeMeshData : IDisposable
                 hash = hash * 31 + _uvs[i].GetHashCode();
             for (int i = 0; i < _triangles.Length; i++)
                 hash = hash * 31 + _triangles[i].GetHashCode();
-            return hash;
+            HashCode = hash;
+        }
+    }
+
+    public NativeMeshData(NativeEditMeshData editMeshData)
+    {
+        _vertices = new NativeArray<float3>(editMeshData.Vertices.Length, Allocator.Persistent);
+        _normals = new NativeArray<float3>(editMeshData.Normals.Length, Allocator.Persistent);
+        _uvs = new NativeArray<float2>(editMeshData.Uvs.Length, Allocator.Persistent);
+        _triangles = new NativeArray<SubmeshTriangle>(editMeshData.Triangles.Length, Allocator.Persistent);
+
+        NativeArray<float3>.Copy(editMeshData.Vertices, _vertices);
+        NativeArray<float3>.Copy(editMeshData.Normals, _normals);
+        NativeArray<float2>.Copy(editMeshData.Uvs, _uvs);
+        NativeArray<SubmeshTriangle>.Copy(editMeshData.Triangles, _triangles);
+
+        unchecked
+        {
+            int hash = 17;
+            for (int i = 0; i < _vertices.Length; i++)
+                hash = hash * 31 + _vertices[i].GetHashCode();
+            for (int i = 0; i < _normals.Length; i++)
+                hash = hash * 31 + _normals[i].GetHashCode();
+            for (int i = 0; i < _uvs.Length; i++)
+                hash = hash * 31 + _uvs[i].GetHashCode();
+            for (int i = 0; i < _triangles.Length; i++)
+                hash = hash * 31 + _triangles[i].GetHashCode();
+            HashCode = hash;
         }
     }
 

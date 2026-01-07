@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 public class MeshDataHolder
 {
     private readonly Dictionary<int, MeshCounterData> _meshData = new();
 
-    public void AddMeshData(NativeMeshData meshData)
+    public int AddMeshData(Mesh mesh)
     {
+        var meshData = new NativeMeshData(mesh);
         var hash = meshData.HashCode;
         if (_meshData.TryGetValue(hash, out var data))
         {
@@ -15,6 +17,8 @@ public class MeshDataHolder
         {
             _meshData[hash] = new(meshData);
         }
+
+        return _meshData[hash].MeshData.HashCode;
     }
 
     public bool TryGetMeshData(int hashCode, out NativeMeshData meshData)

@@ -7,7 +7,8 @@ public struct SubmeshTriangle : IEquatable<SubmeshTriangle>
 
     public bool Equals(SubmeshTriangle other)
     {
-        return Index0 == other.Index0 && Index1 == other.Index1 && Index2 == other.Index2 && SubmeshIndex == other.SubmeshIndex;
+        return Index0 == other.Index0 && Index1 == other.Index1 && Index2 == other.Index2 &&
+               SubmeshIndex == other.SubmeshIndex;
     }
 
     public override bool Equals(object obj)
