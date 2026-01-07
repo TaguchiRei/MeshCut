@@ -5,5 +5,8 @@ using UnityEngine;
 /// </summary>
 public class BurstMeshCutScheduler
 {
-    
+    public void Cut(Plane[] planes, int[] hashCodeArray)
+    {
+        
+    }
 }
