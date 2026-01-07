@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -14,11 +14,14 @@ public class MeshDataRegistory : MonoBehaviour
 
     private void Start()
     {
+        _meshDataHolder = new();
+        _cutMeshDataHolder = new();
+
         var breakableObjects = GetComponentsInChildren<BreakableObject>();
 
         for (int i = 0; i < breakableObjects.Length; i++)
         {
-            _meshDataHolder.AddMeshData(breakableObjects[i].BreakableMesh);
+            breakableObjects[i].HashCode = _meshDataHolder.AddMeshData(breakableObjects[i].BreakableMesh);
         }
     }
 
@@ -46,8 +49,14 @@ public class MeshDataRegistory : MonoBehaviour
     /// </summary>
     /// <param name="meshData"></param>
     /// <returns>メッシュデータのhash</returns>
-    public int AddCutMesh(NativeEditMeshData meshData)
+    public int AddCutMesh(NativeMeshData meshData)
     {
         return _cutMeshDataHolder.AddMeshData(meshData);
+    }
+
+    private void OnDestroy()
+    {
+        _meshDataHolder.Dispose();
+        _cutMeshDataHolder.Dispose();
     }
 }

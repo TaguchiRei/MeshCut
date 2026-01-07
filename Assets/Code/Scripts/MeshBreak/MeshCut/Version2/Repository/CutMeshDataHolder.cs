@@ -1,27 +1,40 @@
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 
-public class CutMeshDataHolder
+public class CutMeshDataHolder : IDisposable
 {
-    Dictionary<int, NativeMeshData> _meshData = new();
+    Dictionary<int, NativeMeshUsingCheck> _meshData = new();
 
-    public void AddMeshData(Mesh mesh)
+    private class NativeMeshUsingCheck
     {
-        var meshData = new NativeMeshData(mesh);
-        var hash = meshData.HashCode;
-        _meshData.TryAdd(hash, meshData);
+        public NativeMeshData NativeMeshData;
+        public bool IsUsing;
+
+        public NativeMeshUsingCheck(NativeMeshData nativeMeshData)
+        {
+            NativeMeshData = nativeMeshData;
+            IsUsing = false;
+        }
     }
 
-    public int AddMeshData(NativeEditMeshData editMeshData)
+    public int AddMeshData(NativeMeshData editMeshData)
     {
         var meshData = new NativeMeshData(editMeshData);
-        _meshData[meshData.HashCode] = meshData;
+        _meshData[meshData.HashCode] = new(meshData);
         return meshData.HashCode;
     }
 
     public bool TryGetMeshData(int hashCode, out NativeMeshData meshData)
     {
-        return _meshData.TryGetValue(hashCode, out meshData);
+        if (_meshData.TryGetValue(hashCode, out var data) && !data.IsUsing)
+        {
+            meshData = data.NativeMeshData;
+            data.IsUsing = true;
+            return true;
+        }
+
+        meshData = default;
+        return false;
     }
 
     /// <summary>
@@ -33,7 +46,16 @@ public class CutMeshDataHolder
     {
         if (_meshData.TryGetValue(hashCode, out var data))
         {
-            data.Dispose();
+            data.NativeMeshData.Dispose();
+            _meshData.Remove(hashCode);
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var valueTuple in _meshData)
+        {
+            valueTuple.Value.NativeMeshData.Dispose();
         }
     }
 }

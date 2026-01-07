@@ -1,7 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MeshDataHolder
+public class MeshDataHolder : IDisposable
 {
     private readonly Dictionary<int, MeshCounterData> _meshData = new();
 
@@ -58,5 +59,13 @@ public class MeshDataHolder
         }
 
         return true;
+    }
+
+    public void Dispose()
+    {
+        foreach (var meshCounterData in _meshData)
+        {
+            meshCounterData.Value.MeshData.Dispose();
+        }
     }
 }
