@@ -21,7 +21,8 @@ public class MeshDataRegistory : MonoBehaviour, INativeMeshRepository
 
         for (int i = 0; i < breakableObjects.Length; i++)
         {
-            breakableObjects[i].HashCode = _meshDataHolder.AddMeshData(breakableObjects[i].BreakableMesh);
+            breakableObjects[i].HashCode =
+                _meshDataHolder.AddMeshData(breakableObjects[i].BreakableMesh, breakableObjects[i].transform);
         }
     }
 

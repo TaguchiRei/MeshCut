@@ -6,9 +6,9 @@ public class MeshDataHolder : IDisposable
 {
     private readonly Dictionary<int, MeshCounterData> _meshData = new();
 
-    public int AddMeshData(Mesh mesh)
+    public int AddMeshData(Mesh mesh, Transform transform)
     {
-        var meshData = new NativeMeshData(mesh);
+        var meshData = new NativeMeshData(mesh, transform);
         var hash = meshData.HashCode;
         if (_meshData.TryGetValue(hash, out var data))
         {

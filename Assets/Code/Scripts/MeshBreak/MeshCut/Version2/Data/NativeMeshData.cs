@@ -24,12 +24,14 @@ public class NativeMeshData : IDisposable
     public NativeArray<SubmeshTriangle> Triangles => _triangles;
     public Transform Transform => _transform;
 
-    public NativeMeshData(Mesh mesh)
+    public NativeMeshData(Mesh mesh, Transform transform)
     {
         _vertices = new NativeArray<float3>(mesh.vertexCount, Allocator.Persistent);
         _normals = new NativeArray<float3>(mesh.vertexCount, Allocator.Persistent);
         _uvs = new NativeArray<float2>(mesh.vertexCount, Allocator.Persistent);
         _triangles = new NativeArray<SubmeshTriangle>(mesh.triangles.Length / 3, Allocator.Persistent);
+
+        _transform = transform;
 
         Mesh.MeshDataArray meshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
         try

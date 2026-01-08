@@ -7,13 +7,17 @@ using Debug = UnityEngine.Debug;
 
 public class TestCutScaduler : MonoBehaviour
 {
+    [SerializeField] private int _batchCount = 64;
     [SerializeField] private GameObject[] _cutObject;
 
     private NativeMeshData[] _nativeMeshData;
     private NativePlane _blade;
 
+    private BurstMeshCutScheduler _scheduler;
+
     public void Start()
     {
+        _scheduler = new BurstMeshCutScheduler();
         Stopwatch stopwatch = Stopwatch.StartNew();
         // L3設計: 事前にNativeArrayへキャッシュ済み。Allocator.Persistent。
 
@@ -21,7 +25,8 @@ public class TestCutScaduler : MonoBehaviour
 
         for (int i = 0; i < _cutObject.Length; i++)
         {
-            _nativeMeshData[i] = new NativeMeshData(_cutObject[i].GetComponent<MeshFilter>().mesh);
+            _nativeMeshData[i] =
+                new NativeMeshData(_cutObject[i].GetComponent<MeshFilter>().mesh, _cutObject[i].transform);
         }
 
         _blade = new NativePlane(transform.position, transform.up);
@@ -31,43 +36,7 @@ public class TestCutScaduler : MonoBehaviour
     [MethodExecutor]
     public void TestMeshCutBurst()
     {
-        #region 各種配列統合
-
-        int arrayLength = 0;
-
-        int trianglesLength = 0;
-        for (int i = 0; i < _nativeMeshData.Length; i++)
-        {
-            trianglesLength += _nativeMeshData[i].Triangles.Length;
-        }
-
-        NativeEditMeshData editMeshData = new NativeEditMeshData();
-        editMeshData.Vertices = new NativeList<float3>(arrayLength, Allocator.Temp);
-        editMeshData.Normals = new NativeList<float3>(arrayLength, Allocator.Temp);
-        editMeshData.Uvs = new NativeList<float2>(arrayLength, Allocator.Temp);
-        editMeshData.Triangles = new NativeList<SubmeshTriangle>(trianglesLength, Allocator.Temp);
-        editMeshData.TrianglesStartLengthID = new NativeList<int3>(_nativeMeshData.Length, Allocator.Temp);
-
-        for (int i = 0; i < _nativeMeshData.Length; i++)
-        {
-            editMeshData.Vertices.AddRange(_nativeMeshData[i].Vertices);
-            editMeshData.Normals.AddRange(_nativeMeshData[i].Normals);
-            editMeshData.Uvs.AddRange(_nativeMeshData[i].Uvs);
-        }
-
-        int start = 0;
-        for (int i = 0; i < _nativeMeshData.Length; i++)
-        {
-            editMeshData.Triangles.AddRange(_nativeMeshData[i].Triangles);
-            editMeshData.TrianglesStartLengthID.Add(new(start, _nativeMeshData[i].Triangles.Length, i));
-            start += _nativeMeshData[i].Triangles.Length;
-        }
-
-        #endregion
-
-        #region MeshDataOffsetJob
-
-        #endregion
+        _scheduler.Cut(_blade, _nativeMeshData, _batchCount);
     }
 
     private void OnDestroy()
@@ -75,7 +44,7 @@ public class TestCutScaduler : MonoBehaviour
         foreach (var nativeMeshData in _nativeMeshData)
         {
             if (nativeMeshData.Vertices.IsCreated)
-                nativeMeshData.Vertices.Dispose();
+                nativeMeshData.Dispose();
         }
     }
 }
