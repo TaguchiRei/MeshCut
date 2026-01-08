@@ -178,7 +178,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b8a4009fb3480b740aa7e36bb2ae6e87, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -441,10 +441,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c743d6ec6a2334084241edd53a8330, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _batchCount: 64
   _cutObject:
   - {fileID: 45379601}
   - {fileID: 1255497339}
   - {fileID: 1010211685}
+  - {fileID: 1800620118}
 --- !u!1001 &1010211684
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -763,6 +765,11 @@ MonoBehaviour:
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
+--- !u!1 &1800620118 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: b8a4009fb3480b740aa7e36bb2ae6e87, type: 3}
+  m_PrefabInstance: {fileID: 45395676}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2123423892
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,3 +1,4 @@
+using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -6,23 +7,20 @@ using Unity.Mathematics;
 [BurstCompile]
 public struct TriangleSideCountJob : IJob
 {
-    public NativeArray<SubmeshTriangle> Triangles;
-    public NativeArray<int> VertexSide;
+    [ReadOnly] public NativeArray<SubmeshTriangle> Triangles;
+    [ReadOnly] public NativeArray<int> VertexSide;
 
     public NativeArray<int2> LengthAndStart;
-    public NativeArray<int> TrianglesArrayNumber;
+    [WriteOnly] public NativeArray<int> TrianglesArrayNumber;
 
     public void Execute()
     {
-        //各三角形配列の長さと開始位置を取得
         for (int i = 0; i < Triangles.Length; i++)
         {
             var triangle = Triangles[i];
             int countIndex = (VertexSide[triangle.Index0] << 2) |
                              (VertexSide[triangle.Index1] << 1) |
                              (VertexSide[triangle.Index2] << 0);
-
-            TrianglesArrayNumber[i] = countIndex;
             /*
              * 0,0,0 → 0 切断面の裏側配列に入れる
              * 0,0,1 → 1 孤立がv2表面配列に入れる
@@ -33,8 +31,9 @@ public struct TriangleSideCountJob : IJob
              * 1,1,0 → 6 孤立がv2裏面配列に入れる
              * 1,1,1 → 7 切断面の表側配列に入れる
              */
-
+            //各配列の長さを保存
             LengthAndStart[countIndex] = new int2(LengthAndStart[countIndex].x + 1, 0);
+            TrianglesArrayNumber[i] = countIndex;
         }
         
         //各配列の開始位置を設定

@@ -7,7 +7,6 @@ using Unity.Mathematics;
 public struct BladeInitializeJob : IJobParallelFor
 {
     [ReadOnly] public NativePlane Blade;
-    [ReadOnly] public NativeArray<float3> Vertices;
 
     [ReadOnly] public NativeArray<float3> Positions;
     [ReadOnly] public NativeArray<quaternion> Quaternions;

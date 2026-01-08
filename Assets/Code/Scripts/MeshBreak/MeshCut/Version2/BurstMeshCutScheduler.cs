@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
@@ -11,6 +10,8 @@ using Debug = UnityEngine.Debug;
 /// </summary>
 public class BurstMeshCutScheduler
 {
+    //三角形の分類パターンは８通り詳細はTriangleSideCountJobのコメントを参照
+    private const int TRIANGLES_CLASSIFY = 8;
     private INativeMeshRepository meshRepository;
 
     private UniTask cutTask;
@@ -32,8 +33,11 @@ public class BurstMeshCutScheduler
         NativeArray<float2> baseUvs = default;
         NativeArray<SubmeshTriangle> baseTriangles = default;
         NativeArray<int3> baseTrianglesStartLengthID = default;
-        NativeArray<NativePlane> planes = default;
-        NativeArray<int> planeId = default;
+        NativeArray<NativePlane> blades = default;
+        NativeArray<int> bladesIndex = default;
+        NativeArray<int> vertSide = default;
+        NativeArray<int2> lengthAndStart = default;
+        NativeArray<int> trianglesArrayNumber = default;
 
         try
         {
@@ -92,14 +96,14 @@ public class BurstMeshCutScheduler
 
             #region 切断面初期化
 
-            planes = new(meshData.Length, Allocator.TempJob);
-            planeId = new(vertexArrayLength, Allocator.TempJob);
+            blades = new(meshData.Length, Allocator.TempJob);
+            bladesIndex = new(vertexArrayLength, Allocator.TempJob);
             int planeIdIndex = 0;
             for (int i = 0; i < arraysPath.Length; i++)
             {
                 for (int j = 0; j < arraysPath[i].x; j++)
                 {
-                    planeId[planeIdIndex++] = i;
+                    bladesIndex[planeIdIndex++] = i;
                 }
             }
 
@@ -109,14 +113,46 @@ public class BurstMeshCutScheduler
                 Positions = positions,
                 Quaternions = rotation,
                 Scales = scale,
-                LocalBlades = planes
+                LocalBlades = blades
             };
 
-            JobHandle bladeInitHandle = bladeInitializeJob.Schedule(planes.Length, 64);
+            JobHandle bladeInitHandle = bladeInitializeJob.Schedule(blades.Length, 64);
 
             #endregion
+
+            #region VertexGetSide
+
+            vertSide = new(baseVertices.Length, Allocator.TempJob);
+            var vertGetSideJob = new VertexGetSideJob
+            {
+                Vertices = baseVertices,
+                Blades = blades,
+                BladeIndex = bladesIndex,
+                Results = vertSide
+            };
+
+            JobHandle vertGetSideHandle = vertGetSideJob.Schedule(vertSide.Length, batchCount, bladeInitHandle);
+
+            #endregion
+
+            #region 面を左右に振り分け、重なっている物を探し出す
+
+            lengthAndStart = new(TRIANGLES_CLASSIFY, Allocator.TempJob);
+            trianglesArrayNumber = new(trianglesArrayLength, Allocator.TempJob);
+
+            var triangleGetSideJob = new TriangleSideCountJob
+            {
+                Triangles = baseTriangles,
+                VertexSide = vertSide,
+                LengthAndStart = lengthAndStart,
+                TrianglesArrayNumber = trianglesArrayNumber
+            };
+
+            JobHandle trianglesGetSideHandle = triangleGetSideJob.Schedule(vertGetSideHandle);
             
-            
+            trianglesGetSideHandle.Complete();
+
+            #endregion
 
             #endregion
         }
@@ -136,8 +172,11 @@ public class BurstMeshCutScheduler
             if (baseUvs.IsCreated) baseUvs.Dispose();
             if (baseTriangles.IsCreated) baseTriangles.Dispose();
             if (baseTrianglesStartLengthID.IsCreated) baseTrianglesStartLengthID.Dispose();
-            if (planes.IsCreated) planes.Dispose();
-            if (planeId.IsCreated) planeId.Dispose();
+            if (blades.IsCreated) blades.Dispose();
+            if (bladesIndex.IsCreated) bladesIndex.Dispose();
+            if (vertSide.IsCreated) vertSide.Dispose();
+            if (lengthAndStart.IsCreated) lengthAndStart.Dispose();
+            if (trianglesArrayNumber.IsCreated) trianglesArrayNumber.Dispose();
 
             totalTime.Stop();
             Debug.Log($"合計処理時間 : {totalTime.ElapsedMilliseconds}ms");

@@ -1,55 +1,34 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using BLINDED_AM_ME;
 using UnityEngine;
-using MeshBreak;
+using MeshBreak.MeshCut;
 using UsefllAttribute;
 using Debug = UnityEngine.Debug;
 
 public class TestMeshCutter : MonoBehaviour
 {
-    [SerializeField] private int _meshCutNumber;
-    [SerializeField] private MeshCutBase[] _meshCut;
+    [SerializeField] private MeshCut _meshCut;
     [SerializeField] private Collider _myCollider;
     [SerializeField] private Material _capMaterial;
-    [SerializeField] private bool _useSample;
 
     [MethodExecutor("メッシュカットを実行", false)]
     public void CutMesh()
     {
-        if (_useSample)
+        List<GameObject> newObjects = new();
+        var cutObjects = CheckOverlapObjects().ToHashSet();
+
+        Stopwatch stopwatch = new();
+        stopwatch.Start();
+        foreach (var obj in cutObjects)
         {
-            List<GameObject> newObjects = new();
-            var cutObjects = CheckOverlapObjects();
-            Debug.Log(cutObjects.Length);
-            foreach (var obj in cutObjects)
-            {
-                var plane = new Plane(
-                    -obj.transform.InverseTransformDirection(-transform.up),
-                    obj.transform.InverseTransformPoint(transform.position));
-                SampleMeshCut.Cut(obj, plane, _capMaterial);
-            }
-
-            Debug.Log("GeneratedMesh");
+            var plane = new Plane(
+                -obj.transform.InverseTransformDirection(-transform.up),
+                obj.transform.InverseTransformPoint(transform.position));
+            _meshCut.Cut(obj, plane, _capMaterial);
         }
-        else
-        {
-            List<GameObject> newObjects = new();
-            var cutObjects = CheckOverlapObjects().ToHashSet();
 
-            Stopwatch stopwatch = new();
-            stopwatch.Start();
-            foreach (var obj in cutObjects)
-            {
-                var plane = new Plane(
-                    -obj.transform.InverseTransformDirection(-transform.up),
-                    obj.transform.InverseTransformPoint(transform.position));
-                _meshCut[_meshCutNumber].Cut(obj, plane, _capMaterial);
-            }
-
-            Debug.Log($"メッシュ切断完了。総オブジェクト数:{cutObjects.Count} 全体処理時間:{stopwatch.ElapsedMilliseconds}ms");
-        }
+        Debug.Log($"メッシュ切断完了。総オブジェクト数:{cutObjects.Count} 全体処理時間:{stopwatch.ElapsedMilliseconds}ms");
     }
 
     private GameObject[] CheckOverlapObjects()
@@ -119,13 +98,13 @@ public class TestMeshCutter : MonoBehaviour
             Vector3 endV = Vector3.Lerp(p4, p3, t);
             UnityEditor.Handles.DrawLine(startV, endV);
         }
-        
+
         DrawOutline(planePos, right, forward, _planeSize, Color.green);
 
         DrawOutline(planePos, right, forward, _planeSize * 1.5f, Color.green);
 
         DrawOutline(planePos, right, forward, _planeSize * 0.5f, Color.green);
-        
+
         DrawOutline(planePos, right, forward, _planeSize * 0.25f, Color.green);
 
         // Zテスト設定を戻す
