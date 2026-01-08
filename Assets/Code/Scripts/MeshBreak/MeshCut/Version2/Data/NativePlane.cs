@@ -13,3 +13,4 @@ public struct NativePlane
         Distance = -math.dot(normal, Position);
     }
 }
+

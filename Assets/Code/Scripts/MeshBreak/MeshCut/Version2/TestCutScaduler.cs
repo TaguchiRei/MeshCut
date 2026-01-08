@@ -34,12 +34,6 @@ public class TestCutScaduler : MonoBehaviour
         #region 各種配列統合
 
         int arrayLength = 0;
-        NativeArray<NativeTransform> offsets = new (arrayLength, Allocator.Temp);
-        for (int i = 0; i < _nativeMeshData.Length; i++)
-        {
-            arrayLength += _nativeMeshData[i].Vertices.Length;
-            offsets[i] = new NativeTransform();
-        }
 
         int trianglesLength = 0;
         for (int i = 0; i < _nativeMeshData.Length; i++)
@@ -48,7 +42,6 @@ public class TestCutScaduler : MonoBehaviour
         }
 
         NativeEditMeshData editMeshData = new NativeEditMeshData();
-        NativeArray<int3> vertexGroups = new NativeArray<int3>(_nativeMeshData.Length, Allocator.Temp);
         editMeshData.Vertices = new NativeList<float3>(arrayLength, Allocator.Temp);
         editMeshData.Normals = new NativeList<float3>(arrayLength, Allocator.Temp);
         editMeshData.Uvs = new NativeList<float2>(arrayLength, Allocator.Temp);

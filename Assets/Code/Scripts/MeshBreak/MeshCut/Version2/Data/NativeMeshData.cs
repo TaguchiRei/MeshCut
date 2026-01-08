@@ -16,10 +16,13 @@ public class NativeMeshData : IDisposable
     private NativeArray<float2> _uvs;
     private NativeArray<SubmeshTriangle> _triangles;
 
+    private Transform _transform;
+
     public NativeArray<float3> Vertices => _vertices;
     public NativeArray<float3> Normals => _normals;
     public NativeArray<float2> Uvs => _uvs;
     public NativeArray<SubmeshTriangle> Triangles => _triangles;
+    public Transform Transform => _transform;
 
     public NativeMeshData(Mesh mesh)
     {

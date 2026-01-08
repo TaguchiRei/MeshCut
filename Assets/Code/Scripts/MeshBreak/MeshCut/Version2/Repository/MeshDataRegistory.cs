@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// MeshDataHolderおよびCutMeshDataHolderを保持し、それらのデータへのアクセスを受け付ける
 /// </summary>
-public class MeshDataRegistory : MonoBehaviour
+public class MeshDataRegistory : MonoBehaviour, INativeMeshRepository
 {
     /// <summary> 最初から置かれた切断オブジェクトを取得する </summary>
     private MeshDataHolder _meshDataHolder;
