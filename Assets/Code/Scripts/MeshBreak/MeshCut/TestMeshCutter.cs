@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using MeshBreak;
 using UnityEngine;
 using MeshBreak.MeshCut;
 using UsefllAttribute;
@@ -43,7 +44,7 @@ public class TestMeshCutter : MonoBehaviour
 
         foreach (Collider hit in hits)
         {
-            if (!hit.gameObject.TryGetComponent<BreakableObject>(out BreakableObject cuttable)) continue;
+            if (!hit.gameObject.TryGetComponent(out BreakableObjectL cuttable)) continue;
             objects.Add(hit.gameObject);
         }
 
