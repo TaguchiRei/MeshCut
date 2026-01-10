@@ -1,16 +1,18 @@
 using Unity.Mathematics;
+using UnityEngine.UI;
 
 public struct NewTriangleData
 {
     public VertexRef V0, V1, V2;
+
     public int Submesh;
     public int ObjectId;
 
-    public NewTriangleData(VertexRef v0, VertexRef v1, VertexRef v2, int submesh, int objectId)
+    public NewTriangleData(
+        VertexRef v0, VertexRef v1, VertexRef v2,
+        int submesh, int objectId)
     {
-        V0 = v0;
-        V1 = v1;
-        V2 = v2;
+        V0 = v0; V1 = v1; V2 = v2;
         Submesh = submesh;
         ObjectId = objectId;
     }

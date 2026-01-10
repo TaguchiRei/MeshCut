@@ -12,7 +12,7 @@ public struct TriangleSideCountJob : IJobParallelFor
 
 
     /// <summary> 三角形毎にどの配列に入るかを示す </summary>
-    [WriteOnly] public NativeArray<int> TrianglesArrayNumber;
+    [WriteOnly] public NativeArray<int> TrianglesGroupNumber;
 
     public void Execute(int index)
     {
@@ -30,6 +30,6 @@ public struct TriangleSideCountJob : IJobParallelFor
          * 1,1,0 → 6 孤立がv2裏面グループ
          * 1,1,1 → 7 切断面の表側グループ
          */
-        TrianglesArrayNumber[index] = countIndex;
+        TrianglesGroupNumber[index] = countIndex;
     }
 }
