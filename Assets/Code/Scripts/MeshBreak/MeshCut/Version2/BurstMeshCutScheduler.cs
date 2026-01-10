@@ -18,10 +18,10 @@ public class BurstMeshCutScheduler
 
     public void Cut(NativePlane blade, NativeMeshData[] meshData, int batchCount)
     {
-        cutTask = CutTaskAsync(blade, meshData, batchCount);
+        CutTaskAsync(blade, meshData, batchCount);
     }
 
-    private async UniTask CutTaskAsync(NativePlane blade, NativeMeshData[] meshData, int batchCount)
+    private void CutTaskAsync(NativePlane blade, NativeMeshData[] meshData, int batchCount)
     {
         Stopwatch totalTime = new Stopwatch();
         totalTime.Start();
@@ -38,7 +38,7 @@ public class BurstMeshCutScheduler
         //各種オブジェクトに対応させた切断面を保持している
         NativeArray<NativePlane> blades = default;
         //各頂点毎にどの切断面に対応しているかを保持(blades配列のインデックスを指す)
-        NativeArray<int> bladesIndex = default;
+        NativeArray<int> vertexObjectIndex = default;
         NativeArray<int> vertSide = default;
         NativeArray<int> trianglesArrayNumber = default;
         //オブジェクトごとの三角形の開始位置を保持している
@@ -49,11 +49,13 @@ public class BurstMeshCutScheduler
         NativeArray<float2> newUvs = default;
         NativeArray<NewTriangleData> newTriangle = default;
 
+        NativeArray<int> activeResultVertexIndex = default;
+        NativeArray<int> activeResultTriangleIndex = default;
+
         try
         {
             #region 処理全体で利用する配列初期化
 
-            Stopwatch init = Stopwatch.StartNew();
             int vertexArrayLength = 0;
             int trianglesArrayLength = 0;
 
@@ -64,22 +66,28 @@ public class BurstMeshCutScheduler
             }
 
             // メモリ確保 
-            arraysPath = new(meshData.Length, Allocator.TempJob);
-            positions = new(meshData.Length, Allocator.TempJob);
-            scale = new(meshData.Length, Allocator.TempJob);
-            rotation = new(meshData.Length, Allocator.TempJob);
+            Stopwatch memoryGet = Stopwatch.StartNew();
+            arraysPath = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            positions = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            scale = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            rotation = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
-            baseVertices = new(vertexArrayLength, Allocator.TempJob);
-            baseNormals = new(vertexArrayLength, Allocator.TempJob);
-            baseUvs = new(vertexArrayLength, Allocator.TempJob);
-            baseTriangles = new(trianglesArrayLength, Allocator.TempJob);
-            baseTriangleArrayData = new(meshData.Length, Allocator.TempJob);
+            baseVertices = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseNormals = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseUvs = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseTriangles = new(trianglesArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseTriangleArrayData = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
-            newVertices = new(trianglesArrayLength * 2, Allocator.TempJob);
-            newNormals = new(trianglesArrayLength * 2, Allocator.TempJob);
-            newUvs = new(trianglesArrayLength * 2, Allocator.TempJob);
-            newTriangle = new(trianglesArrayLength * 3, Allocator.TempJob);
+            activeResultVertexIndex = new(trianglesArrayLength * 2, Allocator.TempJob);
+            newVertices = new(trianglesArrayLength * 2, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            newNormals = new(trianglesArrayLength * 2, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            newUvs = new(trianglesArrayLength * 2, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            activeResultTriangleIndex = new(trianglesArrayLength * 3, Allocator.TempJob);
+            newTriangle = new(trianglesArrayLength * 3, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            Debug.Log($"メモリ確保時間 : {memoryGet.ElapsedMilliseconds}ms");
 
+
+            Stopwatch init = Stopwatch.StartNew();
             int vOffset = 0;
             int tOffset = 0;
 
@@ -106,37 +114,29 @@ public class BurstMeshCutScheduler
                 tOffset += data.Triangles.Length;
             }
 
-            Debug.Log($"配列初期化時間{init.ElapsedMilliseconds}ms   meshData{meshData.Length}");
-
             #endregion
 
             #region 実際の処理
 
             #region 内部で使う一時配列初期化
 
-            //各頂点がどのブレードに対応しているかを保持する配列を初期化
+            //各頂点がどのオブジェクトに対応しているかを保存。必然的に切断面とも対応が取れる
             //各頂点のインデックスと同じインデックスに保存される値が切断面配列と同じ値になる
-            bladesIndex = new(vertexArrayLength, Allocator.TempJob);
-            int planeIdIndex = 0;
-            for (int i = 0; i < arraysPath.Length; i++)
-            {
-                for (int j = 0; j < arraysPath[i].x; j++)
-                {
-                    bladesIndex[planeIdIndex++] = i;
-                }
-            }
-
+            vertexObjectIndex = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             //各三角形がどのオブジェクトに対応しているかを保持する配列を初期化
             //各種三角形の頂点インデックスに三角形のインデックスと同じインデックスに保存される値を足すと結合後のインデックスが取得できる
-            trianglesObjectStartIndex = new(baseTriangles.Length, Allocator.TempJob);
-            int triangleIndex = 0;
-            for (int i = 0; i < baseTriangleArrayData.Length; i++)
+            trianglesObjectStartIndex =
+                new(baseTriangles.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var initializeArrayJob = new InitializeArrayJob()
             {
-                for (int j = 0; j < baseTriangleArrayData[i].y; j++)
-                {
-                    trianglesObjectStartIndex[triangleIndex++] = baseTriangleArrayData[i].x;
-                }
-            }
+                ArrayPath = arraysPath,
+                BaseTriangleArrayData = baseTriangleArrayData,
+                VertexObjectIndex = vertexObjectIndex,
+                TrianglesObjectStartIndex = trianglesObjectStartIndex,
+            };
+            JobHandle initializeArrayHandle = initializeArrayJob.Schedule();
+
+            Debug.Log($"配列初期化時間{init.ElapsedMilliseconds}ms   meshData{meshData.Length}");
 
             #endregion
 
@@ -155,7 +155,7 @@ public class BurstMeshCutScheduler
                 LocalBlades = blades
             };
 
-            JobHandle bladeInitHandle = bladeInitializeJob.Schedule(blades.Length, 64);
+            JobHandle bladeInitHandle = bladeInitializeJob.Schedule(blades.Length, batchCount, initializeArrayHandle);
 
             #endregion
 
@@ -166,7 +166,7 @@ public class BurstMeshCutScheduler
             {
                 Vertices = baseVertices,
                 Blades = blades,
-                BladeIndex = bladesIndex,
+                BladeIndex = vertexObjectIndex,
                 Results = vertSide
             };
 
@@ -191,7 +191,8 @@ public class BurstMeshCutScheduler
             #endregion
 
             #region 新たに頂点を生成する
-
+            
+            
             var triangleCutJob = new TrianglesCutJob
             {
                 BaseVertices = baseVertices,
@@ -200,11 +201,14 @@ public class BurstMeshCutScheduler
                 BaseTriangles = baseTriangles,
                 Blades = blades,
                 TrianglesObjectStartIndex = trianglesObjectStartIndex,
+                VertexObjectIndex = vertexObjectIndex,
                 TrianglesArrayNumber = trianglesArrayNumber,
                 NewVertices = newVertices,
                 NewNormals = newNormals,
                 NewUvs = newUvs,
-                NewTriangles = newTriangle
+                NewTriangles = newTriangle,
+                ActiveResultVertexIndex = activeResultVertexIndex,
+                ActiveResultTriangleIndex = activeResultTriangleIndex,
             };
 
             JobHandle triangleCutHandle =
@@ -215,16 +219,33 @@ public class BurstMeshCutScheduler
 
             #endregion
 
+            //最後のJob完了時点ですべてDisposeする
+            arraysPath.Dispose(triangleCutHandle);
+            positions.Dispose(triangleCutHandle);
+            scale.Dispose(triangleCutHandle);
+            rotation.Dispose(triangleCutHandle);
+            baseVertices.Dispose(triangleCutHandle);
+            baseNormals.Dispose(triangleCutHandle);
+            baseUvs.Dispose(triangleCutHandle);
+            baseTriangles.Dispose(triangleCutHandle);
+            baseTriangleArrayData.Dispose(triangleCutHandle);
+            blades.Dispose(triangleCutHandle);
+            vertexObjectIndex.Dispose(triangleCutHandle);
+            vertSide.Dispose(triangleCutHandle);
+            trianglesArrayNumber.Dispose(triangleCutHandle);
+            trianglesObjectStartIndex.Dispose(triangleCutHandle);
+            newVertices.Dispose(triangleCutHandle);
+            newNormals.Dispose(triangleCutHandle);
+            newUvs.Dispose(triangleCutHandle);
+            newTriangle.Dispose(triangleCutHandle);
+            activeResultVertexIndex.Dispose(triangleCutHandle);
+            activeResultTriangleIndex.Dispose(triangleCutHandle);
+
             Debug.Log($"Jobの総処理時間 : {jobTime.ElapsedMilliseconds}ms");
         }
         catch (System.Exception e)
         {
             Debug.LogException(e);
-        }
-        finally
-        {
-            Stopwatch disposeStopwatch = Stopwatch.StartNew();
-            // 確保したネイティブコレクションをすべて破棄する
             if (arraysPath.IsCreated) arraysPath.Dispose();
             if (positions.IsCreated) positions.Dispose();
             if (scale.IsCreated) scale.Dispose();
@@ -235,7 +256,7 @@ public class BurstMeshCutScheduler
             if (baseTriangles.IsCreated) baseTriangles.Dispose();
             if (baseTriangleArrayData.IsCreated) baseTriangleArrayData.Dispose();
             if (blades.IsCreated) blades.Dispose();
-            if (bladesIndex.IsCreated) bladesIndex.Dispose();
+            if (vertexObjectIndex.IsCreated) vertexObjectIndex.Dispose();
             if (vertSide.IsCreated) vertSide.Dispose();
             if (trianglesArrayNumber.IsCreated) trianglesArrayNumber.Dispose();
             if (trianglesObjectStartIndex.IsCreated) trianglesObjectStartIndex.Dispose();
@@ -243,10 +264,12 @@ public class BurstMeshCutScheduler
             if (newNormals.IsCreated) newNormals.Dispose();
             if (newUvs.IsCreated) newUvs.Dispose();
             if (newTriangle.IsCreated) newTriangle.Dispose();
-
-
+            if (activeResultVertexIndex.IsCreated) activeResultVertexIndex.Dispose();
+            if (activeResultTriangleIndex.IsCreated) activeResultTriangleIndex.Dispose();
+        }
+        finally
+        {
             totalTime.Stop();
-            Debug.Log($"dispose時間{disposeStopwatch.ElapsedMilliseconds}ms");
             Debug.Log($"合計処理時間 : {totalTime.ElapsedMilliseconds}ms");
         }
     }

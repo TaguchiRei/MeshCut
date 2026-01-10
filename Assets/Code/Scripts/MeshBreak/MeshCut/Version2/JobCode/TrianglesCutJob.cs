@@ -12,8 +12,11 @@ public struct TrianglesCutJob : IJobParallelFor
     [ReadOnly] public NativeArray<SubmeshTriangle> BaseTriangles;
     [ReadOnly] public NativeArray<NativePlane> Blades;
 
-    /// <summary> 各三角形が属するオブジェクトID </summary>
+    /// <summary> 各三角形のインデックスに対するオフセット </summary>
     [ReadOnly] public NativeArray<int> TrianglesObjectStartIndex;
+
+    /// <summary> 各頂点がどのオブジェクトに対応しているのかを保持する配列 </summary>
+    [ReadOnly] public NativeArray<int> VertexObjectIndex;
 
     /// <summary> 三角形の状態（0-7） </summary>
     [ReadOnly] public NativeArray<int> TrianglesArrayNumber;
@@ -28,6 +31,12 @@ public struct TrianglesCutJob : IJobParallelFor
     [WriteOnly, NativeDisableParallelForRestriction]
     public NativeArray<float2> NewUvs;
 
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<int> ActiveResultTriangleIndex;
+
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<int> ActiveResultVertexIndex;
+
     /// <summary> 元の三角形1つにつき3つ分の領域を確保 </summary>
     [WriteOnly, NativeDisableParallelForRestriction]
     public NativeArray<NewTriangleData> NewTriangles;
@@ -37,7 +46,7 @@ public struct TrianglesCutJob : IJobParallelFor
         int countIndex = TrianglesArrayNumber[index];
         if (countIndex == 0 || countIndex == 7) return;
 
-        int objectId = TrianglesObjectStartIndex[index];
+        int indexStart = TrianglesObjectStartIndex[index];
         var triangle = BaseTriangles[index];
 
         // 孤立頂点のローカルインデックスを取得
@@ -54,18 +63,19 @@ public struct TrianglesCutJob : IJobParallelFor
         int double2Index = GetIndexByLocal(triangle, (localIsoIdx + 2) % 3);
 
         // データの取得
-        float3 soloV = BaseVertices[soloIndex];
-        float3 d1V = BaseVertices[double1Index];
-        float3 d2V = BaseVertices[double2Index];
+        float3 soloV = BaseVertices[soloIndex + indexStart];
+        float3 d1V = BaseVertices[double1Index + indexStart];
+        float3 d2V = BaseVertices[double2Index + indexStart];
 
-        float3 soloN = BaseNormals[soloIndex];
-        float3 d1N = BaseNormals[double1Index];
-        float3 d2N = BaseNormals[double2Index];
+        float3 soloN = BaseNormals[soloIndex + indexStart];
+        float3 d1N = BaseNormals[double1Index + indexStart];
+        float3 d2N = BaseNormals[double2Index + indexStart];
 
-        float2 soloU = BaseUvs[soloIndex];
-        float2 d1U = BaseUvs[double1Index];
-        float2 d2U = BaseUvs[double2Index];
+        float2 soloU = BaseUvs[soloIndex + indexStart];
+        float2 d1U = BaseUvs[double1Index + indexStart];
+        float2 d2U = BaseUvs[double2Index + indexStart];
 
+        int objectId = VertexObjectIndex[soloIndex + indexStart];
         NativePlane blade = Blades[objectId];
 
         // 交差計算 (t = 割合)
@@ -86,6 +96,8 @@ public struct TrianglesCutJob : IJobParallelFor
 
         // 新規頂点の書き込み
         int vBase = index * 2;
+        ActiveResultVertexIndex[vBase] = 1;
+        ActiveResultTriangleIndex[vBase + 1] = 1;
         NewVertices[vBase] = nV1;
         NewVertices[vBase + 1] = nV2;
         NewNormals[vBase] = nN1;
@@ -103,6 +115,9 @@ public struct TrianglesCutJob : IJobParallelFor
         // 三角形データの生成 (3枚分)
         int triBase = index * 3;
         int submesh = triangle.SubmeshIndex;
+        ActiveResultTriangleIndex[triBase] = 1;
+        ActiveResultTriangleIndex[triBase + 1] = 1;
+        ActiveResultTriangleIndex[triBase + 2] = 1;
 
         // 孤立頂点が「表(1)」なのか「裏(0)」なのかでサイドを判定
         // countIndex 1, 2, 4 は孤立頂点側が「表」
