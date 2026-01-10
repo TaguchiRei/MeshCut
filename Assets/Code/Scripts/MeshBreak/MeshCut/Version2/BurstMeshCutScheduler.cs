@@ -106,7 +106,7 @@ public class BurstMeshCutScheduler
                 tOffset += data.Triangles.Length;
             }
 
-            Debug.Log($"配列初期化時間{init.ElapsedMilliseconds}ms");
+            Debug.Log($"配列初期化時間{init.ElapsedMilliseconds}ms   meshData{meshData.Length}");
 
             #endregion
 
