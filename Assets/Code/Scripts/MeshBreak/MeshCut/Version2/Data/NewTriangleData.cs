@@ -1,5 +1,4 @@
 using Unity.Mathematics;
-using UnityEngine.UI;
 
 public struct NewTriangleData
 {
@@ -7,14 +6,18 @@ public struct NewTriangleData
 
     public int Submesh;
     public int ObjectId;
+    public int IsFrontSide;
 
     public NewTriangleData(
         VertexRef v0, VertexRef v1, VertexRef v2,
-        int submesh, int objectId)
+        int submesh, int objectId, int isFrontSide)
     {
-        V0 = v0; V1 = v1; V2 = v2;
+        V0 = v0;
+        V1 = v1;
+        V2 = v2;
         Submesh = submesh;
         ObjectId = objectId;
+        IsFrontSide = isFrontSide;
     }
 }
 

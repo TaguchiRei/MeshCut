@@ -18,12 +18,19 @@ public struct TrianglesCutJob : IJobParallelFor
     /// <summary> 三角形の状態（0-7） </summary>
     [ReadOnly] public NativeArray<int> TrianglesArrayNumber;
 
-    [WriteOnly] public NativeArray<float3> NewVertices;
-    [WriteOnly] public NativeArray<float3> NewNormals;
-    [WriteOnly] public NativeArray<float2> NewUvs;
+    /// <summary> 元の三角形一つにつき二つ分の領域を用意 </summary>
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<float3> NewVertices;
 
-    /// <summary> 元の三角形1つにつき3つ分の領域を確保 (BaseTriangles.Length * 3) </summary>
-    [WriteOnly] public NativeArray<NewTriangleData> NewTriangles;
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<float3> NewNormals;
+
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<float2> NewUvs;
+
+    /// <summary> 元の三角形1つにつき3つ分の領域を確保 </summary>
+    [WriteOnly, NativeDisableParallelForRestriction]
+    public NativeArray<NewTriangleData> NewTriangles;
 
     public void Execute(int index)
     {
@@ -99,16 +106,17 @@ public struct TrianglesCutJob : IJobParallelFor
 
         // 孤立頂点が「表(1)」なのか「裏(0)」なのかでサイドを判定
         // countIndex 1, 2, 4 は孤立頂点側が「表」
-        bool soloIsPositive = (countIndex == 1 || countIndex == 2 || countIndex == 4);
+        int isFrontSide = (countIndex == 1 || countIndex == 2 || countIndex == 4) ? 1 : 0;
+        int isFrontSideDouble = 1 - isFrontSide;
 
         // 1. 孤立頂点側の三角形 (solo, n1, n2)
-        NewTriangles[triBase] = new NewTriangleData(vrSolo, vrN1, vrN2, submesh, objectId);
+        NewTriangles[triBase] = new NewTriangleData(vrSolo, vrN1, vrN2, submesh, objectId, isFrontSide);
 
         // 2. 残り側三角形1 (n1, d1, d2)
-        NewTriangles[triBase + 1] = new NewTriangleData(vrN1, vrD1, vrD2, submesh, objectId);
+        NewTriangles[triBase + 1] = new NewTriangleData(vrN1, vrD1, vrD2, submesh, objectId, isFrontSideDouble);
 
         // 3. 残り側三角形2 (n1, d2, n2)
-        NewTriangles[triBase + 2] = new NewTriangleData(vrN1, vrD2, vrN2, submesh, objectId);
+        NewTriangles[triBase + 2] = new NewTriangleData(vrN1, vrD2, vrN2, submesh, objectId, isFrontSideDouble);
     }
 
     private int GetIndexByLocal(SubmeshTriangle tri, int localIdx)
