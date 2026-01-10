@@ -142,6 +142,8 @@ public class BurstMeshCutScheduler
 
             #region 切断面初期化
 
+            Stopwatch jobTime = Stopwatch.StartNew();
+
             //オブジェクトごとのローカル空間に移した切断面を生成する
             blades = new(meshData.Length, Allocator.TempJob);
             var bladeInitializeJob = new BladeInitializeJob
@@ -212,6 +214,8 @@ public class BurstMeshCutScheduler
             #endregion
 
             #endregion
+
+            Debug.Log($"Jobの総処理時間 : {jobTime.ElapsedMilliseconds}ms");
         }
         catch (System.Exception e)
         {
@@ -219,6 +223,7 @@ public class BurstMeshCutScheduler
         }
         finally
         {
+            Stopwatch disposeStopwatch = Stopwatch.StartNew();
             // 確保したネイティブコレクションをすべて破棄する
             if (arraysPath.IsCreated) arraysPath.Dispose();
             if (positions.IsCreated) positions.Dispose();
@@ -241,6 +246,7 @@ public class BurstMeshCutScheduler
 
 
             totalTime.Stop();
+            Debug.Log($"dispose時間{disposeStopwatch.ElapsedMilliseconds}ms");
             Debug.Log($"合計処理時間 : {totalTime.ElapsedMilliseconds}ms");
         }
     }
