@@ -102,9 +102,10 @@ public class BurstMeshCutScheduler
 
             #region 実際の処理
 
-            #region 切断面初期化
+            #region 内部で使う一時配列初期化
 
-            blades = new(meshData.Length, Allocator.TempJob);
+            //各頂点がどのブレードに対応しているかを保持する配列を初期化
+            //各頂点のインデックスと同じインデックスに保存される値が切断面配列と同じ値になる
             bladesIndex = new(vertexArrayLength, Allocator.TempJob);
             int planeIdIndex = 0;
             for (int i = 0; i < arraysPath.Length; i++)
@@ -115,6 +116,8 @@ public class BurstMeshCutScheduler
                 }
             }
 
+            //各三角形がどのオブジェクトに対応しているかを保持する配列を初期化
+            //各種三角形の頂点インデックスに三角形のインデックスと同じインデックスに保存される値を足すと結合後のインデックスが取得できる
             trianglesObjectStartIndex = new(baseTriangles.Length, Allocator.TempJob);
             int triangleIndex = 0;
             for (int i = 0; i < baseTriangleArrayData.Length; i++)
@@ -125,6 +128,12 @@ public class BurstMeshCutScheduler
                 }
             }
 
+            #endregion
+
+            #region 切断面初期化
+            
+            //オブジェクトごとのローカル空間に移した切断面を生成する
+            blades = new(meshData.Length, Allocator.TempJob);
             var bladeInitializeJob = new BladeInitializeJob
             {
                 Blade = blade,
@@ -161,7 +170,7 @@ public class BurstMeshCutScheduler
             {
                 Triangles = baseTriangles,
                 VertexSide = vertSide,
-                TrianglesArrayNumber = trianglesArrayNumber
+                TrianglesGroupNumber = trianglesArrayNumber
             };
 
             JobHandle trianglesGetSideHandle =
@@ -171,15 +180,21 @@ public class BurstMeshCutScheduler
 
             #endregion
 
+            #region 新たに頂点を生成する
+
+            
+
+            #endregion
+
             #endregion
         }
         catch (System.Exception e)
         {
-            Debug.LogException(e); // エラーが起きても finally へ行く
+            Debug.LogException(e); 
         }
         finally
         {
-            // 3. 確保されたものを安全にすべて破棄
+            // 確保したネイティブコレクションをすべて破棄する
             if (arraysPath.IsCreated) arraysPath.Dispose();
             if (positions.IsCreated) positions.Dispose();
             if (scale.IsCreated) scale.Dispose();
