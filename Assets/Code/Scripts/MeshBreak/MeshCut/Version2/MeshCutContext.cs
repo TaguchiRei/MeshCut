@@ -8,7 +8,7 @@ using Unity.Mathematics;
 /// メッシュ切断の過程で生まれる一時配列をすべて保持するクラス。
 /// 処理完了後に一括でDisposeできるようにする
 /// </summary>
-public class MeshCutContext : IDisposable
+public class MeshCutContext : INativeDisposable
 {
     public JobHandle CutJobHandle;
 
@@ -28,7 +28,7 @@ public class MeshCutContext : IDisposable
     public NativeList<NativeTriangle> Triangles;
 
     /// <summary> 各オブジェクトごとの切断面をオブジェクト順に保持 </summary>
-    public NativeArray<NativePlane> Planes;
+    public NativeArray<NativePlane> Blades;
 
     /// <summary> 各オブジェクトのTransform情報をオブジェクト順に保持 </summary>
     public NativeArray<NativeTransform> Transforms;
@@ -51,7 +51,7 @@ public class MeshCutContext : IDisposable
         Normals = new(verticesArrayCount + triangleCount * 2, allocator, NativeArrayOptions.UninitializedMemory);
         Uvs = new(verticesArrayCount + triangleCount * 2, allocator, NativeArrayOptions.UninitializedMemory);
         Triangles = new(triangleCount * 3, allocator);
-        Planes = new(objectCount, allocator, NativeArrayOptions.UninitializedMemory);
+        Blades = new(objectCount, allocator, NativeArrayOptions.UninitializedMemory);
         Transforms = new(transforms.Length, allocator, NativeArrayOptions.UninitializedMemory);
         Transforms.CopyFrom(transforms);
         VertSide = new(verticesArrayCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -61,14 +61,29 @@ public class MeshCutContext : IDisposable
     {
         CutJobHandle.Complete();
 
-        VerticesObjectIdList.Dispose();
-        Vertices.Dispose();
-        Normals.Dispose();
-        Uvs.Dispose();
-        Triangles.Dispose();
-        Planes.Dispose();
-        Transforms.Dispose();
-        VertSide.Dispose();
+        if (VerticesObjectIdList.IsCreated) VerticesObjectIdList.Dispose();
+        if (Vertices.IsCreated) Vertices.Dispose();
+        if (Normals.IsCreated) Normals.Dispose();
+        if (Uvs.IsCreated) Uvs.Dispose();
+        if (Triangles.IsCreated) Triangles.Dispose();
+        if (Blades.IsCreated) Blades.Dispose();
+        if (Transforms.IsCreated) Transforms.Dispose();
+        if (VertSide.IsCreated) VertSide.Dispose();
+    }
+
+    public JobHandle Dispose(JobHandle inputDeps)
+    {
+        CutJobHandle.Complete();
+
+        VerticesObjectIdList.Dispose(inputDeps);
+        Vertices.Dispose(inputDeps);
+        Normals.Dispose(inputDeps);
+        Uvs.Dispose(inputDeps);
+        Triangles.Dispose(inputDeps);
+        Blades.Dispose(inputDeps);
+        Transforms.Dispose(inputDeps);
+        VertSide.Dispose(inputDeps);
+        return CutJobHandle;
     }
 }
 

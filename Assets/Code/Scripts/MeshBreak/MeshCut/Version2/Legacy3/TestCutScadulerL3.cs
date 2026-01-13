@@ -39,6 +39,7 @@ public class TestCutScadulerL3 : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (!enabled) return;
         foreach (var nativeMeshData in _nativeMeshData)
         {
             if (nativeMeshData.Vertices.IsCreated)
