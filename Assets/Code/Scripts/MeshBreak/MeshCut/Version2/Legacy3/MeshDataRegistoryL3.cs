@@ -4,25 +4,25 @@ using UnityEngine;
 /// <summary>
 /// MeshDataHolderおよびCutMeshDataHolderを保持し、それらのデータへのアクセスを受け付ける
 /// </summary>
-public class MeshDataRegistory : MonoBehaviour
+public class MeshDataRegistoryL3 : MonoBehaviour
 {
     /// <summary> 最初から置かれた切断オブジェクトを取得する </summary>
-    private MeshDataHolder _meshDataHolder;
+    private MeshDataHolderL3 _meshDataHolderL3;
 
     /// <summary> 切断後のデータを 保持する</summary>
-    private CutMeshDataHolder _cutMeshDataHolder;
+    private CutMeshDataHolderL3 _cutMeshDataHolderL3;
 
     private void Start()
     {
-        _meshDataHolder = new();
-        _cutMeshDataHolder = new();
+        _meshDataHolderL3 = new();
+        _cutMeshDataHolderL3 = new();
 
-        var breakableObjects = GetComponentsInChildren<BreakableObject>();
+        var breakableObjects = GetComponentsInChildren<BreakableObjectL3>();
 
         for (int i = 0; i < breakableObjects.Length; i++)
         {
             breakableObjects[i].HashCode =
-                _meshDataHolder.AddMeshData(breakableObjects[i].BreakableMesh, breakableObjects[i].transform);
+                _meshDataHolderL3.AddMeshData(breakableObjects[i].BreakableMesh, breakableObjects[i].transform);
         }
     }
 
@@ -31,33 +31,33 @@ public class MeshDataRegistory : MonoBehaviour
     /// </summary>
     /// <param name="hash">メッシュデータのハッシュコード</param>
     /// <param name="cutMesh">切断済みメッシュならtrueにする</param>
-    /// <param name="meshData">取得したメッシュデータ</param>
+    /// <param name="meshDataL3">取得したメッシュデータ</param>
     /// <returns></returns>
-    public bool GetMesh(int hash, bool cutMesh, out NativeMeshData meshData)
+    public bool GetMesh(int hash, bool cutMesh, out NativeMeshDataL3 meshDataL3)
     {
         if (!cutMesh)
         {
-            return _meshDataHolder.TryGetMeshData(hash, out meshData);
+            return _meshDataHolderL3.TryGetMeshData(hash, out meshDataL3);
         }
         else
         {
-            return _cutMeshDataHolder.TryGetMeshData(hash, out meshData);
+            return _cutMeshDataHolderL3.TryGetMeshData(hash, out meshDataL3);
         }
     }
 
     /// <summary>
     /// 切断後のメッシュデータを追加するのに利用する
     /// </summary>
-    /// <param name="meshData"></param>
+    /// <param name="meshDataL3"></param>
     /// <returns>メッシュデータのhash</returns>
-    public int AddCutMesh(NativeMeshData meshData)
+    public int AddCutMesh(NativeMeshDataL3 meshDataL3)
     {
-        return _cutMeshDataHolder.AddMeshData(meshData);
+        return _cutMeshDataHolderL3.AddMeshData(meshDataL3);
     }
 
     private void OnDestroy()
     {
-        _meshDataHolder.Dispose();
-        _cutMeshDataHolder.Dispose();
+        _meshDataHolderL3.Dispose();
+        _cutMeshDataHolderL3.Dispose();
     }
 }

@@ -4,7 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct InitializeArrayJob : IJob
+public struct InitializeArrayJobL3 : IJob
 {
     [ReadOnly] public NativeArray<int2> ArrayPath;
     [ReadOnly] public NativeArray<int3> BaseTriangleArrayData;

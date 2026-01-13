@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class BreakableObject : MonoBehaviour
+public class BreakableObjectL3 : MonoBehaviour
 {
     [SerializeField] private MeshFilter _meshFilter;
     public Mesh BreakableMesh => _meshFilter.mesh;

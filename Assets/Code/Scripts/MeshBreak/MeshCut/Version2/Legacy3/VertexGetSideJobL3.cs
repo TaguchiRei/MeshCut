@@ -4,7 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct VertexGetSideJob : IJobParallelFor
+public struct VertexGetSideJobL3 : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float3> Vertices;
     [ReadOnly] public NativeArray<NativePlane> Blades;

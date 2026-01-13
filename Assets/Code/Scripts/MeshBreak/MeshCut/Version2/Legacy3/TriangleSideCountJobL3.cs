@@ -5,9 +5,9 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct TriangleSideCountJob : IJobParallelFor
+public struct TriangleSideCountJobL3 : IJobParallelFor
 {
-    [ReadOnly] public NativeArray<SubmeshTriangle> Triangles;
+    [ReadOnly] public NativeArray<SubmeshTriangleL3> Triangles;
     [ReadOnly] public NativeArray<int> VertexSide;
 
 

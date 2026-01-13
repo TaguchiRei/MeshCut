@@ -8,30 +8,31 @@ using Debug = UnityEngine.Debug;
 /// <summary>
 /// メッシュカットのスケジュールを担当する
 /// </summary>
-public class BurstMeshCutScheduler
+public class BurstMeshCutSchedulerL3
 {
     //三角形の分類パターンは８通り詳細はTriangleSideCountJobのコメントを参照
     private const int TRIANGLES_CLASSIFY = 8;
-    private INativeMeshRepository meshRepository;
 
     private UniTask cutTask;
 
-    public void Cut(NativePlane blade, NativeMeshData[] meshData, int batchCount)
+    public void Cut(NativePlane blade, NativeMeshDataL3[] meshData, int batchCount)
     {
         CutTaskAsync(blade, meshData, batchCount);
     }
 
-    private void CutTaskAsync(NativePlane blade, NativeMeshData[] meshData, int batchCount)
+    private void CutTaskAsync(NativePlane blade, NativeMeshDataL3[] meshData, int batchCount)
     {
         Stopwatch totalTime = new Stopwatch();
         totalTime.Start();
         // すべてのDisposeの必要がある物はここで宣言
         NativeArray<int2> arraysPath = default;
-        NativeArray<float3> positions = default, scale = default;
-        NativeArray<quaternion> rotation = default;
+        NativeArray<float3> baseObjectPositions = default;
+        NativeArray<float3> baseObjectScale = default;
+        NativeArray<quaternion> baseObjectRotation = default;
         NativeArray<float3> baseVertices = default, baseNormals = default;
         NativeArray<float2> baseUvs = default;
-        NativeArray<SubmeshTriangle> baseTriangles = default;
+        NativeArray<SubmeshTriangleL3> baseTriangles = default;
+
         //ベース配列の開始位置と長さ、オブジェクトIDをそれぞれ保存している
         NativeArray<int3> baseTriangleArrayData = default;
 
@@ -47,7 +48,7 @@ public class BurstMeshCutScheduler
         NativeArray<float3> newVertices = default;
         NativeArray<float3> newNormals = default;
         NativeArray<float2> newUvs = default;
-        NativeArray<NewTriangleData> newTriangle = default;
+        NativeArray<NewTriangleDataL3> newTriangle = default;
 
         NativeArray<int> activeResultVertexIndex = default;
         NativeArray<int> activeResultTriangleIndex = default;
@@ -68,9 +69,9 @@ public class BurstMeshCutScheduler
             // メモリ確保 
             Stopwatch memoryGet = Stopwatch.StartNew();
             arraysPath = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            positions = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            scale = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            rotation = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseObjectPositions = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseObjectScale = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            baseObjectRotation = new(meshData.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             baseVertices = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             baseNormals = new(vertexArrayLength, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
@@ -96,9 +97,9 @@ public class BurstMeshCutScheduler
                 var data = meshData[i];
 
                 // Transform取得
-                positions[i] = data.Transform.position;
-                scale[i] = data.Transform.localScale;
-                rotation[i] = data.Transform.rotation;
+                baseObjectPositions[i] = data.Transform.position;
+                baseObjectScale[i] = data.Transform.localScale;
+                baseObjectRotation[i] = data.Transform.rotation;
                 arraysPath[i] = new int2(data.Vertices.Length, vOffset);
 
                 // 頂点データコピー
@@ -127,7 +128,7 @@ public class BurstMeshCutScheduler
             //各種三角形の頂点インデックスに三角形のインデックスと同じインデックスに保存される値を足すと結合後のインデックスが取得できる
             trianglesObjectStartIndex =
                 new(baseTriangles.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var initializeArrayJob = new InitializeArrayJob()
+            var initializeArrayJob = new InitializeArrayJobL3()
             {
                 ArrayPath = arraysPath,
                 BaseTriangleArrayData = baseTriangleArrayData,
@@ -146,12 +147,12 @@ public class BurstMeshCutScheduler
 
             //オブジェクトごとのローカル空間に移した切断面を生成する
             blades = new(meshData.Length, Allocator.TempJob);
-            var bladeInitializeJob = new BladeInitializeJob
+            var bladeInitializeJob = new BladeInitializeJobL3
             {
                 Blade = blade,
-                Positions = positions,
-                Quaternions = rotation,
-                Scales = scale,
+                Positions = baseObjectPositions,
+                Quaternions = baseObjectRotation,
+                Scales = baseObjectScale,
                 LocalBlades = blades
             };
 
@@ -162,7 +163,7 @@ public class BurstMeshCutScheduler
             #region 頂点が面に対してどちら方向か調べる
 
             vertSide = new(baseVertices.Length, Allocator.TempJob);
-            var vertGetSideJob = new VertexGetSideJob
+            var vertGetSideJob = new VertexGetSideJobL3
             {
                 Vertices = baseVertices,
                 Blades = blades,
@@ -178,7 +179,7 @@ public class BurstMeshCutScheduler
 
             trianglesArrayNumber = new(trianglesArrayLength, Allocator.TempJob);
 
-            var triangleGetSideJob = new TriangleSideCountJob
+            var triangleGetSideJob = new TriangleSideCountJobL3
             {
                 Triangles = baseTriangles,
                 VertexSide = vertSide,
@@ -191,9 +192,8 @@ public class BurstMeshCutScheduler
             #endregion
 
             #region 新たに頂点を生成する
-            
-            
-            var triangleCutJob = new TrianglesCutJob
+
+            var triangleCutJob = new TrianglesCutJobL3
             {
                 BaseVertices = baseVertices,
                 BaseNormals = baseNormals,
@@ -221,9 +221,9 @@ public class BurstMeshCutScheduler
 
             //最後のJob完了時点ですべてDisposeする
             arraysPath.Dispose(triangleCutHandle);
-            positions.Dispose(triangleCutHandle);
-            scale.Dispose(triangleCutHandle);
-            rotation.Dispose(triangleCutHandle);
+            baseObjectPositions.Dispose(triangleCutHandle);
+            baseObjectScale.Dispose(triangleCutHandle);
+            baseObjectRotation.Dispose(triangleCutHandle);
             baseVertices.Dispose(triangleCutHandle);
             baseNormals.Dispose(triangleCutHandle);
             baseUvs.Dispose(triangleCutHandle);
@@ -247,9 +247,9 @@ public class BurstMeshCutScheduler
         {
             Debug.LogException(e);
             if (arraysPath.IsCreated) arraysPath.Dispose();
-            if (positions.IsCreated) positions.Dispose();
-            if (scale.IsCreated) scale.Dispose();
-            if (rotation.IsCreated) rotation.Dispose();
+            if (baseObjectPositions.IsCreated) baseObjectPositions.Dispose();
+            if (baseObjectScale.IsCreated) baseObjectScale.Dispose();
+            if (baseObjectRotation.IsCreated) baseObjectRotation.Dispose();
             if (baseVertices.IsCreated) baseVertices.Dispose();
             if (baseNormals.IsCreated) baseNormals.Dispose();
             if (baseUvs.IsCreated) baseUvs.Dispose();
@@ -273,9 +273,4 @@ public class BurstMeshCutScheduler
             Debug.Log($"合計処理時間 : {totalTime.ElapsedMilliseconds}ms");
         }
     }
-}
-
-public interface INativeMeshRepository
-{
-    bool GetMesh(int hash, bool cutMesh, out NativeMeshData meshData);
 }

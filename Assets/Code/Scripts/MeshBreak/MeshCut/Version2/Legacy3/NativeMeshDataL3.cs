@@ -7,29 +7,29 @@ using UnityEngine.Rendering;
 /// <summary>
 /// メッシュの情報をキャッシュしておくためのクラス。Jobを呼ぶときに直接構造体として渡せないようにするためclassに
 /// </summary>
-public class NativeMeshData : IDisposable
+public class NativeMeshDataL3 : IDisposable
 {
     public readonly int HashCode;
 
     private NativeArray<float3> _vertices;
     private NativeArray<float3> _normals;
     private NativeArray<float2> _uvs;
-    private NativeArray<SubmeshTriangle> _triangles;
+    private NativeArray<SubmeshTriangleL3> _triangles;
 
     private Transform _transform;
 
     public NativeArray<float3> Vertices => _vertices;
     public NativeArray<float3> Normals => _normals;
     public NativeArray<float2> Uvs => _uvs;
-    public NativeArray<SubmeshTriangle> Triangles => _triangles;
+    public NativeArray<SubmeshTriangleL3> Triangles => _triangles;
     public Transform Transform => _transform;
 
-    public NativeMeshData(Mesh mesh, Transform transform)
+    public NativeMeshDataL3(Mesh mesh, Transform transform)
     {
         _vertices = new NativeArray<float3>(mesh.vertexCount, Allocator.Persistent);
         _normals = new NativeArray<float3>(mesh.vertexCount, Allocator.Persistent);
         _uvs = new NativeArray<float2>(mesh.vertexCount, Allocator.Persistent);
-        _triangles = new NativeArray<SubmeshTriangle>(mesh.triangles.Length / 3, Allocator.Persistent);
+        _triangles = new NativeArray<SubmeshTriangleL3>(mesh.triangles.Length / 3, Allocator.Persistent);
 
         _transform = transform;
 
@@ -52,7 +52,7 @@ public class NativeMeshData : IDisposable
                     data.GetIndices(indices, i);
                     for (int j = 0; j < indexCount; j += 3)
                     {
-                        _triangles[index++] = new SubmeshTriangle
+                        _triangles[index++] = new SubmeshTriangleL3
                         {
                             Index0 = indices[j],
                             Index1 = indices[j + 1],
@@ -83,17 +83,17 @@ public class NativeMeshData : IDisposable
         }
     }
 
-    public NativeMeshData(NativeMeshData editMeshData)
+    public NativeMeshDataL3(NativeMeshDataL3 editMeshDataL3)
     {
-        _vertices = new NativeArray<float3>(editMeshData.Vertices.Length, Allocator.Persistent);
-        _normals = new NativeArray<float3>(editMeshData.Normals.Length, Allocator.Persistent);
-        _uvs = new NativeArray<float2>(editMeshData.Uvs.Length, Allocator.Persistent);
-        _triangles = new NativeArray<SubmeshTriangle>(editMeshData.Triangles.Length, Allocator.Persistent);
+        _vertices = new NativeArray<float3>(editMeshDataL3.Vertices.Length, Allocator.Persistent);
+        _normals = new NativeArray<float3>(editMeshDataL3.Normals.Length, Allocator.Persistent);
+        _uvs = new NativeArray<float2>(editMeshDataL3.Uvs.Length, Allocator.Persistent);
+        _triangles = new NativeArray<SubmeshTriangleL3>(editMeshDataL3.Triangles.Length, Allocator.Persistent);
 
-        NativeArray<float3>.Copy(editMeshData.Vertices, _vertices);
-        NativeArray<float3>.Copy(editMeshData.Normals, _normals);
-        NativeArray<float2>.Copy(editMeshData.Uvs, _uvs);
-        NativeArray<SubmeshTriangle>.Copy(editMeshData.Triangles, _triangles);
+        NativeArray<float3>.Copy(editMeshDataL3.Vertices, _vertices);
+        NativeArray<float3>.Copy(editMeshDataL3.Normals, _normals);
+        NativeArray<float2>.Copy(editMeshDataL3.Uvs, _uvs);
+        NativeArray<SubmeshTriangleL3>.Copy(editMeshDataL3.Triangles, _triangles);
 
         unchecked
         {

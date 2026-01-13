@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MeshDataHolder : IDisposable
+public class MeshDataHolderL3 : IDisposable
 {
-    private readonly Dictionary<int, MeshCounterData> _meshData = new();
+    private readonly Dictionary<int, MeshCounterDataL3> _meshData = new();
 
     public int AddMeshData(Mesh mesh, Transform transform)
     {
-        var meshData = new NativeMeshData(mesh, transform);
+        var meshData = new NativeMeshDataL3(mesh, transform);
         var hash = meshData.HashCode;
         if (_meshData.TryGetValue(hash, out var data))
         {
@@ -19,21 +19,21 @@ public class MeshDataHolder : IDisposable
             _meshData[hash] = new(meshData);
         }
 
-        return _meshData[hash].MeshData.HashCode;
+        return _meshData[hash].MeshDataL3.HashCode;
     }
 
-    public bool TryGetMeshData(int hashCode, out NativeMeshData meshData)
+    public bool TryGetMeshData(int hashCode, out NativeMeshDataL3 meshDataL3)
     {
         if (_meshData.TryGetValue(hashCode, out var data) && data.Counter > data.UseCounter)
         {
-            meshData = data.MeshData;
+            meshDataL3 = data.MeshDataL3;
             data.UseCounter++;
 
             return true;
         }
         else
         {
-            meshData = default;
+            meshDataL3 = default;
             return false;
         }
     }
@@ -53,7 +53,7 @@ public class MeshDataHolder : IDisposable
             if (data.Counter < 1 && data.UseCounter < 1)
             {
                 _meshData.Remove(hashCode);
-                data.MeshData.Dispose();
+                data.MeshDataL3.Dispose();
                 return false;
             }
         }
@@ -65,7 +65,7 @@ public class MeshDataHolder : IDisposable
     {
         foreach (var meshCounterData in _meshData)
         {
-            meshCounterData.Value.MeshData.Dispose();
+            meshCounterData.Value.MeshDataL3.Dispose();
         }
     }
 }

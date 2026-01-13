@@ -1,6 +1,6 @@
 using Unity.Mathematics;
 
-public struct NewTriangleData
+public struct NewTriangleDataL3
 {
     public VertexRef V0, V1, V2;
 
@@ -8,7 +8,7 @@ public struct NewTriangleData
     public int ObjectId;
     public int IsFrontSide;
 
-    public NewTriangleData(
+    public NewTriangleDataL3(
         VertexRef v0, VertexRef v1, VertexRef v2,
         int submesh, int objectId, int isFrontSide)
     {

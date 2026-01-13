@@ -1,7 +1,7 @@
 using Unity.Collections;
 using Unity.Mathematics;
 
-public struct NativeEditMeshData
+public struct NativeEditMeshDataL3
 {
     public NativeList<float3> Vertices;
     public NativeList<float3> Normals;
@@ -10,5 +10,5 @@ public struct NativeEditMeshData
     /// <summary> 各三角形配列の開始地点、長さ、どのオブジェクトに属しているかを保持 </summary>
     public NativeList<int3> TrianglesStartLengthID;
 
-    public NativeList<SubmeshTriangle> Triangles;
+    public NativeList<SubmeshTriangleL3> Triangles;
 }

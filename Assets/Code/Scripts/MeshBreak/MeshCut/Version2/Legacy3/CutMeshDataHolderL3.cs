@@ -1,39 +1,39 @@
 using System;
 using System.Collections.Generic;
 
-public class CutMeshDataHolder : IDisposable
+public class CutMeshDataHolderL3 : IDisposable
 {
     Dictionary<int, NativeMeshUsingCheck> _meshData = new();
 
     private class NativeMeshUsingCheck
     {
-        public NativeMeshData NativeMeshData;
+        public NativeMeshDataL3 NativeMeshDataL3;
         public bool IsUsing;
 
-        public NativeMeshUsingCheck(NativeMeshData nativeMeshData)
+        public NativeMeshUsingCheck(NativeMeshDataL3 nativeMeshDataL3)
         {
-            NativeMeshData = nativeMeshData;
+            NativeMeshDataL3 = nativeMeshDataL3;
             IsUsing = false;
         }
     }
 
-    public int AddMeshData(NativeMeshData editMeshData)
+    public int AddMeshData(NativeMeshDataL3 editMeshDataL3)
     {
-        var meshData = new NativeMeshData(editMeshData);
+        var meshData = new NativeMeshDataL3(editMeshDataL3);
         _meshData[meshData.HashCode] = new(meshData);
         return meshData.HashCode;
     }
 
-    public bool TryGetMeshData(int hashCode, out NativeMeshData meshData)
+    public bool TryGetMeshData(int hashCode, out NativeMeshDataL3 meshDataL3)
     {
         if (_meshData.TryGetValue(hashCode, out var data) && !data.IsUsing)
         {
-            meshData = data.NativeMeshData;
+            meshDataL3 = data.NativeMeshDataL3;
             data.IsUsing = true;
             return true;
         }
 
-        meshData = default;
+        meshDataL3 = default;
         return false;
     }
 
@@ -46,7 +46,7 @@ public class CutMeshDataHolder : IDisposable
     {
         if (_meshData.TryGetValue(hashCode, out var data))
         {
-            data.NativeMeshData.Dispose();
+            data.NativeMeshDataL3.Dispose();
             _meshData.Remove(hashCode);
         }
     }
@@ -55,7 +55,7 @@ public class CutMeshDataHolder : IDisposable
     {
         foreach (var valueTuple in _meshData)
         {
-            valueTuple.Value.NativeMeshData.Dispose();
+            valueTuple.Value.NativeMeshDataL3.Dispose();
         }
     }
 }

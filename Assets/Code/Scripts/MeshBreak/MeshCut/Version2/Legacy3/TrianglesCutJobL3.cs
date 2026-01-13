@@ -4,12 +4,12 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct TrianglesCutJob : IJobParallelFor
+public struct TrianglesCutJobL3 : IJobParallelFor
 {
     [ReadOnly] public NativeArray<float3> BaseVertices;
     [ReadOnly] public NativeArray<float3> BaseNormals;
     [ReadOnly] public NativeArray<float2> BaseUvs;
-    [ReadOnly] public NativeArray<SubmeshTriangle> BaseTriangles;
+    [ReadOnly] public NativeArray<SubmeshTriangleL3> BaseTriangles;
     [ReadOnly] public NativeArray<NativePlane> Blades;
 
     /// <summary> 各三角形のインデックスに対するオフセット </summary>
@@ -39,7 +39,7 @@ public struct TrianglesCutJob : IJobParallelFor
 
     /// <summary> 元の三角形1つにつき3つ分の領域を確保 </summary>
     [WriteOnly, NativeDisableParallelForRestriction]
-    public NativeArray<NewTriangleData> NewTriangles;
+    public NativeArray<NewTriangleDataL3> NewTriangles;
 
     public void Execute(int index)
     {
@@ -125,16 +125,16 @@ public struct TrianglesCutJob : IJobParallelFor
         int isFrontSideDouble = 1 - isFrontSide;
 
         // 1. 孤立頂点側の三角形 (solo, n1, n2)
-        NewTriangles[triBase] = new NewTriangleData(vrSolo, vrN1, vrN2, submesh, objectId, isFrontSide);
+        NewTriangles[triBase] = new NewTriangleDataL3(vrSolo, vrN1, vrN2, submesh, objectId, isFrontSide);
 
         // 2. 残り側三角形1 (n1, d1, d2)
-        NewTriangles[triBase + 1] = new NewTriangleData(vrN1, vrD1, vrD2, submesh, objectId, isFrontSideDouble);
+        NewTriangles[triBase + 1] = new NewTriangleDataL3(vrN1, vrD1, vrD2, submesh, objectId, isFrontSideDouble);
 
         // 3. 残り側三角形2 (n1, d2, n2)
-        NewTriangles[triBase + 2] = new NewTriangleData(vrN1, vrD2, vrN2, submesh, objectId, isFrontSideDouble);
+        NewTriangles[triBase + 2] = new NewTriangleDataL3(vrN1, vrD2, vrN2, submesh, objectId, isFrontSideDouble);
     }
 
-    private int GetIndexByLocal(SubmeshTriangle tri, int localIdx)
+    private int GetIndexByLocal(SubmeshTriangleL3 tri, int localIdx)
     {
         return localIdx == 0 ? tri.Index0 : (localIdx == 1 ? tri.Index1 : tri.Index2);
     }

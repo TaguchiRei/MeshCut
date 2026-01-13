@@ -4,7 +4,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct BladeInitializeJob : IJobParallelFor
+public struct BladeInitializeJobL3 : IJobParallelFor
 {
     [ReadOnly] public NativePlane Blade;
 
