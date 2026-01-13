@@ -3,7 +3,6 @@ using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 
 /// <summary>
 /// メッシュ切断の過程で生まれる一時配列をすべて保持するクラス。
@@ -13,7 +12,7 @@ public class MeshCutContext : IDisposable
 {
     public JobHandle CutJobHandle;
 
-    /// <summary> 各頂点とオブジェクトの対応表 </summary>
+    /// <summary> ベースの各頂点とオブジェクトの対応配列。長さはベースオブジェクト群の長さ </summary>
     public NativeArray<int> VerticesObjectIdList;
 
     /// <summary> 乱雑に並んだ全頂点 </summary>
@@ -26,10 +25,7 @@ public class MeshCutContext : IDisposable
     public NativeArray<float2> Uvs;
 
     /// <summary> 全三角形を保持 </summary>
-    public NativeArray<NativeTriangle> Triangles;
-
-    /// <summary> Triangles配列のオブジェクトごとのスタート位置と終了位置をオブジェクト順で保持 </summary>
-    public NativeArray<StartAndLength> TrianglesStartAndLength;
+    public NativeList<NativeTriangle> Triangles;
 
     /// <summary> 各オブジェクトごとの切断面をオブジェクト順に保持 </summary>
     public NativeArray<NativePlane> Planes;
@@ -42,19 +38,34 @@ public class MeshCutContext : IDisposable
 
     public async UniTask Complete()
     {
+        if (CutJobHandle.IsCompleted) return;
         await UniTask.WaitUntil(() => CutJobHandle.IsCompleted);
+    }
+
+    public MeshCutContext(int verticesArrayCount, int objectCount, int triangleCount,
+        NativeTransform[] transforms,
+        Allocator allocator)
+    {
+        VerticesObjectIdList = new(verticesArrayCount, allocator, NativeArrayOptions.UninitializedMemory);
+        Vertices = new(verticesArrayCount + triangleCount * 2, allocator, NativeArrayOptions.UninitializedMemory);
+        Normals = new(verticesArrayCount + triangleCount * 2, allocator, NativeArrayOptions.UninitializedMemory);
+        Uvs = new(verticesArrayCount + triangleCount * 2, allocator, NativeArrayOptions.UninitializedMemory);
+        Triangles = new(triangleCount * 3, allocator);
+        Planes = new(objectCount, allocator, NativeArrayOptions.UninitializedMemory);
+        Transforms = new(transforms.Length, allocator, NativeArrayOptions.UninitializedMemory);
+        Transforms.CopyFrom(transforms);
+        VertSide = new(verticesArrayCount, allocator, NativeArrayOptions.UninitializedMemory);
     }
 
     public void Dispose()
     {
         CutJobHandle.Complete();
-        
+
         VerticesObjectIdList.Dispose();
         Vertices.Dispose();
         Normals.Dispose();
         Uvs.Dispose();
         Triangles.Dispose();
-        TrianglesStartAndLength.Dispose();
         Planes.Dispose();
         Transforms.Dispose();
         VertSide.Dispose();
