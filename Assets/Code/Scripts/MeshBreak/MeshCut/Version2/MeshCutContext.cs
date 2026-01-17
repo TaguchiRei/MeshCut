@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Debug = UnityEngine.Debug;
 
 /// <summary>
 /// メッシュ切断の過程で生まれる一時配列をすべて保持するクラス。
@@ -55,11 +57,12 @@ public class MeshCutContext : INativeDisposable
         BaseNormals = new(baseNormals, allocator);
         BaseUvs = new(baseUvs, allocator);
         BaseTriangles = new(baseTriangles, allocator);
-
+        
         //処理用配列初期化
         Transforms = new(transforms, allocator);
-        Blades = new NativeArray<NativePlane>(baseVertices.Length, allocator);
-        VerticesObjectIdList = new NativeArray<int>(BaseVertices.Length, allocator);
+        Blades = new NativeArray<NativePlane>(baseVertices.Length, allocator, NativeArrayOptions.UninitializedMemory);
+        VerticesObjectIdList =
+            new NativeArray<int>(BaseVertices.Length, allocator, NativeArrayOptions.UninitializedMemory);
         int globalIdx = 0;
         for (int i = 0; i < baseVertices.Length; i++)
         {

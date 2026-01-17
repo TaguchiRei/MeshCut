@@ -31,8 +31,8 @@ public class MeshCutBurstTest : MonoBehaviour
         var ret = CheckOverlapObjects();
 
         Stopwatch allTime = Stopwatch.StartNew();
-        var context = _scheduler.SchedulingCutLight(new(transform),ret);
-        context.Dispose(context.CutJobHandle);
+        var context = _scheduler.SchedulingCutLight(new(transform), ret);
+        //context.Dispose(context.CutJobHandle);
         try
         {
             await context.Complete();
@@ -41,8 +41,11 @@ public class MeshCutBurstTest : MonoBehaviour
         catch (Exception e)
         {
             Console.WriteLine(e);
-            context.Dispose();
             throw;
+        }
+        finally
+        {
+            context.Dispose();
         }
     }
 
