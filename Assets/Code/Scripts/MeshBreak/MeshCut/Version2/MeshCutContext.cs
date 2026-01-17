@@ -36,11 +36,6 @@ public class MeshCutContext : INativeDisposable
     /// <summary> 各頂点が面に対してどの方向にあるのかを保持する </summary>
     public NativeArray<int> VertSide;
 
-    private NativeArray<float3>[] baseVerticesArray;
-    private NativeArray<float3>[] baseNormalsArray;
-    private NativeArray<float2>[] baseUvsArray;
-    private NativeArray<NativeTriangle>[] baseTrianglesArray;
-
     public async UniTask Complete()
     {
         if (CutJobHandle.IsCompleted) return;
@@ -52,8 +47,45 @@ public class MeshCutContext : INativeDisposable
         NativeArray<float3>[] baseNormals,
         NativeArray<float2>[] baseUvs,
         NativeArray<NativeTriangle>[] baseTriangles,
-        NativeArray<NativePlane> blades,
-        NativeArray<int> vertSide)
+        NativeTransform[] transforms,
+        Allocator allocator)
     {
+        //結合配列初期化
+        BaseVertices = new(baseVertices, allocator);
+        BaseNormals = new(baseNormals, allocator);
+        BaseUvs = new(baseUvs, allocator);
+        BaseTriangles = new(baseTriangles, allocator);
+
+        //処理用配列初期化
+        Transforms = new(transforms, allocator);
+        Blades = new NativeArray<NativePlane>(baseVertices.Length, allocator);
+        VerticesObjectIdList = new NativeArray<int>(BaseVertices.Length, allocator);
+        int globalIdx = 0;
+        for (int i = 0; i < baseVertices.Length; i++)
+        {
+            for (int j = 0; j < baseVertices[i].Length; j++)
+            {
+                VerticesObjectIdList[globalIdx++] = i;
+            }
+        }
+
+        VertSide = new(BaseVertices.Length, allocator);
+    }
+
+    public void Dispose()
+    {
+        VerticesObjectIdList.Dispose();
+        BaseVertices.Dispose();
+        BaseNormals.Dispose();
+        BaseUvs.Dispose();
+        BaseTriangles.Dispose();
+        Blades.Dispose();
+        Transforms.Dispose();
+        VertSide.Dispose();
+    }
+
+    public JobHandle Dispose(JobHandle inputDeps)
+    {
+        return default;
     }
 }

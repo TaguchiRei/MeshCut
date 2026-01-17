@@ -20,7 +20,7 @@ public class CuttableObject : MonoBehaviour
         mesh = GetComponent<MeshFilter>().sharedMesh;
         Stopwatch stopwatch = Stopwatch.StartNew();
         await GenerateNativeTriangleArray();
-        Debug.Log($"{gameObject.name} {stopwatch.ElapsedMilliseconds} ms");
+        Debug.Log($"{gameObject.name} {stopwatch.ElapsedMilliseconds} ms {mesh.triangles.Length / 3} ");
     }
 
     public NativeTransform GetNativeTransform()
@@ -75,7 +75,6 @@ public class CuttableObject : MonoBehaviour
                         triangles[i],
                         triangles[i + 1],
                         triangles[i + 2],
-                        0,
                         subMeshId
                     );
                 }

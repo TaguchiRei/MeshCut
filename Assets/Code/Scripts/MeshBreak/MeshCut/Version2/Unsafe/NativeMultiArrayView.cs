@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -7,7 +8,9 @@ using Unity.Collections.LowLevel.Unsafe;
 public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
 {
     [NativeDisableUnsafePtrRestriction] private readonly T** _dataPointers;
+
     [NativeDisableUnsafePtrRestriction] private readonly int* _arrayOffsets;
+
     // NativeArrayをポインタ管理に変更
     [NativeDisableUnsafePtrRestriction] private readonly int* _indexToArrayId;
 
@@ -32,10 +35,10 @@ public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
         _totalLength = sum;
 
         // メモリの括確保
-        int ptrSize = UnsafeUtility.SizeOf<IntPtr>() * _arrayCount;   // _dataPointers
-        int offsetSize = UnsafeUtility.SizeOf<int>() * _arrayCount;  // _arrayOffsets
-        int lutSize = UnsafeUtility.SizeOf<int>() * _totalLength;    // _indexToArrayId
-        
+        int ptrSize = UnsafeUtility.SizeOf<IntPtr>() * _arrayCount; // _dataPointers
+        int offsetSize = UnsafeUtility.SizeOf<int>() * _arrayCount; // _arrayOffsets
+        int lutSize = UnsafeUtility.SizeOf<int>() * _totalLength; // _indexToArrayId
+
         byte* buffer = (byte*)UnsafeUtility.Malloc(ptrSize + offsetSize + lutSize, 16, allocator);
 
         _dataPointers = (T**)buffer;
@@ -48,13 +51,56 @@ public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
         {
             _dataPointers[i] = (T*)arrays[i].GetUnsafeReadOnlyPtr();
             _arrayOffsets[i] = currentOffset;
-            
+
             int len = arrays[i].Length;
             for (int j = 0; j < len; j++)
             {
                 _indexToArrayId[currentOffset + j] = i;
             }
+
             currentOffset += len;
+        }
+
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        _safety = AtomicSafetyHandle.Create();
+#endif
+    }
+    
+    public NativeMultiArrayView(NativeMultiArrayView<T> oldView, NativeArray<T> newArray, Allocator allocator)
+    {
+        _allocator = allocator;
+        _arrayCount = oldView._arrayCount + 1;
+        _totalLength = oldView._totalLength + newArray.Length;
+
+        // メモリの一括確保
+        int ptrSize = UnsafeUtility.SizeOf<IntPtr>() * _arrayCount;
+        int offsetSize = UnsafeUtility.SizeOf<int>() * _arrayCount;
+        int lutSize = UnsafeUtility.SizeOf<int>() * _totalLength;
+
+        byte* buffer = (byte*)UnsafeUtility.Malloc(ptrSize + offsetSize + lutSize, 16, allocator);
+
+        _dataPointers = (T**)buffer;
+        _arrayOffsets = (int*)(buffer + ptrSize);
+        _indexToArrayId = (int*)(buffer + ptrSize + offsetSize);
+
+        // 既存データのコピー
+        UnsafeUtility.MemCpy(_dataPointers, oldView._dataPointers,
+            UnsafeUtility.SizeOf<IntPtr>() * oldView._arrayCount);
+        UnsafeUtility.MemCpy(_arrayOffsets, oldView._arrayOffsets, UnsafeUtility.SizeOf<int>() * oldView._arrayCount);
+        // LUTの既存部分をコピー
+        UnsafeUtility.MemCpy(_indexToArrayId, oldView._indexToArrayId,
+            UnsafeUtility.SizeOf<int>() * oldView._totalLength);
+
+        // 新しい配列の追加
+        int lastIdx = _arrayCount - 1;
+        _dataPointers[lastIdx] = (T*)newArray.GetUnsafeReadOnlyPtr();
+        _arrayOffsets[lastIdx] = oldView._totalLength; // 前のViewの合計長さを新たなオフセットとして利用
+
+        // 新規LUT
+        for (int i = 0; i < newArray.Length; i++)
+        {
+            _indexToArrayId[oldView._totalLength + i] = lastIdx;
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -62,6 +108,16 @@ public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
 #endif
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetArrayId(int index)
+    {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        AtomicSafetyHandle.CheckReadAndThrow(_safety);
+        if ((uint)index >= (uint)_totalLength) throw new IndexOutOfRangeException();
+#endif
+        return _indexToArrayId[index];
+    }
+
     public T this[int index]
     {
         get
