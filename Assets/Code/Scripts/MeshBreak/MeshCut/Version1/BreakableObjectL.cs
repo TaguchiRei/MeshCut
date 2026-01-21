@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 

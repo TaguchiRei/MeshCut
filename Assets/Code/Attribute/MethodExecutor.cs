@@ -1,19 +1,20 @@
 using System;
 using System.Reflection;
-using UnityEditor;
 using UnityEngine;
+
 #if UNITY_EDITOR
+using UnityEditor;
 #endif
 
-namespace UsefllAttribute
+namespace UsefulAttribute
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class MethodExecutorAttribute : System.Attribute
+    public class MethodExecutorAttribute : Attribute
     {
         public string ButtonName { get; }
         public bool CanExecuteInEditMode { get; }
 
-        public MethodExecutorAttribute(string buttonName , bool canExecuteInEditMode)
+        public MethodExecutorAttribute(string buttonName, bool canExecuteInEditMode)
         {
             ButtonName = buttonName;
             CanExecuteInEditMode = canExecuteInEditMode;
@@ -21,16 +22,28 @@ namespace UsefllAttribute
 
         public MethodExecutorAttribute()
         {
-            ButtonName = "Test";
+            ButtonName = "TestMethod";
+            CanExecuteInEditMode = false;
+        }
+
+        public MethodExecutorAttribute(bool canExecuteInEditMode)
+        {
+            ButtonName = "TestMethod";
+            CanExecuteInEditMode = canExecuteInEditMode;
+        }
+
+        public MethodExecutorAttribute(string buttonName)
+        {
+            ButtonName = buttonName;
             CanExecuteInEditMode = false;
         }
     }
 
 
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class InspectorButtonEditor : UnityEditor.Editor
+    public class InspectorButtonEditor : Editor
     {
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
@@ -61,6 +74,6 @@ namespace UsefllAttribute
                 GUI.enabled = true; // 元に戻す
             }
         }
-        #endif
+#endif
     }
 }

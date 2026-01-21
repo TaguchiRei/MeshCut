@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 public class MeshCutBurstTest : MonoBehaviour

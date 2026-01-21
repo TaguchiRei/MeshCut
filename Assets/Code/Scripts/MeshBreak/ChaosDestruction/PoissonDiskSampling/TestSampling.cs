@@ -3,8 +3,8 @@ using System.Diagnostics;
 using System.Threading;
 using ChaosDestruction.PoissonDiskSampling;
 using Cysharp.Threading.Tasks;
-using UsefllAttribute;
 using UnityEngine;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 public class TestSampling : MonoBehaviour

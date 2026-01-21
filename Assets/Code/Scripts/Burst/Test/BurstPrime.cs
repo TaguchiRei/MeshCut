@@ -4,7 +4,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 public class BurstPrime : MonoBehaviour

@@ -38,35 +38,47 @@ public class MeshCutContext : INativeDisposable
     /// <summary> 各頂点が面に対してどの方向にあるのかを保持する </summary>
     public NativeArray<int> VertSide;
 
+    public NativeArray<float3>[] BaseVerticesArray;
+    public NativeArray<float3>[] BaseNormalsArray;
+    public NativeArray<float2>[] BaseUvsArray;
+
     public async UniTask Complete()
     {
         if (CutJobHandle.IsCompleted) return;
         await UniTask.WaitUntil(() => CutJobHandle.IsCompleted);
     }
 
-    public MeshCutContext(
-        NativeArray<float3>[] baseVertices,
-        NativeArray<float3>[] baseNormals,
-        NativeArray<float2>[] baseUvs,
-        NativeArray<NativeTriangle>[] baseTriangles,
-        NativeTransform[] transforms,
+    public MeshCutContext(int objectCount)
+    {
+        BaseVerticesArray = new NativeArray<float3>[objectCount];
+        BaseNormalsArray = new NativeArray<float3>[objectCount];
+        BaseUvsArray = new NativeArray<float2>[objectCount];
+    }
+
+    /// <summary>
+    /// baseVertices等を設定したのちに使用
+    /// </summary>
+    /// <param name="baseTriangles"></param>
+    /// <param name="transforms"></param>
+    /// <param name="allocator"></param>
+    public void InitializeContext(
+        NativeArray<NativeTriangle>[] baseTriangles, NativeTransform[] transforms,
         Allocator allocator)
     {
-        //結合配列初期化
-        BaseVertices = new(baseVertices, allocator);
-        BaseNormals = new(baseNormals, allocator);
-        BaseUvs = new(baseUvs, allocator);
+        BaseVertices = new(BaseVerticesArray, allocator);
+        BaseNormals = new(BaseNormalsArray, allocator);
+        BaseUvs = new(BaseUvsArray, allocator);
         BaseTriangles = new(baseTriangles, allocator);
-        
-        //処理用配列初期化
+
         Transforms = new(transforms, allocator);
-        Blades = new NativeArray<NativePlane>(baseVertices.Length, allocator, NativeArrayOptions.UninitializedMemory);
+        Blades = new NativeArray<NativePlane>(BaseVerticesArray.Length, allocator,
+            NativeArrayOptions.UninitializedMemory);
         VerticesObjectIdList =
             new NativeArray<int>(BaseVertices.Length, allocator, NativeArrayOptions.UninitializedMemory);
         int globalIdx = 0;
-        for (int i = 0; i < baseVertices.Length; i++)
+        for (int i = 0; i < BaseVerticesArray.Length; i++)
         {
-            for (int j = 0; j < baseVertices[i].Length; j++)
+            for (int j = 0; j < BaseVerticesArray[i].Length; j++)
             {
                 VerticesObjectIdList[globalIdx++] = i;
             }
@@ -85,6 +97,12 @@ public class MeshCutContext : INativeDisposable
         Blades.Dispose();
         Transforms.Dispose();
         VertSide.Dispose();
+        for (int i = 0; i < BaseVerticesArray.Length; i++)
+        {
+            BaseVerticesArray[i].Dispose();
+            BaseNormalsArray[i].Dispose();
+            BaseUvsArray[i].Dispose();
+        }
     }
 
     public JobHandle Dispose(JobHandle inputDeps)

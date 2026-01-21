@@ -4,7 +4,7 @@ using System.Linq;
 using MeshBreak;
 using UnityEngine;
 using MeshBreak.MeshCut;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 public class TestMeshCutter : MonoBehaviour

@@ -60,7 +60,7 @@ public class CuttableObject : MonoBehaviour
         var nativeTriangles = new NativeArray<NativeTriangle>(triangleCount, Allocator.Persistent,
             NativeArrayOptions.UninitializedMemory);
 
-        // --- バックグラウンドで詰め替え ---
+        // バックグラウンドで独自形式に変換
         await UniTask.RunOnThreadPool(() =>
         {
             int index = 0;
@@ -82,5 +82,9 @@ public class CuttableObject : MonoBehaviour
         });
 
         Triangles = nativeTriangles;
+    }
+    private enum MeshSize
+    {
+        
     }
 }

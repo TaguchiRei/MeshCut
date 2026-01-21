@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
@@ -21,12 +20,12 @@ public class BurstCutScheduler
     {
         Stopwatch st = Stopwatch.StartNew();
 
+        // Contextの生成
+        MeshCutContext context = new MeshCutContext(cuttables.Length);
+
         int objectCount = cuttables.Length;
 
         // 各要素の NativeArray 参照を収集する配列を作成
-        var baseVertices = new NativeArray<float3>[objectCount];
-        var baseNormals = new NativeArray<float3>[objectCount];
-        var baseUvs = new NativeArray<float2>[objectCount];
         var baseTriangles = new NativeArray<NativeTriangle>[objectCount];
         var transforms = new NativeTransform[objectCount];
 
@@ -46,13 +45,13 @@ public class BurstCutScheduler
             var obj = cuttables[i];
 
             var meshData = meshDataArray[i];
-            baseVertices[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            baseNormals[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            baseUvs[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            
-            meshData.GetVertices(baseVertices[i].Reinterpret<Vector3>());
-            meshData.GetNormals(baseNormals[i].Reinterpret<Vector3>());
-            meshData.GetUVs(0, baseUvs[i].Reinterpret<Vector2>());
+            context.BaseVerticesArray[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            context.BaseNormalsArray[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            context.BaseUvsArray[i] = new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+
+            meshData.GetVertices(context.BaseVerticesArray[i].Reinterpret<Vector3>());
+            meshData.GetNormals(context.BaseNormalsArray[i].Reinterpret<Vector3>());
+            meshData.GetUVs(0, context.BaseUvsArray[i].Reinterpret<Vector2>());
 
             baseTriangles[i] = obj.Triangles;
             transforms[i] = obj.GetNativeTransform();
@@ -61,17 +60,8 @@ public class BurstCutScheduler
         Debug.Log($"頂点群を配列にキャッシュ {st.ElapsedMilliseconds}ms");
         st.Restart();
 
-
-        // Context の初期化 (ここで NativeMultiArrayView が作成される)
-        MeshCutContext context = new MeshCutContext
-        (
-            baseVertices,
-            baseNormals,
-            baseUvs,
-            baseTriangles,
-            transforms,
-            Allocator.TempJob
-        );
+        // ここで NativeMultiArrayView が作成される
+        context.InitializeContext(baseTriangles, transforms, Allocator.TempJob);
 
         Debug.Log($"Context生成　{st.ElapsedMilliseconds}ms");
 
