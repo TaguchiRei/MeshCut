@@ -2,13 +2,13 @@ using UnityEngine;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 
-public class SubmeshDataInitializer : MonoBehaviour
+public class SubmeshDataInitializerL : MonoBehaviour
 {
-    public CuttableObject[] cuttableObjects;
+    public CuttableObjectL[] cuttableObjects;
 
     private void Start()
     {
-        cuttableObjects = GetComponentsInChildren<CuttableObject>();
+        cuttableObjects = GetComponentsInChildren<CuttableObjectL>();
         cuttableObjects = cuttableObjects.OrderBy(c => c.mesh.vertexCount).ToArray();
     }
 

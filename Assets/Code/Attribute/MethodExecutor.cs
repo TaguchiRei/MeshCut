@@ -1,15 +1,14 @@
 using System;
 using System.Reflection;
-using UnityEngine;
-
-#if UNITY_EDITOR
 using UnityEditor;
+using UnityEngine;
+#if UNITY_EDITOR
 #endif
 
 namespace UsefulAttribute
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class MethodExecutorAttribute : Attribute
+    public class MethodExecutorAttribute : System.Attribute
     {
         public string ButtonName { get; }
         public bool CanExecuteInEditMode { get; }
@@ -22,13 +21,13 @@ namespace UsefulAttribute
 
         public MethodExecutorAttribute()
         {
-            ButtonName = "TestMethod";
+            ButtonName = "Test";
             CanExecuteInEditMode = false;
         }
 
         public MethodExecutorAttribute(bool canExecuteInEditMode)
         {
-            ButtonName = "TestMethod";
+            ButtonName = "Test";
             CanExecuteInEditMode = canExecuteInEditMode;
         }
 
@@ -41,7 +40,7 @@ namespace UsefulAttribute
 
 
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class InspectorButtonEditor : Editor
+    public class InspectorButtonEditor : UnityEditor.Editor
     {
 #if UNITY_EDITOR
         public override void OnInspectorGUI()

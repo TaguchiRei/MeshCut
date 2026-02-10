@@ -11,4 +11,8 @@ public enum OutListSceneName
     MeshDataTestScene,
     PoissonDiskSamplingTest,
     TestScene,
+    Demo_Goblin,
+    Demo_Hobgoblin,
+    Demo_Troll,
+    Demo_Wolf,
 }

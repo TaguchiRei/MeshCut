@@ -28,7 +28,7 @@ public class CodeGenerator : EditorWindow
     private OtherModifier _otherModifier;
 
 
-    [MenuItem("Window/UsefulTools/Code Generator")]
+    [MenuItem("UsefulTools/Code Generator")]
     public static void ShowWindow()
     {
         GetWindow<CodeGenerator>("Code Generator");
@@ -38,6 +38,9 @@ public class CodeGenerator : EditorWindow
     {
         _generateCodeFunc = GetSimpleCsCode;
         _generateMode = GenerateMode.SimpleCs;
+        _showOptions = true;
+        _showSimpleClass = true;
+        _showOthers = true;
     }
 
     public void OnGUI()
@@ -368,6 +371,8 @@ public class CodeGenerator : EditorWindow
             }
 
             sb.Append(beforeSeparator ? char.ToUpper(input[i]) : input[i]);
+
+            beforeSeparator = false;
         }
 
         return sb.ToString();

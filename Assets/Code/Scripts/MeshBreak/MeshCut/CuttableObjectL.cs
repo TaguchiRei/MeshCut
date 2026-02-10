@@ -6,11 +6,11 @@ using Unity.Collections;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-public class CuttableObject : MonoBehaviour
+public class CuttableObjectL : MonoBehaviour
 {
     private NativeTransform _nativeTransform;
     public Mesh mesh;
-    public NativeArray<NativeTriangle> Triangles;
+    public NativeArray<NativeTriangleL> Triangles;
 
     public bool Cuttable => mesh != null && Triangles.Length > 0;
 
@@ -57,7 +57,7 @@ public class CuttableObject : MonoBehaviour
         }
 
         // NativeArray を確保
-        var nativeTriangles = new NativeArray<NativeTriangle>(triangleCount, Allocator.Persistent,
+        var nativeTriangles = new NativeArray<NativeTriangleL>(triangleCount, Allocator.Persistent,
             NativeArrayOptions.UninitializedMemory);
 
         // バックグラウンドで独自形式に変換
@@ -71,7 +71,7 @@ public class CuttableObject : MonoBehaviour
 
                 for (int i = 0; i < triangles.Length; i += 3)
                 {
-                    nativeTriangles[index++] = new NativeTriangle(
+                    nativeTriangles[index++] = new NativeTriangleL(
                         triangles[i],
                         triangles[i + 1],
                         triangles[i + 2],

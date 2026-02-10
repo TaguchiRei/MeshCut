@@ -2553,6 +2553,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Symphony (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 658b6907314fe364ca2d7f640ed39bbc, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

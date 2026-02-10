@@ -852,6 +852,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _myCollider: {fileID: 729338985}
+  _batchCount: 1000
 --- !u!54 &729338991
 Rigidbody:
   m_ObjectHideFlags: 0

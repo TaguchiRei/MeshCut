@@ -6,17 +6,18 @@ using UnityEngine;
 using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
-public class MeshCutBurstTest : MonoBehaviour
+public class MeshCutBurstTestL : MonoBehaviour
 {
     [SerializeField] private Collider _myCollider;
+    [SerializeField] private int _batchCount;
 
-    private BurstCutScheduler _scheduler;
+    private BurstCutSchedulerL _schedulerL;
 
     private UniTask _cutTask;
 
     private void Start()
     {
-        _scheduler = new BurstCutScheduler();
+        _schedulerL = new BurstCutSchedulerL();
         _cutTask = default;
     }
 
@@ -31,8 +32,8 @@ public class MeshCutBurstTest : MonoBehaviour
         var ret = CheckOverlapObjects();
 
         Stopwatch allTime = Stopwatch.StartNew();
-        var context = _scheduler.SchedulingCutLight(new(transform), ret);
-        //context.Dispose(context.CutJobHandle);
+        var context = _schedulerL.SchedulingCutLight(new(transform), ret, _batchCount);
+        context.Dispose(context.CutJobHandle);
         try
         {
             await context.Complete();
@@ -45,15 +46,15 @@ public class MeshCutBurstTest : MonoBehaviour
         }
         finally
         {
-            context.Dispose();
+            if (context.VerticesObjectIdList.IsCreated) context.Dispose();
         }
     }
 
 
-    private CuttableObject[] CheckOverlapObjects()
+    private CuttableObjectL[] CheckOverlapObjects()
     {
         // コライダーの範囲内にあるオブジェクトを取得
-        List<CuttableObject> cuttables = new();
+        List<CuttableObjectL> cuttables = new();
         Collider[] hits = Physics.OverlapBox(
             _myCollider.bounds.center,
             _myCollider.bounds.extents,
@@ -62,7 +63,7 @@ public class MeshCutBurstTest : MonoBehaviour
 
         foreach (Collider hit in hits)
         {
-            if (!hit.gameObject.TryGetComponent(out CuttableObject cuttable)) continue;
+            if (!hit.gameObject.TryGetComponent(out CuttableObjectL cuttable)) continue;
             cuttables.Add(cuttable);
         }
 

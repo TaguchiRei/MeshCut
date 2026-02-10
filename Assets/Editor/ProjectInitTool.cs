@@ -7,7 +7,7 @@ public class ProjectInitTool : EditorWindow
 {
     private static AddRequest request;
 
-    [MenuItem("Window/UsefulTools/ProjectInitTool")]
+    [MenuItem("UsefulTools/ProjectInitTool")]
     public static void ShowWindow()
     {
         GetWindow<ProjectInitTool>("Project Init Tool");

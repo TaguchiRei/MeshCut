@@ -10,7 +10,7 @@ using Debug = UnityEngine.Debug;
 /// メッシュ切断の過程で生まれる一時配列をすべて保持するクラス。
 /// 処理完了後に一括でDisposeできるようにする
 /// </summary>
-public class MeshCutContext : INativeDisposable
+public class MeshCutContextL : INativeDisposable
 {
     public JobHandle CutJobHandle;
 
@@ -27,7 +27,7 @@ public class MeshCutContext : INativeDisposable
     public NativeMultiArrayView<float2> BaseUvs;
 
     /// <summary> 全三角形を保持 </summary>
-    public NativeMultiArrayView<NativeTriangle> BaseTriangles;
+    public NativeMultiArrayView<NativeTriangleL> BaseTriangles;
 
     /// <summary> 各オブジェクトごとの切断面をオブジェクト順に保持 </summary>
     public NativeArray<NativePlane> Blades;
@@ -36,7 +36,7 @@ public class MeshCutContext : INativeDisposable
     public NativeArray<NativeTransform> Transforms;
 
     /// <summary> 各頂点が面に対してどの方向にあるのかを保持する </summary>
-    public NativeArray<int> VertSide;
+    public NativeArray<int> VerticesSide;
 
     public NativeArray<float3>[] BaseVerticesArray;
     public NativeArray<float3>[] BaseNormalsArray;
@@ -48,7 +48,7 @@ public class MeshCutContext : INativeDisposable
         await UniTask.WaitUntil(() => CutJobHandle.IsCompleted);
     }
 
-    public MeshCutContext(int objectCount)
+    public MeshCutContextL(int objectCount)
     {
         BaseVerticesArray = new NativeArray<float3>[objectCount];
         BaseNormalsArray = new NativeArray<float3>[objectCount];
@@ -62,7 +62,7 @@ public class MeshCutContext : INativeDisposable
     /// <param name="transforms"></param>
     /// <param name="allocator"></param>
     public void InitializeContext(
-        NativeArray<NativeTriangle>[] baseTriangles, NativeTransform[] transforms,
+        NativeArray<NativeTriangleL>[] baseTriangles, NativeTransform[] transforms,
         Allocator allocator)
     {
         BaseVertices = new(BaseVerticesArray, allocator);
@@ -84,7 +84,7 @@ public class MeshCutContext : INativeDisposable
             }
         }
 
-        VertSide = new(BaseVertices.Length, allocator);
+        VerticesSide = new(BaseVertices.Length, allocator);
     }
 
     public void Dispose()
@@ -96,7 +96,7 @@ public class MeshCutContext : INativeDisposable
         BaseTriangles.Dispose();
         Blades.Dispose();
         Transforms.Dispose();
-        VertSide.Dispose();
+        VerticesSide.Dispose();
         for (int i = 0; i < BaseVerticesArray.Length; i++)
         {
             BaseVerticesArray[i].Dispose();

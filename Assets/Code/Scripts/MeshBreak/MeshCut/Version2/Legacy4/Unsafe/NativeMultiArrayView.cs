@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-[NativeContainer]
-[NativeContainerIsReadOnly]
+
 public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
 {
     // 各配列の先頭ポインタを保持
@@ -88,6 +87,17 @@ public unsafe struct NativeMultiArrayView<T> : IDisposable where T : unmanaged
             AtomicSafetyHandle.CheckReadAndThrow(_safety);
 #endif
             int arrayId = GetArrayId(index);
+            return _dataPointers[arrayId][index - _arrayOffsets[arrayId]];
+        }
+    }
+
+    public T this[int arrayId, int index]
+    {
+        get
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(_safety);
+#endif
             return _dataPointers[arrayId][index - _arrayOffsets[arrayId]];
         }
     }

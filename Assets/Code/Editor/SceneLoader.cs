@@ -10,7 +10,7 @@ public class SceneLoader : EditorWindow
     private Vector2 onListScroll;
     private Vector2 outListScroll;
 
-    [MenuItem("Window/UsefulTools/Scene Loader")]
+    [MenuItem("UsefulTools/Scene Loader")]
     public static void ShowWindow()
     {
         GetWindow<SceneLoader>("Scene Loader");
@@ -21,8 +21,8 @@ public class SceneLoader : EditorWindow
     {
         if (GUILayout.Button("シーンリストを更新"))
         {
-            onListScenes = Enum.GetNames(typeof(InListSceneName));
-            outListScenes = Enum.GetNames(typeof(OutListSceneName));
+            //onListScenes = Enum.GetNames(typeof(InListSceneName));
+            //outListScenes = Enum.GetNames(typeof(OutListSceneName));
         }
 
         if (onListScenes == null) return;
@@ -57,6 +57,7 @@ public class SceneLoader : EditorWindow
                 }
             }
         }
+
         EditorGUILayout.EndScrollView();
     }
 }

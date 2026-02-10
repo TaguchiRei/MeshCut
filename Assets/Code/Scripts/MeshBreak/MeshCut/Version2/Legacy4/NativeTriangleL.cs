@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public struct NativeTriangle
+public struct NativeTriangleL
 {
     public int Vertex1;
     public int Vertex2;
@@ -8,7 +8,7 @@ public struct NativeTriangle
     
     public int SubmeshId;
 
-    public NativeTriangle(int vertex1, int vertex2, int vertex3,  int submeshId)
+    public NativeTriangleL(int vertex1, int vertex2, int vertex3,  int submeshId)
     {
         Vertex1 = vertex1;
         Vertex2 = vertex2;
