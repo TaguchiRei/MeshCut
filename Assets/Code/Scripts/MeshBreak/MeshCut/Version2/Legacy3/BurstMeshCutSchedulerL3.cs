@@ -15,7 +15,7 @@ public class BurstMeshCutSchedulerL3
 
     private UniTask cutTask;
 
-    private MeshCutContextL _heavyMeshCutContextL;
+    private MeshCutContextL4 _heavyMeshCutContextL4;
 
     public void Cut(NativePlane blade, NativeMeshDataL3[] meshData, int batchCount)
     {

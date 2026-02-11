@@ -10,7 +10,7 @@ using Debug = UnityEngine.Debug;
 /// メッシュ切断の過程で生まれる一時配列をすべて保持するクラス。
 /// 処理完了後に一括でDisposeできるようにする
 /// </summary>
-public class MeshCutContextL : INativeDisposable
+public class MeshCutContextL4 : INativeDisposable
 {
     public JobHandle CutJobHandle;
 
@@ -48,7 +48,7 @@ public class MeshCutContextL : INativeDisposable
         await UniTask.WaitUntil(() => CutJobHandle.IsCompleted);
     }
 
-    public MeshCutContextL(int objectCount)
+    public MeshCutContextL4(int objectCount)
     {
         BaseVerticesArray = new NativeArray<float3>[objectCount];
         BaseNormalsArray = new NativeArray<float3>[objectCount];

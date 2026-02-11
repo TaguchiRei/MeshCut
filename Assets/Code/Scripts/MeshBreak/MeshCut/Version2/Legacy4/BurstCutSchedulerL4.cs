@@ -1,16 +1,15 @@
 using System.Diagnostics;
-using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-public class BurstCutSchedulerL
+public class BurstCutSchedulerL4
 {
     private const int TRIANGLES_CLASSIFY = 8;
 
-    private MeshCutContextL _heavyMeshCutContextL;
+    private MeshCutContextL4 _heavyMeshCutContextL4;
 
     /// <summary>
     /// 軽量なメッシュを切断するためのコード
@@ -18,12 +17,12 @@ public class BurstCutSchedulerL
     /// <param name="blade"></param>
     /// <param name="cuttables"></param>
     /// <returns></returns>
-    public MeshCutContextL SchedulingCutLight(NativePlane blade, CuttableObjectL[] cuttables, int batchCount)
+    public MeshCutContextL4 SchedulingCutLight(NativePlane blade, CuttableObjectL[] cuttables, int batchCount)
     {
         Stopwatch st = Stopwatch.StartNew();
 
         // Contextの生成
-        MeshCutContextL contextL = new MeshCutContextL(cuttables.Length);
+        MeshCutContextL4 contextL4 = new MeshCutContextL4(cuttables.Length);
 
         int objectCount = cuttables.Length;
 
@@ -47,16 +46,16 @@ public class BurstCutSchedulerL
             var obj = cuttables[i];
 
             var meshData = meshDataArray[i];
-            contextL.BaseVerticesArray[i] = new(meshData.vertexCount, Allocator.TempJob,
+            contextL4.BaseVerticesArray[i] = new(meshData.vertexCount, Allocator.TempJob,
                 NativeArrayOptions.UninitializedMemory);
-            contextL.BaseNormalsArray[i] = new(meshData.vertexCount, Allocator.TempJob,
+            contextL4.BaseNormalsArray[i] = new(meshData.vertexCount, Allocator.TempJob,
                 NativeArrayOptions.UninitializedMemory);
-            contextL.BaseUvsArray[i] =
+            contextL4.BaseUvsArray[i] =
                 new(meshData.vertexCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
-            meshData.GetVertices(contextL.BaseVerticesArray[i].Reinterpret<Vector3>());
-            meshData.GetNormals(contextL.BaseNormalsArray[i].Reinterpret<Vector3>());
-            meshData.GetUVs(0, contextL.BaseUvsArray[i].Reinterpret<Vector2>());
+            meshData.GetVertices(contextL4.BaseVerticesArray[i].Reinterpret<Vector3>());
+            meshData.GetNormals(contextL4.BaseNormalsArray[i].Reinterpret<Vector3>());
+            meshData.GetUVs(0, contextL4.BaseUvsArray[i].Reinterpret<Vector2>());
 
             baseTriangles[i] = obj.Triangles;
             transforms[i] = obj.GetNativeTransform();
@@ -66,21 +65,21 @@ public class BurstCutSchedulerL
         st.Restart();
 
         // ここで NativeMultiArrayView が作成される
-        contextL.InitializeContext(baseTriangles, transforms, Allocator.TempJob);
+        contextL4.InitializeContext(baseTriangles, transforms, Allocator.TempJob);
 
         for (int i = 0; i < cuttables.Length; i++)
         {
-            quaternion invRot = math.inverse(contextL.Transforms[i].Rotation);
-            float3 reciprocal = math.rcp(contextL.Transforms[i].Scale);
+            quaternion invRot = math.inverse(contextL4.Transforms[i].Rotation);
+            float3 reciprocal = math.rcp(contextL4.Transforms[i].Scale);
 
-            float3 position = blade.Position - contextL.Transforms[i].Position;
+            float3 position = blade.Position - contextL4.Transforms[i].Position;
             position = math.mul(invRot, position);
             position *= reciprocal;
 
             float3 normal = math.mul(invRot, blade.Normal);
             normal *= reciprocal;
 
-            contextL.Blades[i] = new NativePlane(position, normal);
+            contextL4.Blades[i] = new NativePlane(position, normal);
         }
 
         Debug.Log($"Context生成　{st.ElapsedMilliseconds}ms");
@@ -89,14 +88,14 @@ public class BurstCutSchedulerL
 
         var vertexGetSideJob = new VertexGetSideJobL
         {
-            BaseVertices = contextL.BaseVertices,
-            Blades = contextL.Blades,
-            VerticesSide = contextL.VerticesSide,
+            BaseVertices = contextL4.BaseVertices,
+            Blades = contextL4.Blades,
+            VerticesSide = contextL4.VerticesSide,
         };
 
-        JobHandle vertexGetSideHandle = vertexGetSideJob.Schedule(contextL.BaseVertices.Length, batchCount);
+        JobHandle vertexGetSideHandle = vertexGetSideJob.Schedule(contextL4.BaseVertices.Length, batchCount);
 
-        contextL.CutJobHandle = vertexGetSideHandle;
+        contextL4.CutJobHandle = vertexGetSideHandle;
 
         vertexGetSideHandle.Complete();
         Debug.Log($"VertexGetSide {st.ElapsedMilliseconds}ms");
@@ -104,6 +103,6 @@ public class BurstCutSchedulerL
         #endregion
 
 
-        return contextL;
+        return contextL4;
     }
 }

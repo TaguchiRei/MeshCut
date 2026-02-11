@@ -21,8 +21,8 @@ public class SceneLoader : EditorWindow
     {
         if (GUILayout.Button("シーンリストを更新"))
         {
-            //onListScenes = Enum.GetNames(typeof(InListSceneName));
-            //outListScenes = Enum.GetNames(typeof(OutListSceneName));
+            onListScenes = Enum.GetNames(typeof(InListSceneName));
+            outListScenes = Enum.GetNames(typeof(OutListSceneName));
         }
 
         if (onListScenes == null) return;

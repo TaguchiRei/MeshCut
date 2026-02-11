@@ -11,13 +11,13 @@ public class MeshCutBurstTestL : MonoBehaviour
     [SerializeField] private Collider _myCollider;
     [SerializeField] private int _batchCount;
 
-    private BurstCutSchedulerL _schedulerL;
+    private BurstCutSchedulerL4 _schedulerL4;
 
     private UniTask _cutTask;
 
     private void Start()
     {
-        _schedulerL = new BurstCutSchedulerL();
+        _schedulerL4 = new BurstCutSchedulerL4();
         _cutTask = default;
     }
 
@@ -32,7 +32,7 @@ public class MeshCutBurstTestL : MonoBehaviour
         var ret = CheckOverlapObjects();
 
         Stopwatch allTime = Stopwatch.StartNew();
-        var context = _schedulerL.SchedulingCutLight(new(transform), ret, _batchCount);
+        var context = _schedulerL4.SchedulingCutLight(new(transform), ret, _batchCount);
         context.Dispose(context.CutJobHandle);
         try
         {
