@@ -17,7 +17,7 @@ public class MultiMeshCut
     private int _batchCount = 32;
     private int _sampling = 150;
 
-    public void Cut(BreakableObject[] breakables, NativePlane blade)
+    public void Cut(CuttableObject[] breakables, NativePlane blade)
     {
         Complete = true;
         _cutTask = CutAsync(breakables, blade, _batchCount, _sampling);
@@ -52,7 +52,7 @@ public class MultiMeshCut
         _sampling = sampling;
     }
 
-    private UniTask CutAsync(BreakableObject[] breakables, NativePlane blade, int batchCount, int sampling)
+    private UniTask CutAsync(CuttableObject[] breakables, NativePlane blade, int batchCount, int sampling)
     {
         Mesh[] mesh = new Mesh[breakables.Length];
         MultiCutContext context = new MultiCutContext(breakables.Length);
