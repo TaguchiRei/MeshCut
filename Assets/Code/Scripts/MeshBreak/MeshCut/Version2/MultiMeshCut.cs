@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -11,15 +10,49 @@ using UnityEngine.Rendering;
 public class MultiMeshCut
 {
     public bool Complete { private set; get; }
+    public Mesh[] CutMesh { private set; get; }
+    public List<List<Vector3>> SamplingPoints { private set; get; }
 
-    private CancellationTokenSource _cts = new();
+    private UniTask _cutTask;
+    private int _batchCount = 32;
+    private int _sampling = 150;
 
-    public void Cut(BreakableObject[] breakables)
+    public void Cut(BreakableObject[] breakables, NativePlane blade)
     {
+        Complete = true;
+        _cutTask = CutAsync(breakables, blade, _batchCount, _sampling);
     }
 
-    private async UniTask CutAsync(BreakableObject[] breakables, CancellationToken ct, NativePlane blade,
-        int batchCount = 32, int sampling = 150)
+    /// <summary>
+    /// バッチ数を登録します
+    /// </summary>
+    /// <param name="batchCount"></param>
+    public void SetBatch(int batchCount)
+    {
+        if (batchCount <= 0)
+        {
+            Debug.LogWarning("Batch count must be > 0");
+        }
+
+        _batchCount = batchCount;
+    }
+
+    /// <summary>
+    /// 軽量化メッシュ用サンプリング数を設定します
+    /// </summary>
+    /// <param name="sampling"></param>
+    public void SetSamplingCount(int sampling)
+    {
+        if (sampling < 10)
+        {
+            Debug.LogWarning("サンプリング数が少なすぎます");
+            return;
+        }
+
+        _sampling = sampling;
+    }
+
+    private UniTask CutAsync(BreakableObject[] breakables, NativePlane blade, int batchCount, int sampling)
     {
         Mesh[] mesh = new Mesh[breakables.Length];
         MultiCutContext context = new MultiCutContext(breakables.Length);
@@ -48,6 +81,10 @@ public class MultiMeshCut
         //ベースのデータを保持する配列を初期化
         context.BaseVertices =
             new(totalVerticesCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        context.BaseNormals = new(totalVerticesCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        context.BaseUvs = new(totalVerticesCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        context.BaseVertexSide = new(totalVerticesCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+
         context.Blades =
             new(context.BaseMeshDataArray.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
         context.VertexObjectIndex =
@@ -95,8 +132,7 @@ public class MultiMeshCut
 
             #endregion
 
-            context.StartIndex[i] = startIndex;
-            context.Length[i] = data.vertexCount;
+            context.StartIndex.Add(startIndex);
 
             //次ループの結合頂点配列の開始インデックスとして扱える
             startIndex += data.vertexCount;
@@ -285,9 +321,11 @@ public class MultiMeshCut
             colliderVerticesPerFragment.Add(simplifiedVerts);
         }
 
-        var resultMesh = FinalizeMeshes(breakMeshes);
-
+        CutMesh = FinalizeMeshes(breakMeshes);
+        SamplingPoints = colliderVerticesPerFragment;
         context.Dispose();
+
+        return default;
     }
 
     private void AddNewTriangle(BurstBreakMesh target, NewTriangle nt, MultiCutContext context)

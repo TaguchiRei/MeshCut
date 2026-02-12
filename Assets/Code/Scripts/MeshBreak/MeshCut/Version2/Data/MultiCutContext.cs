@@ -44,25 +44,30 @@ public class MultiCutContext : IDisposable
     /// <summary> 頂点配列のオブジェクト毎の開始位置を保持する </summary>
     public List<int> StartIndex;
 
-    /// <summary> 各頂点配列のオブジェクトごとの長さを保持する </summary>
-    public List<int> Length;
-
     public MultiCutContext(int objectCount)
     {
         StartIndex = new List<int>(objectCount);
-        Length = new List<int>(objectCount);
     }
 
     public void Dispose()
     {
+        if (BaseVertices.IsCreated) BaseVertices.Dispose();
+        if (BaseNormals.IsCreated) BaseNormals.Dispose();
+        if (BaseUvs.IsCreated) BaseUvs.Dispose();
+        if (NewVertices.IsCreated) NewVertices.Dispose();
+        if (NewNormals.IsCreated) NewNormals.Dispose();
+        if (NewUvs.IsCreated) NewUvs.Dispose();
+        if (NewTriangles.IsCreated) NewTriangles.Dispose();
+        if (CutEdges.IsCreated) CutEdges.Dispose();
+        if (Blades.IsCreated) Blades.Dispose();
+        if (BaseVertexSide.IsCreated) BaseVertexSide.Dispose();
+        if (VertexObjectIndex.IsCreated) VertexObjectIndex.Dispose();
+        if (CutFaces.IsCreated) CutFaces.Dispose();
+        if (CutFaceSubmeshId.IsCreated) CutFaceSubmeshId.Dispose();
+        if (CutStatus.IsCreated) CutStatus.Dispose();
+        if (TriangleObjectIndex.IsCreated) TriangleObjectIndex.Dispose();
+        if (LoopRanges.IsCreated) LoopRanges.Dispose();
         BaseMeshDataArray.Dispose();
-        BaseVertices.Dispose();
-        BaseNormals.Dispose();
-        BaseUvs.Dispose();
-        Blades.Dispose();
-        BaseVertexSide.Dispose();
-        VertexObjectIndex.Dispose();
-        CutFaces.Dispose();
     }
 }
 

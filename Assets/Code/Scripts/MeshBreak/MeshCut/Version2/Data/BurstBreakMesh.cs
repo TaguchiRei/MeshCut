@@ -95,8 +95,20 @@ public class BurstBreakMesh : IDisposable
 
     public void Dispose()
     {
-        Vertices.Dispose();
-        Normals.Dispose();
-        Uvs.Dispose();
+        if (Vertices.IsCreated) Vertices.Dispose();
+        if (Normals.IsCreated) Normals.Dispose();
+        if (Uvs.IsCreated) Uvs.Dispose();
+
+        if (Triangles != null)
+        {
+            foreach (var triangle in Triangles)
+            {
+                if (triangle.IsCreated)
+                {
+                    triangle.Dispose();
+                }
+            }
+            Triangles.Clear();
+        }
     }
 }
