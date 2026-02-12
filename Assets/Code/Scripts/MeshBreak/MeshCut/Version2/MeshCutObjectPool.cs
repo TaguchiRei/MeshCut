@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using ScriptedTalk;
-using UnityEditor;
 using UnityEngine;
 
 public class MeshCutObjectPool : MonoBehaviour
@@ -23,6 +20,7 @@ public class MeshCutObjectPool : MonoBehaviour
         var objects = await InstantiateAsync(_prefab, _generateCapacity, transform);
         foreach (var obj in objects)
         {
+            obj.SetActive(false);
             _unusedObjects.Add((obj, obj.GetComponent<CuttableObject>()));
         }
 
@@ -37,22 +35,31 @@ public class MeshCutObjectPool : MonoBehaviour
             objectCount = _generateCapacity;
         }
 
-        List<(GameObject, CuttableObject)> returnObjects = new();
+        // 不足分を使用中のオブジェクトから回収
         if (_unusedObjects.Count < objectCount)
         {
-            for (int i = 0; i < objectCount - _unusedObjects.Count; i++)
+            int shortCount = objectCount - _unusedObjects.Count;
+
+            // 必要な数だけ先頭(古いもの)から抜き出す
+            var reusable = _usedObjects.GetRange(0, shortCount);
+            _usedObjects.RemoveRange(0, shortCount);
+
+            // 回収アクションの実行
+            foreach (var item in reusable)
             {
-                ReleaseObject(_usedObjects[0]);
+                item.cuttable.ReuseAction?.Invoke();
+                item.gameObject.SetActive(false);
             }
+
+            _unusedObjects.AddRange(reusable);
         }
 
-        var moveObjects = _unusedObjects.GetRange(0, objectCount);
-
-        returnObjects.AddRange(moveObjects);
-        _usedObjects.AddRange(moveObjects);
+        // 取得
+        var results = _unusedObjects.GetRange(0, objectCount);
         _unusedObjects.RemoveRange(0, objectCount);
+        _usedObjects.AddRange(results);
 
-        return returnObjects;
+        return results;
     }
 
     public void ReleaseObject((GameObject, CuttableObject) releaseObject)

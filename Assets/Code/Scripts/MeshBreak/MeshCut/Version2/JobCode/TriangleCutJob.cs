@@ -16,13 +16,20 @@ public struct TriangleCutJob : IJobParallelFor
     [ReadOnly] public NativeArray<float3> BaseNormals;
     [ReadOnly] public NativeArray<float2> BaseUvs;
 
-    [WriteOnly] public NativeArray<float3> NewVertices;
-    [WriteOnly] public NativeArray<float3> NewNormals;
-    [WriteOnly] public NativeArray<float2> NewUvs;
+    [NativeDisableParallelForRestriction] [WriteOnly]
+    public NativeArray<float3> NewVertices;
 
-    [WriteOnly] public NativeArray<NewTriangle> NewTriangles;
+    [NativeDisableParallelForRestriction] [WriteOnly]
+    public NativeArray<float3> NewNormals;
 
-    [WriteOnly] public NativeParallelHashMap<int, int>.ParallelWriter CutEdges;
+    [NativeDisableParallelForRestriction] [WriteOnly]
+    public NativeArray<float2> NewUvs;
+
+    [NativeDisableParallelForRestriction] [WriteOnly]
+    public NativeArray<NewTriangle> NewTriangles;
+
+    [NativeDisableParallelForRestriction] [WriteOnly]
+    public NativeParallelHashMap<int, int>.ParallelWriter CutEdges;
 
     /// <summary>
     /// 切断処理を行う
@@ -60,7 +67,7 @@ public struct TriangleCutJob : IJobParallelFor
         //lerp関数で新規Uv座標を取得
         NewUvs[vertIndexStart + 0] = math.lerp(BaseUvs[indexA], BaseUvs[indexB], alphaAtoB);
         NewUvs[vertIndexStart + 1] = math.lerp(BaseUvs[indexA], BaseUvs[indexC], alphaAtoC);
-        
+
         //後に再構築するために古いインデックスと新しいインデックスを区別する
         //元からあった頂点はインデックスに一律で1を足して-を付ける。
         //再構築する際、元からあった頂点を-のフラグで検知し、正に戻してから1ひくと復元できる

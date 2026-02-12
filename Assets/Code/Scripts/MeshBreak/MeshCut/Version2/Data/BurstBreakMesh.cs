@@ -9,13 +9,18 @@ public class BurstBreakMesh : IDisposable
     public NativeList<float3> Normals;
     public NativeList<float2> Uvs;
 
-    public List<NativeList<int>> Triangles = new();
+    public List<NativeList<int>> Triangles;
     public int[] _addVerticesArray;
 
     public BurstBreakMesh(int vertCount)
     {
         _addVerticesArray = new int[vertCount];
         Array.Fill(_addVerticesArray, -1);
+
+        Vertices = new NativeList<float3>(vertCount, Allocator.TempJob);
+        Normals = new NativeList<float3>(vertCount, Allocator.TempJob);
+        Uvs = new NativeList<float2>(vertCount, Allocator.TempJob);
+        Triangles = new();
     }
 
     public void AddTriangleLegacyIndex(
@@ -75,7 +80,7 @@ public class BurstBreakMesh : IDisposable
 
     public void AddSubmesh()
     {
-        Triangles.Add(new());
+        Triangles.Add(new(Allocator.TempJob));
     }
 
     private int GetOrAddVertex(int index, float3 pos, float3 normal, float2 uv)
@@ -108,6 +113,7 @@ public class BurstBreakMesh : IDisposable
                     triangle.Dispose();
                 }
             }
+
             Triangles.Clear();
         }
     }

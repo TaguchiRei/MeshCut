@@ -16,6 +16,7 @@ public class MultiCutContext : IDisposable
     public NativeArray<float2> NewUvs;
     public NativeArray<NewTriangle> NewTriangles;
     public NativeParallelHashMap<int, int> CutEdges;
+    public List<BurstBreakMesh> breakMeshes;
 
     /// <summary> オブジェクトごとの切断処理に使う </summary>
     public NativeArray<NativePlane> Blades;
@@ -47,6 +48,12 @@ public class MultiCutContext : IDisposable
     public MultiCutContext(int objectCount)
     {
         StartIndex = new List<int>(objectCount);
+        // NativeList群をコンストラクタで初期化
+        CutFaces = new NativeList<int3>(Allocator.Persistent);
+        CutFaceSubmeshId = new NativeList<int>(Allocator.Persistent);
+        CutStatus = new NativeList<int>(Allocator.Persistent);
+        TriangleObjectIndex = new NativeList<int>(Allocator.Persistent);
+        LoopRanges = new NativeList<int2>(Allocator.Persistent);
     }
 
     public void Dispose()
@@ -67,6 +74,12 @@ public class MultiCutContext : IDisposable
         if (CutStatus.IsCreated) CutStatus.Dispose();
         if (TriangleObjectIndex.IsCreated) TriangleObjectIndex.Dispose();
         if (LoopRanges.IsCreated) LoopRanges.Dispose();
+        foreach (var burstBreakMesh in breakMeshes)
+        {
+            burstBreakMesh.Dispose();
+        }
+        breakMeshes.Clear();
+
         BaseMeshDataArray.Dispose();
     }
 }

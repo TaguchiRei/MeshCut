@@ -8,7 +8,7 @@ using Random = UnityEngine.Random;
 public class CuttableObject : MonoBehaviour
 {
     public Action ReuseAction;
-    
+
     public Material CapMaterial;
     public Mesh Mesh;
 
@@ -28,41 +28,35 @@ public class CuttableObject : MonoBehaviour
     private float _maxRadius = 0.5f;
 
 
-    private List<Collider> _colliders;
+    private List<SphereCollider> _colliders;
 
     private void Start()
     {
         if (gameObject.TryGetComponent<MeshFilter>(out var meshFilter))
         {
-            Mesh = meshFilter.mesh;
+            Mesh = meshFilter.sharedMesh;
         }
 
-        _colliders = new List<Collider>();
+        _colliders = new();
+        for (int i = 0; i < _colliderNum; i++)
+        {
+            _colliders.Add(gameObject.AddComponent<SphereCollider>());
+        }
     }
 
     [MethodExecutor]
     private void Test()
     {
-        foreach (var c in _colliders)
-        {
-            Destroy(c);
-        }
-
-        _colliders.Clear();
-
-        SetMesh(Mesh, Mesh.vertices.ToList(), new NativePlane(transform), _physicsMaterial, _colliderNum);
+        SetMesh(Mesh, Mesh.vertices.ToList(), new NativePlane(transform), _physicsMaterial);
     }
 
     public void SetMesh(
         Mesh mesh,
         List<Vector3> samplingVerts,
         NativePlane localBlade,
-        PhysicsMaterial newFaceMat,
-        int colliderCount = 5)
+        PhysicsMaterial newFaceMat)
     {
         gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
-
-        _colliderNum = colliderCount;
 
         //重心
         var centers = ClusteringVerts(samplingVerts);
@@ -126,11 +120,15 @@ public class CuttableObject : MonoBehaviour
             radius = Mathf.Min(radius, _maxRadius);
 
             // コライダー生成
-            var col = gameObject.AddComponent<SphereCollider>();
+            var col = _colliders[i];
             col.center = centers[i];
             col.radius = radius;
             col.material = newFaceMat;
-            _colliders.Add(col);
+        }
+
+        for (int i = clusterCount; i < _colliders.Count; i++)
+        {
+            _colliders[i].enabled = false;
         }
     }
 
