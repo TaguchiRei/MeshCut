@@ -9,7 +9,7 @@ public class BurstBreakMesh : IDisposable
     public NativeList<float3> Normals;
     public NativeList<float2> Uvs;
 
-    public List<List<int>> Triangles = new();
+    public List<NativeList<int>> Triangles = new();
     public int[] _addVerticesArray;
 
     public BurstBreakMesh(int vertCount)

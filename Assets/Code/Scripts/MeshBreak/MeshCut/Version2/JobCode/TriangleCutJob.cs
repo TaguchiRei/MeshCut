@@ -7,94 +7,118 @@ using Unity.Mathematics;
 public struct TriangleCutJob : IJobParallelFor
 {
     [ReadOnly] public NativeArray<int3> CutFaces;
-    [ReadOnly] public NativeArray<int> CutStatus; 
-    [ReadOnly] public NativeArray<int> SubmeshIndices;
+    [ReadOnly] public NativeArray<int> CutStatus;
+    [ReadOnly] public NativeArray<int> CutFaceSubmeshId;
     [ReadOnly] public NativeArray<NativePlane> Blades;
-    [ReadOnly] public NativeArray<int> ObjectIndices;
+    [ReadOnly] public NativeArray<int> TriangleObjectIndex;
 
     [ReadOnly] public NativeArray<float3> BaseVertices;
     [ReadOnly] public NativeArray<float3> BaseNormals;
     [ReadOnly] public NativeArray<float2> BaseUvs;
-    
-    [WriteOnly] public NativeArray<float3> OutNewVertices;
-    [WriteOnly] public NativeArray<float3> OutNewNormals;
-    [WriteOnly] public NativeArray<float2> OutNewUvs;
-    
-    [WriteOnly] public NativeArray<NewTriangle> OutNewTriangles;
-    
-    [WriteOnly] public NativeArray<CutEdge> OutCapEdges;
 
+    [WriteOnly] public NativeArray<float3> NewVertices;
+    [WriteOnly] public NativeArray<float3> NewNormals;
+    [WriteOnly] public NativeArray<float2> NewUvs;
+
+    [WriteOnly] public NativeArray<NewTriangle> NewTriangles;
+
+    [WriteOnly] public NativeParallelHashMap<int, int>.ParallelWriter CutEdges;
+
+    /// <summary>
+    /// 切断処理を行う
+    /// </summary>
+    /// <param name="index">三角形番号</param>
     public void Execute(int index)
     {
-        int3 face = CutFaces[index];
-        int status = CutStatus[index];
-        NativePlane blade = Blades[ObjectIndices[index]];
-        int submesh = SubmeshIndices[index];
-        
-        int3 order = GetFaceOrder(status);
-        bool isAFront = GetIsFront(status);
+        int3 face = CutFaces[index]; //処理する三角形を取得
+        int status = CutStatus[index]; //どの頂点が孤立しているかの情報を取得する
+        NativePlane blade = Blades[TriangleObjectIndex[index]];
+        int submesh = CutFaceSubmeshId[index];
 
-        int indexA = face[order.x];
+        //計算に適切な順番に頂点をソートするための情報を取得
+        int3 order = GetFaceOrder(status);
+        bool isFront = GetIsFront(status); //切断面の法線の正面かどうかを取得
+
+        //頂点を以降の処理に適切な順番になるよう取得
+        int indexA = face[order.x]; //孤立頂点
         int indexB = face[order.y];
         int indexC = face[order.z];
+
+        //孤立頂点からそれぞれの頂点へのベクトルと面がどの位置で接触しているのかを調べる
+        float alphaAtoB = Intersect(BaseVertices[indexA], BaseVertices[indexB], blade);
+        float alphaAtoC = Intersect(BaseVertices[indexA], BaseVertices[indexC], blade);
+
+        //lerp関数での新規頂点座標を取得
+        int vertIndexStart = index * 2;
+        NewVertices[vertIndexStart + 0] = math.lerp(BaseVertices[indexA], BaseVertices[indexB], alphaAtoB);
+        NewVertices[vertIndexStart + 1] = math.lerp(BaseVertices[indexA], BaseVertices[indexC], alphaAtoC);
+
+        //lerp関数での新規法線を取得
+        NewNormals[vertIndexStart + 0] = math.lerp(BaseNormals[indexA], BaseNormals[indexB], alphaAtoB);
+        NewNormals[vertIndexStart + 1] = math.lerp(BaseNormals[indexA], BaseNormals[indexC], alphaAtoC);
+
+        //lerp関数で新規Uv座標を取得
+        NewUvs[vertIndexStart + 0] = math.lerp(BaseUvs[indexA], BaseUvs[indexB], alphaAtoB);
+        NewUvs[vertIndexStart + 1] = math.lerp(BaseUvs[indexA], BaseUvs[indexC], alphaAtoC);
         
-        
-        float tAB = Intersect(BaseVertices[indexA], BaseVertices[indexB], blade);
-        float tAC = Intersect(BaseVertices[indexA], BaseVertices[indexC], blade);
-        
-        int vIdxStart = index * 2;
-        OutNewVertices[vIdxStart + 0] = math.lerp(BaseVertices[indexA], BaseVertices[indexB], tAB);
-        OutNewVertices[vIdxStart + 1] = math.lerp(BaseVertices[indexA], BaseVertices[indexC], tAC);
-        
-        OutNewNormals[vIdxStart + 0] = math.lerp(BaseNormals[indexA], BaseNormals[indexB], tAB);
-        OutNewNormals[vIdxStart + 1] = math.lerp(BaseNormals[indexA], BaseNormals[indexC], tAC);
-        
-        OutNewUvs[vIdxStart + 0] = math.lerp(BaseUvs[indexA], BaseUvs[indexB], tAB);
-        OutNewUvs[vIdxStart + 1] = math.lerp(BaseUvs[indexA], BaseUvs[indexC], tAC);
-        
-        
+        //後に再構築するために古いインデックスと新しいインデックスを区別する
+        //元からあった頂点はインデックスに一律で1を足して-を付ける。
+        //再構築する際、元からあった頂点を-のフラグで検知し、正に戻してから1ひくと復元できる
         int oldA = -(indexA + 1);
         int oldB = -(indexB + 1);
         int oldC = -(indexC + 1);
-        int newV1 = vIdxStart;
-        int newV2 = vIdxStart + 1;
+        int newV1 = vertIndexStart;
+        int newV2 = vertIndexStart + 1;
 
+        //新規三角形は3つ生成するのでindex*3した位置に各頂点を設定する
         int triIdxStart = index * 3;
-        int sideA = isAFront ? 1 : 0;
-        int sideBC = isAFront ? 0 : 1;
-        
-        
-        OutNewTriangles[triIdxStart + 0] = new NewTriangle 
-        { 
-            Vertex1 = oldA, Vertex2 = newV1, Vertex3 = newV2, 
-            Submesh = submesh, Side = sideA 
+        //それぞれ正面かどうかを調べる
+        int sideA = isFront ? 1 : 0;
+        int sideBC = isFront ? 0 : 1;
+
+
+        //新規三角形を登録する。登録の際に法線が切断前と同じになるよう反時計回りで登録される。
+        NewTriangles[triIdxStart + 0] = new NewTriangle
+        {
+            Vertex1 = oldA, Vertex2 = newV1, Vertex3 = newV2,
+            Submesh = submesh, Side = sideA
         };
-        
-        
-        OutNewTriangles[triIdxStart + 1] = new NewTriangle 
-        { 
-            Vertex1 = newV1, Vertex2 = oldB, Vertex3 = oldC, 
-            Submesh = submesh, Side = sideBC 
+        NewTriangles[triIdxStart + 1] = new NewTriangle
+        {
+            Vertex1 = newV1, Vertex2 = oldB, Vertex3 = oldC,
+            Submesh = submesh, Side = sideBC
         };
-        OutNewTriangles[triIdxStart + 2] = new NewTriangle 
-        { 
-            Vertex1 = newV1, Vertex2 = oldC, Vertex3 = newV2, 
-            Submesh = submesh, Side = sideBC 
+        NewTriangles[triIdxStart + 2] = new NewTriangle
+        {
+            Vertex1 = newV1, Vertex2 = oldC, Vertex3 = newV2,
+            Submesh = submesh, Side = sideBC
         };
-        
-        OutCapEdges[index] = new CutEdge 
-        { 
-            Vertex1 = isAFront ? newV1 : newV2, 
-            Vertex2 = isAFront ? newV2 : newV1 
-        };
+
+        //切断後の辺を登録する。
+        int startVertex = isFront ? newV1 : newV2;
+        int endVertex = isFront ? newV2 : newV1;
+        CutEdges.TryAdd(startVertex, endVertex);
     }
 
+    /// <summary>
+    /// 二つの座標(ベクトル)と面の接点がベクトルの何パーセントの位置にあるかを取得する
+    /// -------------------/-----------
+    /// </summary>
+    /// <param name="p0"></param>
+    /// <param name="p1"></param>
+    /// <param name="plane"></param>
+    /// <returns></returns>
     private static float Intersect(float3 p0, float3 p1, NativePlane plane)
     {
         float3 edge = p1 - p0;
         return (-math.dot(plane.Normal, p0) - plane.Distance) / math.dot(plane.Normal, edge);
     }
 
+    /// <summary>
+    /// 切断状態(CutStatus)に応じて三角形頂点の順番を決定。Xの値に設定された頂点が孤立頂点で、
+    /// </summary>
+    /// <param name="status"></param>
+    /// <returns></returns>
     private static int3 GetFaceOrder(int status)
     {
         return status switch

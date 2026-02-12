@@ -11,9 +11,11 @@ public class MultiCutContext : IDisposable
     public NativeArray<float3> BaseNormals;
     public NativeArray<float2> BaseUvs;
 
-    public NativeList<float3> NewVertices;
-    public NativeList<float3> NewNormals;
-    public NativeList<float2> NewUvs;
+    public NativeArray<float3> NewVertices;
+    public NativeArray<float3> NewNormals;
+    public NativeArray<float2> NewUvs;
+    public NativeArray<NewTriangle> NewTriangles;
+    public NativeParallelHashMap<int, int> CutEdges;
 
     /// <summary> オブジェクトごとの切断処理に使う </summary>
     public NativeArray<NativePlane> Blades;
@@ -22,13 +24,22 @@ public class MultiCutContext : IDisposable
     public NativeArray<int> BaseVertexSide;
 
     /// <summary> 各頂点のオブジェクト番号 </summary>
-    public NativeArray<int> ObjectIndex;
+    public NativeArray<int> VertexObjectIndex;
 
     /// <summary> 切断が必要な面を保存する </summary>
-    public NativeList<float3> CutFaces;
+    public NativeList<int3> CutFaces;
+
+    /// <summary> 切断面のサブメッシュ番号 </summary>
+    public NativeList<int> CutFaceSubmeshId;
 
     /// <summary> どちらに孤立頂点があるかなどの情報が分かる </summary>
     public NativeList<int> CutStatus;
+
+    /// <summary> 三角形のオブジェクト番号 </summary>
+    public NativeList<int> TriangleObjectIndex;
+
+    /// <summary> ループごとのオブジェクトおよび切断面のどちら側にあるかを保持 </summary>
+    public NativeList<int2> LoopRanges;
 
     /// <summary> 頂点配列のオブジェクト毎の開始位置を保持する </summary>
     public List<int> StartIndex;
@@ -50,7 +61,7 @@ public class MultiCutContext : IDisposable
         BaseUvs.Dispose();
         Blades.Dispose();
         BaseVertexSide.Dispose();
-        ObjectIndex.Dispose();
+        VertexObjectIndex.Dispose();
         CutFaces.Dispose();
     }
 }
