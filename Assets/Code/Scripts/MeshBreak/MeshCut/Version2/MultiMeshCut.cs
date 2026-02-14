@@ -97,6 +97,20 @@ public class MultiMeshCut
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             int startIndex = 0;
+            
+            var verts = breakables[0].Mesh.vertices;
+            for (int i = 0; i < context.BaseVertices.Length; i++)
+            {
+                if (verts[i] == (Vector3)context.BaseVertices[i])
+                {
+                    Debug.Log("same");
+                }
+                else
+                {
+                    Debug.LogWarning($"verts {verts[i]}  base {context.BaseVertices[i]}");
+                }
+            }
+
 
             //オブジェクト毎にループする初期化を行う
             for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
@@ -512,17 +526,17 @@ public class MultiMeshCut
             // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
             var layout = new[]
             {
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
-                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
+                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
+                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3),
+                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2)
             };
             
             data.SetVertexBufferParams(vertexCount, layout);
 
-            // これで stream 0, 1, 2 が有効になるので、以下の呼び出しが成功します
+            // これで stream 0 が有効になるので、以下の呼び出しが成功します
             var vertices = data.GetVertexData<float3>(0);
-            var normals = data.GetVertexData<float3>(1);
-            var uvs = data.GetVertexData<float2>(2);
+            var normals = data.GetVertexData<float3>(0);
+            var uvs = data.GetVertexData<float2>(0);
 
             // NativeListからコピー
             vertices.CopyFrom(source.Vertices.AsArray());
