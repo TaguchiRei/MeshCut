@@ -8,8 +8,9 @@ public enum OutListSceneName
 {
     BurstTestScene,
     MeshBoolenOperatorTestScene,
+    ActionTest,
+    BurstCut,
     MeshDataTestScene,
     PoissonDiskSamplingTest,
     TestScene,
-    ActionTest,
 }
