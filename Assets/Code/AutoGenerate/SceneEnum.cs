@@ -6,9 +6,10 @@ public enum InListSceneName
 
 public enum OutListSceneName
 {
-    BurstCut,
     BurstTestScene,
     MeshBoolenOperatorTestScene,
+    ActionTest,
+    BurstCut,
     MeshDataTestScene,
     PoissonDiskSamplingTest,
     TestScene,
