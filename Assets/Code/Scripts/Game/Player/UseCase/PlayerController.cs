@@ -6,13 +6,19 @@ public class PlayerController
     private readonly IInputDispatcher _inputDispatcher;
     private readonly IPlayerMove _playerMove;
     private readonly ICameraMove _cameraMove;
+    private readonly PlayerInputState _playerInputState;
     private Vector2 _moveInput;
 
-    public PlayerController(IInputDispatcher inputDispatcher, IPlayerMove playerMove, ICameraMove cameraMove)
+    public PlayerController(
+        IInputDispatcher inputDispatcher,
+        IPlayerMove playerMove,
+        ICameraMove cameraMove,
+        PlayerInputState playerInputState)
     {
         _inputDispatcher = inputDispatcher;
         _playerMove = playerMove;
         _cameraMove = cameraMove;
+        _playerInputState = playerInputState;
     }
 
     public void EnableInput()
@@ -33,7 +39,12 @@ public class PlayerController
         _inputDispatcher.RegisterActionStart(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Jump),
-            OnJumpInput
+            OnJumpStarted
+        );
+        _inputDispatcher.RegisterActionCancelled(
+            nameof(ActionMaps.Player),
+            nameof(PlayerActions.Jump),
+            OnJumpCanceled
         );
 
         _inputDispatcher.RegisterActionPerformed(
@@ -60,10 +71,15 @@ public class PlayerController
         );
 
         // ジャンプアクションの登録解除
-        _inputDispatcher.UnRegisterActionPerformed(
+        _inputDispatcher.UnRegisterActionStart(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Jump),
-            OnJumpInput
+            OnJumpStarted
+        );
+        _inputDispatcher.UnRegisterActionCancelled(
+            nameof(ActionMaps.Player),
+            nameof(PlayerActions.Jump),
+            OnJumpCanceled
         );
 
         _inputDispatcher.UnRegisterActionPerformed(
@@ -78,11 +94,36 @@ public class PlayerController
         _playerMove.Move(new Vector3(_moveInput.x, 0f, _moveInput.y));
     }
 
-    private void OnJumpInput(InputAction.CallbackContext context)
+    private void OnJumpStarted(InputAction.CallbackContext context)
     {
+        // 空中にいた場合、重力を変える
         if (!_playerMove.OnGround)
+        {
+            _playerMove.ChangeGround();
             return;
+        }
+
         _playerMove.Jump();
+        _playerInputState.JumpPressTime = Time.time;
+    }
+
+    private void OnJumpCanceled(InputAction.CallbackContext context)
+    {
+        // OnJumpStartedが呼ばれていない、または空中にいる場合は何もしない
+        if (_playerInputState.JumpPressTime == 0f || !_playerMove.OnGround)
+        {
+            _playerInputState.JumpPressTime = 0f;
+            return;
+        }
+
+        float pressDuration = Time.time - _playerInputState.JumpPressTime;
+        _playerInputState.JumpPressTime = 0f; // タイマーをリセット
+
+        float jumpMagnitude = 1.0f;
+        if (pressDuration >= _playerInputState.LongPressDuration)
+        {
+            jumpMagnitude = 1.5f;
+        }
     }
 
     private void OnLookInput(InputAction.CallbackContext context)
