@@ -44,10 +44,6 @@ namespace MeshBreak.MeshCut
         /// <returns></returns>
         public override GameObject[] Cut(GameObject target, Plane blade, Material capMaterial)
         {
-#if UNITY_EDITOR
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-#endif
             _blade = blade;
             _targetMesh = target.GetComponent<MeshFilter>().mesh;
 
@@ -56,6 +52,10 @@ namespace MeshBreak.MeshCut
             _baseUVs = _targetMesh.uv;
 
             _baseVerticesSide = new bool[_baseVertices.Length];
+#if UNITY_EDITOR
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+#endif
 
             //すべての頂点がどちら側なのかを調べる
             for (int i = 0; i < _baseVertices.Length; i++)
