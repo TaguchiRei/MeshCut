@@ -220,7 +220,7 @@ MeshCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1421155024}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 115558471f6bbb64f9ba6106facfeab0, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -316,7 +316,7 @@ GameObject:
   - component: {fileID: 1457539556}
   - component: {fileID: 1457539555}
   m_Layer: 0
-  m_Name: GameObject (1)
+  m_Name: InputDIspatcher
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -391,6 +391,7 @@ GameObject:
   - component: {fileID: 1747501561}
   - component: {fileID: 1747501560}
   - component: {fileID: 1747501563}
+  - component: {fileID: 1747501564}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -466,11 +467,11 @@ Transform:
   m_GameObject: {fileID: 1747501559}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.573, z: 0}
+  m_LocalPosition: {x: 0, y: 4.133, z: -5.33}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1978318400}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1747501563
 MonoBehaviour:
@@ -516,6 +517,22 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &1747501564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747501559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0a600d8591f17445b1a059f0b5a41c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _target: {fileID: 1978318400}
+  _rotationTime: 0.2
+  _sensitivityX: 0.2
+  _sensitivityY: 0.2
 --- !u!1 &1964220139
 GameObject:
   m_ObjectHideFlags: 0
@@ -528,7 +545,6 @@ GameObject:
   - component: {fileID: 1964220142}
   - component: {fileID: 1964220141}
   - component: {fileID: 1964220140}
-  - component: {fileID: 1964220144}
   m_Layer: 6
   m_Name: Cube
   m_TagString: Untagged
@@ -543,7 +559,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1964220139}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 115558471f6bbb64f9ba6106facfeab0, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -625,33 +641,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1421155028}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!54 &1964220144
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1964220139}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!1 &1966127354
 GameObject:
   m_ObjectHideFlags: 0
@@ -801,7 +790,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1978318395}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 2e47b220a4553b14ca75dc622eeb64fa, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -829,8 +818,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86586f654ec05724688fdaac83ab7556, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _walkSpeed: 5
+  _runSpeed: 8
+  _jumpPower: 5
   _rigidbody: {fileID: 1978318401}
-  _boxHalfExtents: {x: 0.4, y: 0.05, z: 0.4}
+  _cameraTransform: {fileID: 1747501562}
+  _cameraMove: {fileID: 1747501564}
+  _boxHalfExtents: {x: 0.25, y: 0.05, z: 0.25}
   _checkDistance: 1.04
   _groundLayer:
     serializedVersion: 2
@@ -900,8 +894,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 3.56, z: -5.33}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1747501562}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &1978318401
@@ -929,7 +922,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
@@ -941,3 +934,4 @@ SceneRoots:
   - {fileID: 1978318400}
   - {fileID: 58753160}
   - {fileID: 1457539557}
+  - {fileID: 1747501562}

@@ -15,6 +15,11 @@ public class InputDispatcher : MonoBehaviour, IInputDispatcher
         ServiceLocator.Instance.RegisterService<IInputDispatcher>(this);
     }
 
+    private void OnDestroy()
+    {
+        ServiceLocator.Instance.UnregisterService<IInputDispatcher>();
+    }
+
     public void RegisterActionStart(string actionMap, string actionName, Action<InputAction.CallbackContext> action)
     {
         var inputAction = GetAction(actionMap, actionName);
