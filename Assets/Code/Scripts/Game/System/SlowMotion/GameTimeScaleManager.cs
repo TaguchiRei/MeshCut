@@ -6,9 +6,9 @@ using UnityEngine;
 /// <summary>
 /// ゲーム全体の時間スケール管理を行うシングルトン
 /// </summary>
-public class GameSlowMotion : MonoBehaviour, IGameSlowMotion
+public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
 {
-    private static GameSlowMotion Instance;
+    private static GameTimeScaleManager Instance;
 
     private CancellationTokenSource _cts;
     private float _originalTimeScale = 1f;
@@ -19,7 +19,7 @@ public class GameSlowMotion : MonoBehaviour, IGameSlowMotion
         {
             Instance = this;
             DontDestroyOnLoad(this);
-            ServiceLocator.Instance.RegisterService<IGameSlowMotion>(this);
+            ServiceLocator.Instance.RegisterService<ITimeScaleManagement>(this);
         }
         else
         {
@@ -35,7 +35,7 @@ public class GameSlowMotion : MonoBehaviour, IGameSlowMotion
     /// <summary>
     /// 終了時間を指定して時間スケールを変更する
     /// </summary>
-    public void SetTimeScale(float releaseTime, float scale)
+    public void SetTimeScale(float scale, float releaseTime)
     {
         if (scale <= 0f)
         {
@@ -54,9 +54,7 @@ public class GameSlowMotion : MonoBehaviour, IGameSlowMotion
         WaitRelease(releaseTime, _cts.Token).Forget();
     }
 
-    /// <summary>
-    /// 時間スケールを元に戻す
-    /// </summary>
+
     public void Release()
     {
         if (_cts == null) return;
@@ -90,8 +88,17 @@ public class GameSlowMotion : MonoBehaviour, IGameSlowMotion
 /// <summary>
 /// ゲーム全体の時間操作用インターフェース
 /// </summary>
-public interface IGameSlowMotion
+public interface ITimeScaleManagement
 {
-    void SetTimeScale(float releaseTime, float scale);
+    /// <summary>
+    /// timeScaleを設定する。1がデフォルト
+    /// </summary>
+    /// <param name="releaseTime">何秒で自動リリースするか</param>
+    /// <param name="scale">timeScale</param>
+    void SetTimeScale(float scale, float releaseTime);
+
+    /// <summary>
+    /// 時間スケールを元に戻す
+    /// </summary>
     void Release();
 }

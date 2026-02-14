@@ -16,6 +16,7 @@ public enum PlayerActions
     Previous = 6,
     Next = 7,
     Sprint = 8,
+    Aim = 9,
 }
 
 public enum UIActions

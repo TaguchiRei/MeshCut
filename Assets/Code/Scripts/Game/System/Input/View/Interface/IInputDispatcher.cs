@@ -4,56 +4,55 @@ using UnityEngine.InputSystem;
 public interface IInputDispatcher
 {
     /// <summary>
-    /// Actionの登録を行う
+    /// Actionの登録状態を変更する
     /// </summary>
     /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void RegisterActionStart(string actionMap, string actionName, Action<InputAction.CallbackContext> action);
+    /// <param name="actionName">ActionMap + Actions のEnumをstringにパースして使う</param>
+    /// <param name="action">登録／解除するAction</param>
+    /// <param name="registration">Registerで登録、UnRegisterで解除</param>
+    public void ChangeActionRegistrationStart(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration);
 
     /// <summary>
-    /// Actionの登録を行う
+    /// Actionの登録状態を変更する
     /// </summary>
     /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void RegisterActionPerformed(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action);
+    /// <param name="actionName">ActionMap + Actions のEnumをstringにパースして使う</param>
+    /// <param name="action">登録／解除するAction</param>
+    /// <param name="registration">Registerで登録、UnRegisterで解除</param>
+    public void ChangeActionRegistrationPerformed(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration);
 
     /// <summary>
-    /// Actionの登録を行う
+    /// Actionの登録状態を変更する
     /// </summary>
     /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void RegisterActionCancelled(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action);
+    /// <param name="actionName">ActionMap + Actions のEnumをstringにパースして使う</param>
+    /// <param name="action">登録／解除するAction</param>
+    /// <param name="registration">Registerで登録、UnRegisterで解除</param>
+    public void ChangeActionRegistrationCancelled(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration);
 
     /// <summary>
-    /// Actionの登録解除を行う
+    /// Actionの登録状態を変更する
     /// </summary>
     /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void UnRegisterActionStart(string actionMap, string actionName, Action<InputAction.CallbackContext> action);
+    /// <param name="actionName">ActionMap + Actions のEnumをstringにパースして使う</param>
+    /// <param name="action">登録／解除するAction</param>
+    /// <param name="registration">Registerで登録、UnRegisterで解除</param>
+    public void ChangeActionRegistrationAll(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration);
 
     /// <summary>
-    /// Actionの登録解除を行う
+    /// Actionの登録状態を変更する
     /// </summary>
     /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void UnRegisterActionPerformed(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action);
+    /// <param name="actionName">ActionMap + Actions のEnumをstringにパースして使う</param>
+    /// <param name="action">登録／解除するAction</param>
+    /// <param name="registration">Registerで登録、UnRegisterで解除</param>
+    public void ChangeActionRegistrationStartCancelled(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration);
 
-    /// <summary>
-    /// Actionの登録解除を行う
-    /// </summary>
-    /// <param name="actionMap">ActionMapsをstringにパースする</param>
-    /// <param name="actionName">ActionMap + Actions　のEnumをstringにパースして使う</param>
-    /// <param name="action"></param>
-    public void UnRegisterActionCancelled(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action);
 
     /// <summary>
     /// ActionMapを変える
@@ -66,4 +65,10 @@ public interface IInputDispatcher
     /// </summary>
     /// <returns>ActionMapにパースする</returns>
     public int GetActiveActionMap();
+}
+
+public enum Registration
+{
+    Register,
+    UnRegister
 }

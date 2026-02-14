@@ -7,6 +7,7 @@ public class PlayerInputState
 {
     public float LongPressDuration { get; private set; }
     public float JumpPressTime;
+    public Vector2 MoveInput;
 
     public PlayerInputState(float longPressDuration)
     {

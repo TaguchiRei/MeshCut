@@ -7,7 +7,6 @@ public class PlayerController
     private readonly IPlayerMove _playerMove;
     private readonly ICameraMove _cameraMove;
     private readonly PlayerInputState _playerInputState;
-    private Vector2 _moveInput;
 
     public PlayerController(
         IInputDispatcher inputDispatcher,
@@ -21,77 +20,68 @@ public class PlayerController
         _playerInputState = playerInputState;
     }
 
-    public void EnableInput()
+    public void SetActiveInput(bool active)
     {
+        var register = active ? Registration.Register : Registration.UnRegister;
         // 移動アクションの登録
-        _inputDispatcher.RegisterActionPerformed(
+        _inputDispatcher.ChangeActionRegistrationStartCancelled(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Move),
-            OnMoveInput
-        );
-        _inputDispatcher.RegisterActionCancelled(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Move),
-            OnMoveInput
+            OnMoveInput,
+            register
         );
 
         // ジャンプアクションの登録
-        _inputDispatcher.RegisterActionStart(
+        _inputDispatcher.ChangeActionRegistrationStartCancelled(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Jump),
-            OnJumpStarted
-        );
-        _inputDispatcher.RegisterActionCancelled(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Jump),
-            OnJumpCanceled
+            OnJumpStarted,
+            register
         );
 
-        _inputDispatcher.RegisterActionPerformed(
+        _inputDispatcher.ChangeActionRegistrationPerformed(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Look),
-            OnLookInput);
+            OnLookInput,
+            register);
+
+        _inputDispatcher.ChangeActionRegistrationStartCancelled(
+            nameof(ActionMaps.Player),
+            nameof(PlayerActions.Sprint),
+            OnSprintInput,
+            register);
+
+        _inputDispatcher.ChangeActionRegistrationStart(
+            nameof(ActionMaps.Player),
+            nameof(PlayerActions.Aim),
+            OnAimInput,
+            register);
 
         // Playerアクションマップを有効にする
         _inputDispatcher.SwitchActionMap(nameof(ActionMaps.Player));
     }
 
-    public void DisableInput()
-    {
-        // 移動アクションの登録解除
-        _inputDispatcher.UnRegisterActionPerformed(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Move),
-            OnMoveInput
-        );
-        _inputDispatcher.UnRegisterActionCancelled(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Move),
-            OnMoveInput
-        );
-
-        // ジャンプアクションの登録解除
-        _inputDispatcher.UnRegisterActionStart(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Jump),
-            OnJumpStarted
-        );
-        _inputDispatcher.UnRegisterActionCancelled(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Jump),
-            OnJumpCanceled
-        );
-
-        _inputDispatcher.UnRegisterActionPerformed(
-            nameof(ActionMaps.Player),
-            nameof(PlayerActions.Look),
-            OnLookInput);
-    }
-
     private void OnMoveInput(InputAction.CallbackContext context)
     {
-        _moveInput = context.ReadValue<Vector2>();
-        _playerMove.Move(new Vector3(_moveInput.x, 0f, _moveInput.y));
+        _playerInputState.MoveInput = context.ReadValue<Vector2>();
+        _playerMove.Move(new Vector3(_playerInputState.MoveInput.x, 0f, _playerInputState.MoveInput.y));
+    }
+
+    private void OnSprintInput(InputAction.CallbackContext context)
+    {
+        _playerMove.Running = context.started || context.performed;
+    }
+
+    private void OnAimInput(InputAction.CallbackContext context)
+    {
+        if (context.started)
+        {
+            _playerMove.AimStart();
+        }
+        else if (context.canceled)
+        {
+            _playerMove.AimEnd();
+        }
     }
 
     private void OnJumpStarted(InputAction.CallbackContext context)

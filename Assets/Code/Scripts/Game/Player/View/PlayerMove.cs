@@ -8,13 +8,15 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
     [SerializeField] private int _runSpeed = 8;
     [SerializeField] private int _jumpPower = 5;
     [SerializeField] private float _longPressTime = 0.5f;
-
+    [SerializeField] private float _aimTime = 10;
+    [SerializeField, Range(0, 1f)] private float slowMotionTimeScale = 0.5f;
+    [SerializeField] private float slowReleaseTime = 10;
     public int WalkSpeed => _walkSpeed;
     public int RunSpeed => _runSpeed;
     public int JumpPawer => _jumpPower;
     public bool OnGround { get; private set; }
-
     public Vector3 UpVector { get; private set; }
+    public bool Running { get; set; }
 
     [Header("Components")] [SerializeField]
     private Rigidbody _rigidbody;
@@ -31,10 +33,10 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
 
     private Vector3 _gravityDirection = Vector3.down;
     private Vector3 _desiredMoveDirection;
-    private bool _running;
     private float _gravityMagnitude = 9.81f;
 
-    PlayerController _playerController;
+    private PlayerController _playerController;
+    private GameTimeScaleManager _timeManager;
 
     private void Start()
     {
@@ -45,10 +47,10 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
             this,
             _cameraMove,
             new PlayerInputState(_longPressTime));
-        _playerController.EnableInput();
+        _playerController.SetActiveInput(true);
 
         _rigidbody.useGravity = false;
-        _running = false;
+        Running = false;
     }
 
     private void Update()
@@ -116,7 +118,7 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
         Vector3 currentVelocity = _rigidbody.linearVelocity;
         Vector3 currentTangentVelocity = currentVelocity - Vector3.Project(currentVelocity, gravityDir);
 
-        int speed = _running ? _runSpeed : _walkSpeed;
+        int speed = Running ? _runSpeed : _walkSpeed;
 
         Vector3 desiredTangent = Vector3.zero;
         if (desiredMove != Vector3.zero)
@@ -164,6 +166,16 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
         _rigidbody.linearVelocity = jumpVelocity;
     }
 
+    public void AimStart()
+    {
+        _timeManager.SetTimeScale(slowMotionTimeScale, slowReleaseTime);
+    }
+
+    public void AimEnd()
+    {
+        _timeManager.Release();
+    }
+
     public void SetGravity(Vector3 gravityDirection)
     {
         _gravityDirection = gravityDirection;
@@ -204,10 +216,15 @@ public interface IPlayerMove
     int JumpPawer { get; }
     bool OnGround { get; }
 
+    bool Running { get; set; }
+
     Vector3 UpVector { get; }
 
     void Move(Vector3 movementDirection);
     void Jump();
+
+    void AimStart();
+    void AimEnd();
     void SetGravity(Vector3 gravityDirection);
     void SetVelocity(Vector3 velocity, float magnitude);
 

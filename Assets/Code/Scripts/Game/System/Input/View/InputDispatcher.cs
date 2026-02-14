@@ -20,50 +20,87 @@ public class InputDispatcher : MonoBehaviour, IInputDispatcher
         ServiceLocator.Instance.UnregisterService<IInputDispatcher>();
     }
 
-    public void RegisterActionStart(string actionMap, string actionName, Action<InputAction.CallbackContext> action)
+    public void ChangeActionRegistrationStart(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration)
     {
         var inputAction = GetAction(actionMap, actionName);
         if (inputAction == null) return;
-        inputAction.started += action;
+        if (registration == Registration.Register)
+        {
+            inputAction.started += action;
+        }
+        else
+        {
+            inputAction.started -= action;
+        }
     }
 
-    public void RegisterActionPerformed(string actionMap, string actionName, Action<InputAction.CallbackContext> action)
+    public void ChangeActionRegistrationPerformed(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration)
     {
         var inputAction = GetAction(actionMap, actionName);
         if (inputAction == null) return;
-        inputAction.performed += action;
+        if (registration == Registration.Register)
+        {
+            inputAction.performed += action;
+        }
+        else
+        {
+            inputAction.performed -= action;
+        }
     }
 
-    public void RegisterActionCancelled(string actionMap, string actionName, Action<InputAction.CallbackContext> action)
+    public void ChangeActionRegistrationCancelled(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration)
     {
         var inputAction = GetAction(actionMap, actionName);
         if (inputAction == null) return;
-        inputAction.canceled += action;
+        if (registration == Registration.Register)
+        {
+            inputAction.canceled += action;
+        }
+        else
+        {
+            inputAction.canceled -= action;
+        }
     }
 
-    public void UnRegisterActionStart(string actionMap, string actionName, Action<InputAction.CallbackContext> action)
+    public void ChangeActionRegistrationAll(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration)
     {
         var inputAction = GetAction(actionMap, actionName);
         if (inputAction == null) return;
-        inputAction.started -= action;
+        if (registration == Registration.Register)
+        {
+            inputAction.started += action;
+            inputAction.performed += action;
+            inputAction.canceled += action;
+        }
+        else
+        {
+            inputAction.started -= action;
+            inputAction.performed -= action;
+            inputAction.canceled -= action;
+        }
     }
 
-    public void UnRegisterActionPerformed(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action)
+    public void ChangeActionRegistrationStartCancelled(string actionMap, string actionName,
+        Action<InputAction.CallbackContext> action, Registration registration)
     {
         var inputAction = GetAction(actionMap, actionName);
         if (inputAction == null) return;
-        inputAction.performed -= action;
+        if (registration == Registration.Register)
+        {
+            inputAction.started += action;
+            inputAction.canceled += action;
+        }
+        else
+        {
+            inputAction.started -= action;
+            inputAction.canceled -= action;
+        }
     }
-
-    public void UnRegisterActionCancelled(string actionMap, string actionName,
-        Action<InputAction.CallbackContext> action)
-    {
-        var inputAction = GetAction(actionMap, actionName);
-        if (inputAction == null) return;
-        inputAction.canceled -= action;
-    }
-
+    
     private InputAction GetAction(string actionMap, string actionName)
     {
         var map = _playerInput.actions.FindActionMap(actionMap);
