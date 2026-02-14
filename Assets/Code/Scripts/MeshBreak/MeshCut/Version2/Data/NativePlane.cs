@@ -1,4 +1,5 @@
 using Unity.Mathematics;
+using UnityEngine;
 
 public struct NativePlane
 {
@@ -10,6 +11,13 @@ public struct NativePlane
     {
         Position = pos;
         Normal = normal;
-        Distance = -math.dot(normal, Position);
+        Distance = -math.dot(Normal, Position);
+    }
+
+    public NativePlane(Transform transform)
+    {
+        Position = transform.position;
+        Normal = transform.up;
+        Distance = -math.dot(Normal, Position);
     }
 }

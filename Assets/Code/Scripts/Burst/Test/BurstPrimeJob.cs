@@ -5,19 +5,19 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 public class BurstPrimeJob : MonoBehaviour
 {
     [SerializeField] int _checkNum;
-    
+
     [MethodExecutor]
     private void Test()
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-        
+
         NativeList<int> primes = new NativeList<int>(Allocator.Temp);
 
         // Job化された同期API呼び出し

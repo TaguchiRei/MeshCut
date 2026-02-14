@@ -3,7 +3,7 @@ using Cysharp.Threading.Tasks;
 using MeshBreak;
 using MeshBreak.MeshBooleanOperator;
 using UnityEngine;
-using UsefllAttribute;
+using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
 namespace Code.Scripts.MeshBreak.MeshBooleanOperator
