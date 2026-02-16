@@ -10,21 +10,17 @@ public struct EnemyData
     public bool IsMoving;
 
     /// <summary>
-    /// 敵をRigidBodyに頼らず動かす
+    /// 移動方向を更新する
     /// </summary>
-    /// <param name="targetPosition">目標地点</param>
-    /// <param name="baseSpeed">速度</param>
-    /// <param name="acceleration">加速度</param>
-    /// <param name="deltaTime">Time.deltaTime</param>
-    /// <param name="minBounds">移動下限座標</param>
-    /// <param name="maxBounds">移動上限座標</param>
-    public void UpdateMovement(
-        Vector3 targetPosition,
+    /// <param name="baseSpeed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="deltaTime"></param>
+    /// <param name="targetPosition"></param>
+    public void UpdateVelocity(
         float baseSpeed,
         float acceleration,
         float deltaTime,
-        Vector3 minBounds,
-        Vector3 maxBounds)
+        Vector3 targetPosition)
     {
         Vector3 toTarget = targetPosition - Position;
 
@@ -36,43 +32,42 @@ public struct EnemyData
             return;
         }
 
-        // 移動方向の正規化ベクトルを取得
         Vector3 desiredDirection = toTarget / Mathf.Sqrt(sqrDistance);
-
         float finalSpeed = baseSpeed * MoveSpeedModifier;
-
         Vector3 desiredVelocity = desiredDirection * finalSpeed;
 
-        // フレームレート非依存指数補間
         float lerpFactor = 1f - Mathf.Exp(-acceleration * deltaTime);
 
         Velocity = Vector3.Lerp(Velocity, desiredVelocity, lerpFactor);
-
+    }
+    
+    /// <summary>
+    /// 座標を更新する
+    /// </summary>
+    /// <param name="deltaTime"></param>
+    /// <param name="minBounds"></param>
+    /// <param name="maxBounds"></param>
+    public void UpdatePosition(
+        float deltaTime,
+        Vector3 minBounds,
+        Vector3 maxBounds)
+    {
         Position += Velocity * deltaTime;
 
-        //移動範囲に制限を書ける
+        Vector3 clamped;
+        clamped.x = Mathf.Clamp(Position.x, minBounds.x, maxBounds.x);
+        clamped.y = Mathf.Clamp(Position.y, minBounds.y, maxBounds.y);
+        clamped.z = Mathf.Clamp(Position.z, minBounds.z, maxBounds.z);
 
-        Vector3 clampedPosition;
-        clampedPosition.x = Mathf.Clamp(Position.x, minBounds.x, maxBounds.x);
-        clampedPosition.y = Mathf.Clamp(Position.y, minBounds.y, maxBounds.y);
-        clampedPosition.z = Mathf.Clamp(Position.z, minBounds.z, maxBounds.z);
+        if (!Mathf.Approximately(clamped.x, Position.x))
+            Velocity = new Vector3(0, Velocity.y, Velocity.z);
 
-        // 壁に当たった軸の速度を止める
-        if (!Mathf.Approximately(clampedPosition.x, Position.x))
-        {
-            Velocity = new(0, Velocity.y, Velocity.z);
-        }
+        if (!Mathf.Approximately(clamped.y, Position.y))
+            Velocity = new Vector3(Velocity.x, 0, Velocity.z);
 
-        if (!Mathf.Approximately(clampedPosition.y, Position.y))
-        {
-            Velocity = new(Velocity.x, 0, Velocity.z);
-        }
+        if (!Mathf.Approximately(clamped.z, Position.z))
+            Velocity = new Vector3(Velocity.x, Velocity.y, 0);
 
-        if (!Mathf.Approximately(clampedPosition.z, Position.z))
-        {
-            Velocity = new(Velocity.x, Velocity.y, 0);
-        }
-
-        Position = clampedPosition;
+        Position = clamped;
     }
 }

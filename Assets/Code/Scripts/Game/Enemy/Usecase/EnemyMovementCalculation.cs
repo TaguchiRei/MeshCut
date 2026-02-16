@@ -4,8 +4,17 @@ public class EnemyMovementCalculation
 {
     const float DIRECTION_SEGMENT_COUNT = 100.0f;
 
-
-    public void MoveEnemy(
+    /// <summary>
+    /// 敵の配列を受け取り、配列内のオブジェクト群の位置と目標地点を
+    /// </summary>
+    /// <param name="enemies"></param>
+    /// <param name="playerPosition"></param>
+    /// <param name="context"></param>
+    /// <param name="groundPlane"></param>
+    /// <param name="baseSpeed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="deltaTime"></param>
+    public void UpdateEnemyVelocity(
         ref EnemyData[] enemies,
         Vector3[] playerPosition,
         EnemyGroupContext context,
@@ -16,26 +25,24 @@ public class EnemyMovementCalculation
     {
         int maxIndex = enemies.Length;
 
-        // プレイヤーの現在位置と過去の位置をPlane上に投影
-        Vector3 projectedCurrent = groundPlane.ClosestPointOnPlane(playerPosition[0]);
-        Vector3 projectedPast = groundPlane.ClosestPointOnPlane(playerPosition[1]);
+        Vector3 projectedCurrent =
+            groundPlane.ClosestPointOnPlane(playerPosition[0]);
+
+        Vector3 projectedPast =
+            groundPlane.ClosestPointOnPlane(playerPosition[1]);
 
         for (int i = 0; i < maxIndex; i++)
         {
             ref EnemyData enemy = ref enemies[i];
 
-            // プレイヤーの現在と過去の近い方の位置を利用
-            float sqrDistCurrent =
-                (projectedCurrent - enemy.Position).sqrMagnitude;
-            float sqrDistPast =
-                (projectedPast - enemy.Position).sqrMagnitude;
-
+            //過去と現在で最も近いプレイヤーの座標を目的地にする
+            float sqrDistCurrent = (projectedCurrent - enemy.Position).sqrMagnitude;
+            float sqrDistPast = (projectedPast - enemy.Position).sqrMagnitude;
             Vector3 chosenPlayerPos =
                 (sqrDistCurrent < sqrDistPast)
                     ? projectedCurrent
                     : projectedPast;
 
-            // 目的座標を改造したアルキメデスの螺旋上に並ぶように計算
             Vector3 offset = CalculatePosition(
                 i,
                 context.GlobalIndex,
@@ -44,28 +51,27 @@ public class EnemyMovementCalculation
                 context.MinRadius,
                 context.MaxRadius);
 
-            Vector3 target =
-                chosenPlayerPos + offset + enemy.TargetPositionOffset;
+            var targetPosition = chosenPlayerPos + offset;
 
-            // 移動を開始するかを判定する
-            float sqrDist = (target - enemy.Position).sqrMagnitude;
+            //目標地点に向かうベクトルの長さの２乗
+            float sqrDist = (targetPosition - enemy.Position).sqrMagnitude;
 
             if (!enemy.IsMoving)
             {
-                //sqrMagnitudeは2上の値なのでMoveStartDistanceも2乗すれば√を外さずに計算できる
+                //sqrDistは距離の2乗なのでMoveStartDistanceも２乗することで√を求めずに計算できる
                 if (sqrDist > enemy.MoveStartDistance * enemy.MoveStartDistance)
+                {
                     enemy.IsMoving = true;
+                }
             }
 
             if (enemy.IsMoving)
             {
-                enemy.UpdateMovement(
-                    target,
+                enemy.UpdateVelocity(
                     baseSpeed,
                     acceleration,
                     deltaTime,
-                    context.MinBounds,
-                    context.MaxBounds);
+                    targetPosition);
             }
         }
     }
