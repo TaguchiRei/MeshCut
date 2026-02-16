@@ -4,17 +4,72 @@ public class EnemyMovementCalculation
 {
     const float DIRECTION_SEGMENT_COUNT = 100.0f;
 
+
     public void MoveEnemy(
         ref EnemyData[] enemies,
         Vector3[] playerPosition,
-        int globalIndex, float vertexSpace,
-        float minRadius, float maxRadius)
+        EnemyGroupContext context,
+        Plane groundPlane,
+        float baseSpeed,
+        float acceleration,
+        float deltaTime)
     {
-        for (int i = 0; i < enemies.Length; i++)
+        int maxIndex = enemies.Length;
+
+        // プレイヤーの現在位置と過去の位置をPlane上に投影
+        Vector3 projectedCurrent = groundPlane.ClosestPointOnPlane(playerPosition[0]);
+        Vector3 projectedPast = groundPlane.ClosestPointOnPlane(playerPosition[1]);
+
+        for (int i = 0; i < maxIndex; i++)
         {
             ref EnemyData enemy = ref enemies[i];
+
+            // プレイヤーの現在と過去の近い方の位置を利用
+            float sqrDistCurrent =
+                (projectedCurrent - enemy.Position).sqrMagnitude;
+            float sqrDistPast =
+                (projectedPast - enemy.Position).sqrMagnitude;
+
+            Vector3 chosenPlayerPos =
+                (sqrDistCurrent < sqrDistPast)
+                    ? projectedCurrent
+                    : projectedPast;
+
+            // 目的座標を改造したアルキメデスの螺旋上に並ぶように計算
+            Vector3 offset = CalculatePosition(
+                i,
+                context.GlobalIndex,
+                maxIndex,
+                context.VertexSpace,
+                context.MinRadius,
+                context.MaxRadius);
+
+            Vector3 target =
+                chosenPlayerPos + offset + enemy.TargetPositionOffset;
+
+            // 移動を開始するかを判定する
+            float sqrDist = (target - enemy.Position).sqrMagnitude;
+
+            if (!enemy.IsMoving)
+            {
+                //sqrMagnitudeは2上の値なのでMoveStartDistanceも2乗すれば√を外さずに計算できる
+                if (sqrDist > enemy.MoveStartDistance * enemy.MoveStartDistance)
+                    enemy.IsMoving = true;
+            }
+
+            if (enemy.IsMoving)
+            {
+                enemy.UpdateMovement(
+                    target,
+                    baseSpeed,
+                    acceleration,
+                    deltaTime,
+                    context.MinBounds,
+                    context.MaxBounds);
+            }
         }
     }
+
 
     /// <summary>
     /// インデックスに基づいて座標を計算する
