@@ -23,6 +23,13 @@ public class CameraMove : MonoBehaviour, ICameraMove
     private CancellationTokenSource _cts;
     private ITimeScaleManagement _gameTimeScaleManager;
 
+    private CancellationToken _destroyToken;
+
+    private void Awake()
+    {
+        _destroyToken = this.GetCancellationTokenOnDestroy();
+    }
+
     private void Start()
     {
         CanMove = true;
@@ -48,7 +55,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
         _gameTimeScaleManager.ReleaseEvent -= OnTimeScaleResume;
         _gameTimeScaleManager.TimeScaleChangeEvent -= OnTimeScaleChange;
     }
-    
+
     // 入力による回転
     public void Look(Vector2 inputVector)
     {
@@ -88,7 +95,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
         // 既に変更中なら解除
         ResumeCamera();
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
 
         LockCamera(lockTime, _cts.Token).Forget();
     }
@@ -127,7 +134,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
 }
 
 public interface ICameraMove
-{  
+{
     public bool CanMove { get; }
     public void Look(Vector2 inputVector);
 

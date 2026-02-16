@@ -16,6 +16,8 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
     private CancellationTokenSource _cts;
     private float _originalTimeScale = 1f;
 
+    private CancellationToken _destroyToken;
+
     public void Awake()
     {
         if (Instance == null)
@@ -23,6 +25,7 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
             Instance = this;
             DontDestroyOnLoad(this);
             ServiceLocator.Instance.RegisterService<ITimeScaleManagement>(this);
+            _destroyToken = this.GetCancellationTokenOnDestroy();
         }
         else
         {
@@ -52,7 +55,7 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
         // 既に変更中なら解除
         Release();
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(_destroyToken);
 
         _originalTimeScale = Time.timeScale;
         Time.timeScale = scale;
