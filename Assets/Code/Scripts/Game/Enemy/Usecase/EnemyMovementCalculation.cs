@@ -51,7 +51,7 @@ public class EnemyMovementCalculation
                 context.MinRadius,
                 context.MaxRadius);
 
-            var targetPosition = chosenPlayerPos + offset;
+            var targetPosition = chosenPlayerPos + offset + enemy.TargetPositionOffset;
 
             //目標地点に向かうベクトルの長さの２乗
             float sqrDist = (targetPosition - enemy.Position).sqrMagnitude;
@@ -114,20 +114,21 @@ public class EnemyMovementCalculation
 
         float thetaStart = minR / vortexSpace;
         float thetaEnd = maxR / vortexSpace;
-
-        float baseTheta = Mathf.Lerp(thetaStart, thetaEnd, t);
-        float radius = vortexSpace * baseTheta;
+        
 
         int segmentIndex = (int)(t * DIRECTION_SEGMENT_COUNT);
 
         //渦の方向を周期的に反転する
         float dir = (segmentIndex % 4 == 0) ? -1f : 1f;
 
-        float theta = dir * baseTheta;
+        float baseTheta = Mathf.Lerp(thetaStart, thetaEnd, t);
+        float radius = vortexSpace * baseTheta;
 
-        float s = Mathf.Sin(theta);
-        float c = Mathf.Cos(theta);
+        // theta をラジアンとしてそのまま使用（dirによる反転を削除）
+        // 地面（XZ平面）に合わせる
+        float s = Mathf.Sin(baseTheta);
+        float c = Mathf.Cos(baseTheta);
 
-        return new Vector3(radius * c, radius * s, 0f);
+        return new Vector3(radius * c, 0f, radius * s);
     }
 }
