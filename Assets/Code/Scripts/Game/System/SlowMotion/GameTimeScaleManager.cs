@@ -60,7 +60,6 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
         WaitRelease(releaseTime, _cts.Token).Forget();
     }
 
-
     public void Release()
     {
         if (_cts == null) return;
