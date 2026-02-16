@@ -48,18 +48,6 @@ public class CameraMove : MonoBehaviour, ICameraMove
         _gameTimeScaleManager.ReleaseEvent -= OnTimeScaleResume;
         _gameTimeScaleManager.TimeScaleChangeEvent -= OnTimeScaleChange;
     }
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     // 入力による回転
     public void Look(Vector2 inputVector)
@@ -139,7 +127,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
 }
 
 public interface ICameraMove
-{
+{  
     public bool CanMove { get; }
     public void Look(Vector2 inputVector);
 
