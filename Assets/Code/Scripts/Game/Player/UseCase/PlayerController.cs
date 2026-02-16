@@ -32,7 +32,7 @@ public class PlayerController
         );
 
         // ジャンプアクションの登録
-        _inputDispatcher.ChangeActionRegistrationStartCancelled(
+        _inputDispatcher.ChangeActionRegistrationStart(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Jump),
             OnJumpStarted,
@@ -51,7 +51,7 @@ public class PlayerController
             OnSprintInput,
             register);
 
-        _inputDispatcher.ChangeActionRegistrationStart(
+        _inputDispatcher.ChangeActionRegistrationStartCancelled(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Aim),
             OnAimInput,
@@ -77,10 +77,12 @@ public class PlayerController
         if (context.started)
         {
             _playerMove.AimStart();
+            _cameraMove.LockCamera(_playerInputState.AimTIme);
         }
         else if (context.canceled)
         {
             _playerMove.AimEnd();
+            _cameraMove.ResumeCamera();
         }
     }
 
@@ -108,12 +110,6 @@ public class PlayerController
 
         float pressDuration = Time.time - _playerInputState.JumpPressTime;
         _playerInputState.JumpPressTime = 0f; // タイマーをリセット
-
-        float jumpMagnitude = 1.0f;
-        if (pressDuration >= _playerInputState.LongPressDuration)
-        {
-            jumpMagnitude = 1.5f;
-        }
     }
 
     private void OnLookInput(InputAction.CallbackContext context)

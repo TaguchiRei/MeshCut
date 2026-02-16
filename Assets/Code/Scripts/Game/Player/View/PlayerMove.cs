@@ -2,15 +2,14 @@ using UnityEngine;
 
 public class PlayerMove : MonoBehaviour, IPlayerMove
 {
-    [Header("BasicSetting")] [SerializeField]
-    private int _walkSpeed = 5;
-
+    [Header("BasicSetting")]
+    [SerializeField] private int _walkSpeed = 5;
     [SerializeField] private int _runSpeed = 8;
     [SerializeField] private int _jumpPower = 5;
     [SerializeField] private float _longPressTime = 0.5f;
     [SerializeField] private float _aimTime = 10;
     [SerializeField, Range(0, 1f)] private float slowMotionTimeScale = 0.5f;
-    [SerializeField] private float slowReleaseTime = 10;
+    [SerializeField] private float _aimReleaseTime = 10;
     public int WalkSpeed => _walkSpeed;
     public int RunSpeed => _runSpeed;
     public int JumpPawer => _jumpPower;
@@ -18,14 +17,14 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
     public Vector3 UpVector { get; private set; }
     public bool Running { get; set; }
 
-    [Header("Components")] [SerializeField]
-    private Rigidbody _rigidbody;
+    [Header("Components")] 
+    [SerializeField] private Rigidbody _rigidbody;
 
     [SerializeField] private Transform _cameraTransform;
     [SerializeField] private CameraMove _cameraMove;
 
     [Header("GroundCheck")] [SerializeField]
-    private Vector3 _boxHalfExtents = new Vector3(0.4f, 0.05f, 0.4f);
+    private Vector3 _boxHalfExtents = new(0.4f, 0.05f, 0.4f);
 
     [SerializeField] private float _checkDistance = 0.1f;
     [SerializeField] private LayerMask _groundLayer;
@@ -36,17 +35,18 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
     private float _gravityMagnitude = 9.81f;
 
     private PlayerController _playerController;
-    private GameTimeScaleManager _timeManager;
+    private ITimeScaleManagement _timeManager;
 
     private void Start()
     {
         ServiceLocator.Instance.TryGetService(out IInputDispatcher inputDispatcher);
+        ServiceLocator.Instance.TryGetService(out _timeManager);
 
         _playerController = new PlayerController(
             inputDispatcher,
             this,
             _cameraMove,
-            new PlayerInputState(_longPressTime));
+            new PlayerInputState(_longPressTime, _aimReleaseTime));
         _playerController.SetActiveInput(true);
 
         _rigidbody.useGravity = false;
@@ -168,7 +168,7 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
 
     public void AimStart()
     {
-        _timeManager.SetTimeScale(slowMotionTimeScale, slowReleaseTime);
+        _timeManager.SetTimeScale(slowMotionTimeScale, _aimReleaseTime);
     }
 
     public void AimEnd()

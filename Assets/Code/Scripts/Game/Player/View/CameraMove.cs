@@ -1,49 +1,70 @@
+using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 public class CameraMove : MonoBehaviour, ICameraMove
 {
     public bool CanMove { get; private set; }
 
-    [Header("Target")] [SerializeField] private Transform _target; // プレイヤー
-    [SerializeField] private Transform _cameraTransform; // 子オブジェクト（実際のカメラ）
+    [Header("Target")] [SerializeField] private Transform _target;
+    [SerializeField] private Transform _cameraTransform;
 
-    [Header("Settings")] [SerializeField] private float _rotationTime = 0.5f; // target.up に追従する時間
-    [SerializeField] private float _sensitivityX = 1f; // 左右感度
-    [SerializeField] private float _sensitivityY = 1f; // 上下感度
-    [SerializeField] private float _maxPitchAngle = 80f; // target基準の上下最大角度
-    [SerializeField] private float _parentRotationSpeed = 360f; // 1秒で回転する度数
+    [Header("Settings")] [SerializeField] private float _rotationTime = 0.5f;
+    [SerializeField] private float _sensitivityX = 1f;
+    [SerializeField] private float _sensitivityY = 1f;
+    [SerializeField] private float _maxPitchAngle = 80f;
+    [SerializeField] private float _parentRotationSpeed = 360f;
     private Quaternion _targetRotation;
 
-    private float _pitch = 0f; // 垂直回転（上下）
-    private float _yaw = 0f; // 水平回転（左右）
+    private float _pitch;
+    private float _yaw;
+    private float _timeScale;
+    private CancellationTokenSource _cts;
+    private ITimeScaleManagement _gameTimeScaleManager;
 
     private void Start()
     {
         CanMove = true;
+        ServiceLocator.Instance.TryGetService(out _gameTimeScaleManager);
+        _gameTimeScaleManager.ReleaseEvent += OnTimeScaleResume;
+        _gameTimeScaleManager.TimeScaleChangeEvent += OnTimeScaleChange;
     }
 
     private void LateUpdate()
     {
-        if (!CanMove || _target == null || _cameraTransform == null) return;
-
         transform.position = _target.position;
+
         // 毎フレーム _targetRotation に向かって回転
         transform.rotation = Quaternion.RotateTowards(
             transform.rotation,
             _targetRotation,
             _parentRotationSpeed * Time.deltaTime
         );
-
-        // 親の位置追従
-        if (_target != null)
-            transform.position = _target.position;
     }
 
+    private void OnDestroy()
+    {
+        _gameTimeScaleManager.ReleaseEvent -= OnTimeScaleResume;
+        _gameTimeScaleManager.TimeScaleChangeEvent -= OnTimeScaleChange;
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     // 入力による回転
     public void Look(Vector2 inputVector)
     {
-        if (!CanMove || _target == null || _cameraTransform == null) return;
-
+        if (_timeScale < 1) return;
         // 入力に感度を掛ける
         _yaw += inputVector.x * _sensitivityX;
         _pitch -= inputVector.y * _sensitivityY;
@@ -73,6 +94,48 @@ public class CameraMove : MonoBehaviour, ICameraMove
         // 目標回転として保存
         _targetRotation = rotationDelta * transform.rotation;
     }
+
+    public void LockCamera(float lockTime)
+    {
+        // 既に変更中なら解除
+        ResumeCamera();
+
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+
+        LockCamera(lockTime, _cts.Token).Forget();
+    }
+
+    public void ResumeCamera()
+    {
+        if (_cts == null) return;
+
+        // タスクをキャンセルして CTS を破棄
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = null;
+    }
+
+    public async UniTask LockCamera(float lockTime, CancellationToken ct)
+    {
+        try
+        {
+            await UniTask.Delay(TimeSpan.FromSeconds(lockTime), cancellationToken: ct);
+        }
+        catch (OperationCanceledException)
+        {
+            ResumeCamera();
+        }
+    }
+
+    private void OnTimeScaleChange(float timeScale)
+    {
+        _timeScale = timeScale;
+    }
+
+    private void OnTimeScaleResume()
+    {
+        _timeScale = 1;
+    }
 }
 
 public interface ICameraMove
@@ -81,4 +144,8 @@ public interface ICameraMove
     public void Look(Vector2 inputVector);
 
     public void ParentUpChange(Vector3 newGroundNormal);
+
+    public void LockCamera(float lockTime);
+
+    public void ResumeCamera();
 }

@@ -8,6 +8,9 @@ using UnityEngine;
 /// </summary>
 public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
 {
+    public event Action<float> TimeScaleChangeEvent;
+    public event Action ReleaseEvent;
+
     private static GameTimeScaleManager Instance;
 
     private CancellationTokenSource _cts;
@@ -32,6 +35,7 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
         Release();
     }
 
+
     /// <summary>
     /// 終了時間を指定して時間スケールを変更する
     /// </summary>
@@ -42,6 +46,8 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
             Debug.LogWarning("TimeScaleは0より大きくしてください。");
             return;
         }
+
+        TimeScaleChangeEvent?.Invoke(scale);
 
         // 既に変更中なら解除
         Release();
@@ -61,11 +67,17 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
 
         // TimeScale を元に戻す
         Time.timeScale = _originalTimeScale;
+        ReleaseEvent?.Invoke();
 
         // タスクをキャンセルして CTS を破棄
         _cts.Cancel();
         _cts.Dispose();
         _cts = null;
+    }
+
+    public float GetTimeScale()
+    {
+        return Time.timeScale;
     }
 
     /// <summary>
@@ -90,6 +102,10 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
 /// </summary>
 public interface ITimeScaleManagement
 {
+    event Action<float> TimeScaleChangeEvent;
+
+    event Action ReleaseEvent;
+
     /// <summary>
     /// timeScaleを設定する。1がデフォルト
     /// </summary>
@@ -98,7 +114,12 @@ public interface ITimeScaleManagement
     void SetTimeScale(float scale, float releaseTime);
 
     /// <summary>
-    /// 時間スケールを元に戻す
+    /// timeScaleを戻す
     /// </summary>
     void Release();
+
+    /// <summary>
+    /// timeScaleを取得する
+    /// </summary>
+    float GetTimeScale();
 }
