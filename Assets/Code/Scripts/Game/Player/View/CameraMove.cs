@@ -25,10 +25,13 @@ public class CameraMove : MonoBehaviour, ICameraMove
 
     private void Start()
     {
+        _targetRotation = transform.rotation;
         CanMove = true;
-        ServiceLocator.Instance.TryGetService(out _gameTimeScaleManager);
-        _gameTimeScaleManager.ReleaseEvent += OnTimeScaleResume;
-        _gameTimeScaleManager.TimeScaleChangeEvent += OnTimeScaleChange;
+        if (ServiceLocator.Instance.TryGetService(out _gameTimeScaleManager))
+        {
+            _gameTimeScaleManager.ReleaseEvent += OnTimeScaleResume;
+            _gameTimeScaleManager.TimeScaleChangeEvent += OnTimeScaleChange;
+        }
     }
 
     private void LateUpdate()
@@ -48,7 +51,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
         _gameTimeScaleManager.ReleaseEvent -= OnTimeScaleResume;
         _gameTimeScaleManager.TimeScaleChangeEvent -= OnTimeScaleChange;
     }
-    
+
     // 入力による回転
     public void Look(Vector2 inputVector)
     {
@@ -88,7 +91,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
         // 既に変更中なら解除
         ResumeCamera();
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        _cts = new();
 
         LockCamera(lockTime, _cts.Token).Forget();
     }
@@ -127,7 +130,7 @@ public class CameraMove : MonoBehaviour, ICameraMove
 }
 
 public interface ICameraMove
-{  
+{
     public bool CanMove { get; }
     public void Look(Vector2 inputVector);
 

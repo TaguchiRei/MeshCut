@@ -103,6 +103,8 @@ public class InputDispatcher : MonoBehaviour, IInputDispatcher
     
     private InputAction GetAction(string actionMap, string actionName)
     {
+        if (_playerInput == null) return null;
+        
         var map = _playerInput.actions.FindActionMap(actionMap);
         if (map == null)
         {
@@ -120,11 +122,13 @@ public class InputDispatcher : MonoBehaviour, IInputDispatcher
 
     public void SwitchActionMap(string actionMap)
     {
+        if (_playerInput == null) return;
         _playerInput.SwitchCurrentActionMap(actionMap);
     }
 
     public int GetActiveActionMap()
     {
+        if (_playerInput == null) return 0;
         Enum.TryParse<ActionMaps>(_playerInput.currentActionMap.name, out var parseMap);
         return (int)parseMap;
     }
