@@ -630,7 +630,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 71dca15bce0e68b468a15f9bd2d6a1ca, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -941,6 +941,7 @@ GameObject:
   - component: {fileID: 1718853882}
   - component: {fileID: 1718853884}
   - component: {fileID: 1718853885}
+  - component: {fileID: 1718853886}
   m_Layer: 2
   m_Name: Blade
   m_TagString: Untagged
@@ -1035,6 +1036,18 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1718853886
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1718853880}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4598b6036d8b6a640968d11db390a6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CutPlaneCollider
 --- !u!1 &1747501559
 GameObject:
   m_ObjectHideFlags: 0
@@ -1786,7 +1799,8 @@ MonoBehaviour:
   _rigidbody: {fileID: 1978318401}
   _cameraTransform: {fileID: 1747501562}
   _cameraMove: {fileID: 903794810}
-  _multiCutBlade: {fileID: 0}
+  _multiCutBlade: {fileID: 1718853882}
+  _cutPlaneCollider: {fileID: 1718853886}
   _boxHalfExtents: {x: 0.25, y: 0.05, z: 0.25}
   _checkDistance: 1.04
   _groundLayer:
@@ -2076,8 +2090,8 @@ MonoBehaviour:
   _vortexSpace: 0.5
   _minRadius: 5
   _maxRadius: 50
-  _maxPos: {x: 50, y: 1, z: 50}
-  _minPos: {x: -50, y: 0, z: -50}
+  _maxPos: {x: 45, y: 1, z: 45}
+  _minPos: {x: -45, y: 0, z: -45}
 --- !u!4 &2118067512
 Transform:
   m_ObjectHideFlags: 0

@@ -41,7 +41,10 @@ public class MultiCutBlade : MonoBehaviour
 
         Debug.Log(cuttables.Count);
 
-        if (cuttables.Count > 0) await ExecuteCut(cuttables.ToArray());
+        if (cuttables.Count > 0)
+        {
+            await ExecuteCut(cuttables.ToArray());
+        }
         else
         {
             Debug.Log("見つかりませんでした");
