@@ -193,41 +193,44 @@ public class MultiMeshCut
                     //三角形ごとにループ
                     for (int i = 0; i < indexData.Length; i += 3)
                     {
-                        //ここで取得できるのはオブジェクトごとのインデックス番号なので、開始位置でオフセットを書ける
-                        var p1 = indexData[i + 0] + objectStartIndex;
-                        var p2 = indexData[i + 1] + objectStartIndex;
-                        var p3 = indexData[i + 2] + objectStartIndex;
+                        // 全体のインデックス
+                        var globalIndex1 = indexData[i + 0] + objectStartIndex;
+                        var globalIndex2 = indexData[i + 1] + objectStartIndex;
+                        var globalIndex3 = indexData[i + 2] + objectStartIndex;
+
+                        // オブジェクトごとのインデックス
+                        var localIndex1 = indexData[i + 0];
+                        var localIndex2 = indexData[i + 1];
+                        var localIndex3 = indexData[i + 2];
 
                         int result =
-                            (context.BaseVertexSide[p1] << 2) |
-                            (context.BaseVertexSide[p2] << 1) |
-                            (context.BaseVertexSide[p3] << 0);
+                            (context.BaseVertexSide[globalIndex1] << 2) |
+                            (context.BaseVertexSide[globalIndex2] << 1) |
+                            (context.BaseVertexSide[globalIndex3] << 0);
 
                         Debug.Log($"result {result}");
 
                         switch (result)
                         {
                             case 0: //0なら裏側
-                                Debug.Log("ZERO");
                                 backSide.AddTriangleLegacyIndex(
-                                    p1, p2, p3,
-                                    vertices[p1], vertices[p2], vertices[p3],
-                                    normals[p1], normals[p2], normals[p3],
-                                    uvs[p1], uvs[p2], uvs[p3],
+                                    localIndex1, localIndex2, localIndex3,
+                                    vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
+                                    normals[globalIndex1], normals[globalIndex2], normals[globalIndex3],
+                                    uvs[globalIndex1], uvs[globalIndex2], uvs[globalIndex3],
                                     submesh);
                                 break;
                             case 7:
-                                Debug.Log("SEVEN");
                                 frontSide.AddTriangleLegacyIndex(
-                                    p1, p2, p3,
-                                    vertices[p1], vertices[p2], vertices[p3],
-                                    normals[p1], normals[p2], normals[p3],
-                                    uvs[p1], uvs[p2], uvs[p3],
+                                    localIndex1, localIndex2, localIndex3,
+                                    vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
+                                    normals[globalIndex1], normals[globalIndex2], normals[globalIndex3],
+                                    uvs[globalIndex1], uvs[globalIndex2], uvs[globalIndex3],
                                     submesh);
                                 break;
                             default:
                                 triangleObjectTable.Add(objIndex);
-                                context.CutFaces.Add(new(p1, p2, p3));
+                                context.CutFaces.Add(new(globalIndex1, globalIndex2, globalIndex3));
                                 context.CutStatus.Add(result);
                                 context.CutFaceSubmeshId.Add(submesh);
                                 context.TriangleObjectIndex.Add(objIndex);
@@ -690,40 +693,5 @@ public class MultiMeshCut
         Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
 
         return resultMeshes;
-    }
-
-
-    private void DebugCompareVertices(CuttableObject[] breakables, MultiCutContext context)
-    {
-        for (int meshIndex = 0; meshIndex < breakables.Length; meshIndex++)
-        {
-            var mesh = breakables[meshIndex].Mesh;
-            var originalVerts = mesh.vertices; // Vector3[]
-            var meshData = context.BaseMeshDataArray[meshIndex];
-
-            // NativeArray<float3> に取得
-            NativeArray<Vector3> meshDataVerts = new NativeArray<Vector3>(meshData.vertexCount, Allocator.Temp);
-            meshData.GetVertices(meshDataVerts);
-
-            bool allSame = true;
-            for (int i = 0; i < meshData.vertexCount; i++)
-            {
-                Vector3 vOriginal = originalVerts[i];
-                Vector3 vData = meshDataVerts[i];
-
-                // 誤差許容
-                if (Vector3.Distance(vOriginal, vData) > 1e-6f)
-                {
-                    allSame = false;
-                    Debug.LogWarning(
-                        $"Mesh {meshIndex} Vertex {i} mismatch. Original: {vOriginal}, BaseMeshData: {vData}");
-                }
-            }
-
-            if (allSame)
-                Debug.Log($"Mesh {meshIndex} の頂点はすべて一致しました。");
-
-            meshDataVerts.Dispose();
-        }
     }
 }
