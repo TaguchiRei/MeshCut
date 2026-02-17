@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UsefulAttribute;
+using Debug = UnityEngine.Debug;
 
 public class MultiCutBlade : MonoBehaviour
 {
@@ -58,6 +60,8 @@ public class MultiCutBlade : MonoBehaviour
     {
         if (targets == null || targets.Length == 0) return;
 
+        Stopwatch st = Stopwatch.StartNew();
+
         // 自分自身をBladeにする
         NativePlane blade = new NativePlane(transform.position, transform.up);
 
@@ -89,6 +93,8 @@ public class MultiCutBlade : MonoBehaviour
             // 元のオブジェクトを非アクティブ化
             target.gameObject.SetActive(false);
         }
+
+        Debug.Log($"全体処理時間 {st.ElapsedMilliseconds}ms");
     }
 
     private void ApplyResult(
@@ -101,29 +107,51 @@ public class MultiCutBlade : MonoBehaviour
         GameObject fragObj = stub.gameObject;
         CuttableObject cuttable = stub.cuttable;
 
-        // トランスフォームの同期
-        fragObj.transform.SetPositionAndRotation(original.transform.position, original.transform.rotation);
+        // Transform同期
+        fragObj.transform.SetPositionAndRotation(
+            original.transform.position,
+            original.transform.rotation
+        );
         fragObj.transform.localScale = original.transform.localScale;
 
-        // メッシュとコライダーの更新
-        // ここで渡す localBlade は MultiMeshCut の内部計算で各オブジェクト座標系に変換されたものが必要
-        // ※今回は簡易的に original 経由か、別途コンテキストから取得する想定
-        // 便宜上、ここでは localBlade の取得ロジックは MultiMeshCut 側にあるものとして進めます
+        // ===== メッシュ設定 =====
+        cuttable.Mesh.sharedMesh = mesh;
 
-        // アクティブ化を行う
+        // ===== マテリアルコピー処理 =====
+        var originalRenderer = original.GetComponent<Renderer>();
+        var fragmentRenderer = fragObj.GetComponent<Renderer>();
+
+        if (originalRenderer != null && fragmentRenderer != null)
+        {
+            Material[] originalMaterials = originalRenderer.sharedMaterials;
+
+            // +1 した配列を作成
+            Material[] newMaterials = new Material[originalMaterials.Length + 1];
+
+            // 外殻マテリアルをコピー
+            for (int i = 0; i < originalMaterials.Length; i++)
+            {
+                newMaterials[i] = originalMaterials[i];
+            }
+
+            // 最後尾に CapMaterial を設定
+            newMaterials[newMaterials.Length - 1] = cuttable.CapMaterial;
+
+            fragmentRenderer.sharedMaterials = newMaterials;
+        }
+
+        // アクティブ化
         fragObj.SetActive(true);
 
-        // 断面マテリアルの設定や物理挙動の初期化
-        cuttable.SetMesh(mesh, samplingPoints, default, _defaultMaterial);
-
-
-        // 物理的な初速の継承（オプション）
-        if (original.TryGetComponent<Rigidbody>(out var oldRb) && fragObj.TryGetComponent<Rigidbody>(out var newRb))
+        // 物理初速の継承
+        if (original.TryGetComponent<Rigidbody>(out var oldRb) &&
+            fragObj.TryGetComponent<Rigidbody>(out var newRb))
         {
             newRb.linearVelocity = oldRb.linearVelocity;
             newRb.angularVelocity = oldRb.angularVelocity;
         }
     }
+
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()

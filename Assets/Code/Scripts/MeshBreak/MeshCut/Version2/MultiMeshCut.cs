@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -56,15 +57,20 @@ public class MultiMeshCut
 
     private async UniTask CutAsync(CuttableObject[] breakables, NativePlane blade, int batchCount, int sampling)
     {
+        Stopwatch totalStopwatch = new Stopwatch();
+        totalStopwatch.Start();
+        
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {
+            Stopwatch stopwatch = new Stopwatch(); // 各セクション計測用
+
             Mesh[] mesh = new Mesh[breakables.Length];
 
             //MeshDataArrayを取得
             for (int i = 0; i < breakables.Length; i++)
             {
-                mesh[i] = breakables[i].Mesh;
+                mesh[i] = breakables[i].Mesh.sharedMesh;
             }
 
             context.BaseMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
@@ -142,6 +148,9 @@ public class MultiMeshCut
             }
 
             Debug.Log("頂点群データ取得完了");
+            stopwatch.Stop();
+            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
 
             #region 頂点のサイドを取得
 
@@ -353,6 +362,8 @@ public class MultiMeshCut
         finally
         {
             context.Dispose();
+            totalStopwatch.Stop();
+            Debug.Log($"計測: MultiMeshCut.CutAsync 全体処理時間 - {totalStopwatch.ElapsedMilliseconds} ms");
         }
     }
 
