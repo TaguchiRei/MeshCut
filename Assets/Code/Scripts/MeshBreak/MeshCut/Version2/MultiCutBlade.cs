@@ -66,7 +66,9 @@ public class MultiCutBlade : MonoBehaviour
         await _slicer.Cut(targets, blade);
 
         Debug.Log("切断処理完了");
-        
+
+        var obj = _pool.GetObjects(2);
+
         // 3. プールから必要な数だけ破片オブジェクトを一括取得
         // ターゲット1つにつき前後2つの破片が必要
         int requiredCount = targets.Length * 2;
@@ -111,7 +113,7 @@ public class MultiCutBlade : MonoBehaviour
 
         // アクティブ化を行う
         fragObj.SetActive(true);
-        
+
         // 断面マテリアルの設定や物理挙動の初期化
         cuttable.SetMesh(mesh, samplingPoints, default, _defaultMaterial);
 

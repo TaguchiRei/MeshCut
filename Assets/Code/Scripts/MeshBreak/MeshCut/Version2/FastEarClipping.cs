@@ -60,6 +60,10 @@ public static class FastEarClipping
                 removed[i] = true;
                 remaining--;
 
+                // 隣接する頂点のprev/nextを更新して、削除された頂点iをスキップする
+                next[a] = c; // aの次の頂点をcにする
+                prev[c] = a; // cの前の頂点をaにする
+
                 // 隣接のみ再評価
                 isReflex[a] = IsReflex(simpleVertices, prev[a], a, next[a]);
                 isReflex[c] = IsReflex(simpleVertices, prev[c], c, next[c]);

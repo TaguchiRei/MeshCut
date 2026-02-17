@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
@@ -97,20 +96,6 @@ public class MultiMeshCut
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             int startIndex = 0;
-            
-            var verts = breakables[0].Mesh.vertices;
-            for (int i = 0; i < context.BaseVertices.Length; i++)
-            {
-                if (verts[i] == (Vector3)context.BaseVertices[i])
-                {
-                    Debug.Log("same");
-                }
-                else
-                {
-                    Debug.LogWarning($"verts {verts[i]}  base {context.BaseVertices[i]}");
-                }
-            }
-
 
             //オブジェクト毎にループする初期化を行う
             for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
@@ -180,9 +165,6 @@ public class MultiMeshCut
 
             context.breakMeshes = new();
             List<int> triangleObjectTable = new();
-            // context.CutFaces = new(Allocator.Persistent); // コンストラクタで初期化済みのため削除
-            // context.CutFaceSubmeshId = new(Allocator.Persistent); // 同上
-            // context.TriangleObjectIndex = new(Allocator.Persistent); // 同上
 
             var vertices = context.BaseVertices;
             var normals = context.BaseNormals;
@@ -191,7 +173,7 @@ public class MultiMeshCut
             //オブジェクト数分ループ
             for (int objIndex = 0; objIndex < context.BaseMeshDataArray.Length; objIndex++)
             {
-                var objectStartIndex = context.StartIndex;
+                var objectStartIndex = context.StartIndex[objIndex];
                 var meshData = context.BaseMeshDataArray[objIndex];
                 var triangles = meshData.GetIndexData<ushort>();
                 BurstBreakMesh frontSide = new BurstBreakMesh(meshData.vertexCount);
@@ -212,18 +194,21 @@ public class MultiMeshCut
                     for (int i = 0; i < indexData.Length; i += 3)
                     {
                         //ここで取得できるのはオブジェクトごとのインデックス番号なので、開始位置でオフセットを書ける
-                        var p1 = indexData[i + 0] + objectStartIndex[objIndex];
-                        var p2 = indexData[i + 1] + objectStartIndex[objIndex];
-                        var p3 = indexData[i + 2] + objectStartIndex[objIndex];
+                        var p1 = indexData[i + 0] + objectStartIndex;
+                        var p2 = indexData[i + 1] + objectStartIndex;
+                        var p3 = indexData[i + 2] + objectStartIndex;
 
                         int result =
-                            (1 << context.BaseVertexSide[p1]) |
-                            (1 << context.BaseVertexSide[p2]) |
-                            (1 << context.BaseVertexSide[p3]);
+                            (context.BaseVertexSide[p1] << 2) |
+                            (context.BaseVertexSide[p2] << 1) |
+                            (context.BaseVertexSide[p3] << 0);
+                        
+                        Debug.Log($"result {result}");
 
                         switch (result)
                         {
                             case 0: //0なら裏側
+                                Debug.Log("ZERO");
                                 backSide.AddTriangleLegacyIndex(
                                     p1, p2, p3,
                                     vertices[p1], vertices[p2], vertices[p3],
@@ -232,6 +217,7 @@ public class MultiMeshCut
                                     submesh);
                                 break;
                             case 7:
+                                Debug.Log("SEVEN");
                                 frontSide.AddTriangleLegacyIndex(
                                     p1, p2, p3,
                                     vertices[p1], vertices[p2], vertices[p3],
@@ -352,7 +338,7 @@ public class MultiMeshCut
 
             Debug.Log("メッシュ生成完了");
 
-            CutMesh = FinalizeMeshes(context.breakMeshes);
+            CutMesh = FinalizeMeshesSimple(context.breakMeshes);
             SamplingPoints = colliderVerticesPerFragment;
             Complete = true;
         }
@@ -510,6 +496,55 @@ public class MultiMeshCut
         }
     }
 
+    private Mesh[] FinalizeMeshesSimple(List<BurstBreakMesh> breakMeshes)
+    {
+        int fragmentCount = breakMeshes.Count;
+        Mesh[] resultMeshes = new Mesh[fragmentCount];
+
+        for (int i = 0; i < fragmentCount; i++)
+        {
+            var source = breakMeshes[i];
+            Mesh mesh = new Mesh();
+
+            // NativeArray -> List に変換
+            List<Vector3> verts = new List<Vector3>(source.Vertices.Length);
+            for (int v = 0; v < source.Vertices.Length; v++)
+                verts.Add(source.Vertices[v]);
+
+            List<Vector3> normals = new List<Vector3>(source.Normals.Length);
+            for (int n = 0; n < source.Normals.Length; n++)
+                normals.Add(source.Normals[n]);
+
+            List<Vector2> uvs = new List<Vector2>(source.Uvs.Length);
+            for (int u = 0; u < source.Uvs.Length; u++)
+                uvs.Add(source.Uvs[u]);
+
+            mesh.SetVertices(verts);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+
+            // サブメッシュとインデックス
+            mesh.subMeshCount = source.Triangles.Count;
+            for (int s = 0; s < source.Triangles.Count; s++)
+            {
+                // NativeList<int> -> List<int> に変換
+                List<int> indices = new List<int>(source.Triangles[s].Length);
+                for (int j = 0; j < source.Triangles[s].Length; j++)
+                    indices.Add(source.Triangles[s][j]);
+
+                mesh.SetTriangles(indices, s);
+            }
+
+            // バウンディングボックスの更新
+            mesh.RecalculateBounds();
+
+            resultMeshes[i] = mesh;
+        }
+
+        return resultMeshes;
+    }
+
+
     private Mesh[] FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
     {
         int fragmentCount = breakMeshes.Count;
@@ -522,7 +557,7 @@ public class MultiMeshCut
 
             // 頂点属性の設定
             int vertexCount = source.Vertices.Length;
-            
+
             // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
             var layout = new[]
             {
@@ -530,7 +565,7 @@ public class MultiMeshCut
                 new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3),
                 new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2)
             };
-            
+
             data.SetVertexBufferParams(vertexCount, layout);
 
             // これで stream 0 が有効になるので、以下の呼び出しが成功します
@@ -569,5 +604,40 @@ public class MultiMeshCut
         Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
 
         return resultMeshes;
+    }
+
+
+    private void DebugCompareVertices(CuttableObject[] breakables, MultiCutContext context)
+    {
+        for (int meshIndex = 0; meshIndex < breakables.Length; meshIndex++)
+        {
+            var mesh = breakables[meshIndex].Mesh;
+            var originalVerts = mesh.vertices; // Vector3[]
+            var meshData = context.BaseMeshDataArray[meshIndex];
+
+            // NativeArray<float3> に取得
+            NativeArray<Vector3> meshDataVerts = new NativeArray<Vector3>(meshData.vertexCount, Allocator.Temp);
+            meshData.GetVertices(meshDataVerts);
+
+            bool allSame = true;
+            for (int i = 0; i < meshData.vertexCount; i++)
+            {
+                Vector3 vOriginal = originalVerts[i];
+                Vector3 vData = meshDataVerts[i];
+
+                // 誤差許容
+                if (Vector3.Distance(vOriginal, vData) > 1e-6f)
+                {
+                    allSame = false;
+                    Debug.LogWarning(
+                        $"Mesh {meshIndex} Vertex {i} mismatch. Original: {vOriginal}, BaseMeshData: {vData}");
+                }
+            }
+
+            if (allSame)
+                Debug.Log($"Mesh {meshIndex} の頂点はすべて一致しました。");
+
+            meshDataVerts.Dispose();
+        }
     }
 }

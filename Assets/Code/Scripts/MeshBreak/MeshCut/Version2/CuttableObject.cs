@@ -36,12 +36,6 @@ public class CuttableObject : MonoBehaviour
         {
             Mesh = meshFilter.sharedMesh;
         }
-
-        _colliders = new();
-        for (int i = 0; i < _colliderNum; i++)
-        {
-            _colliders.Add(gameObject.AddComponent<SphereCollider>());
-        }
     }
 
     [MethodExecutor]
@@ -56,8 +50,18 @@ public class CuttableObject : MonoBehaviour
         NativePlane localBlade,
         PhysicsMaterial newFaceMat)
     {
+        if (_colliders == null || _colliders.Count == 0)
+        {
+            _colliders = new();
+            for (int i = 0; i < _colliderNum; i++)
+            {
+                _colliders.Add(gameObject.AddComponent<SphereCollider>());
+            }
+        }
+
         gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
 
+        /*
         //重心
         var centers = ClusteringVerts(samplingVerts);
 
@@ -130,6 +134,7 @@ public class CuttableObject : MonoBehaviour
         {
             _colliders[i].enabled = false;
         }
+        */
     }
 
     /// <summary>
