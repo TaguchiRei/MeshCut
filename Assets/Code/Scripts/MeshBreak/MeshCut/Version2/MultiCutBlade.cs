@@ -48,10 +48,6 @@ public class MultiCutBlade : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-    }
-
     /// <summary>
     /// 指定した複数のオブジェクトを一枚の刃で一括切断します
     /// </summary>
