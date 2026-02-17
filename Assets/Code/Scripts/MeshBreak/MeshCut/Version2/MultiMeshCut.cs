@@ -202,7 +202,7 @@ public class MultiMeshCut
                             (context.BaseVertexSide[p1] << 2) |
                             (context.BaseVertexSide[p2] << 1) |
                             (context.BaseVertexSide[p3] << 0);
-                        
+
                         Debug.Log($"result {result}");
 
                         switch (result)
@@ -275,7 +275,8 @@ public class MultiMeshCut
 
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log("面切断完了");
+            Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
+            
 
             #endregion
 
@@ -338,7 +339,7 @@ public class MultiMeshCut
 
             Debug.Log("メッシュ生成完了");
 
-            CutMesh = FinalizeMeshesSimple(context.breakMeshes);
+            CutMesh = FinalizeMeshes(context.breakMeshes);
             SamplingPoints = colliderVerticesPerFragment;
             Complete = true;
         }
@@ -411,21 +412,42 @@ public class MultiMeshCut
         for (int i = 0; i < count; i++) results[i] = new();
         if (!context.CutEdges.IsCreated) return results;
 
-        var visited = new HashSet<int>();
         var keys = context.CutEdges.GetKeyArray(Allocator.Temp);
+        var globalVisitedKeys = new HashSet<int>(); // New: Tracks keys that have already been part of a found loop
+
         foreach (var k in keys)
         {
-            if (visited.Contains(k)) continue;
+            if (globalVisitedKeys.Contains(k)) continue; // Skip if this key has already been processed as part of a loop
+
+            var currentLoopVisited = new HashSet<int>(); // Tracks vertices in the current traversal
             var loop = new List<int>();
             int curr = k;
-            while (!visited.Contains(curr) && context.CutEdges.TryGetValue(curr, out int next))
+            int loopStartVertex = k;
+
+            // Traverse the loop until we close it or hit a visited vertex in current traversal
+            while (!currentLoopVisited.Contains(curr) && context.CutEdges.TryGetValue(curr, out int next))
             {
-                visited.Add(curr);
+                currentLoopVisited.Add(curr);
                 loop.Add(curr);
                 curr = next;
             }
 
-            if (loop.Count >= 3) results[context.TriangleObjectIndex[loop[0] / 2]].Add(loop);
+            // Check if the loop is valid (closed and at least 3 vertices)
+            if (curr == loopStartVertex && loop.Count >= 3)
+            {
+                // Loop is closed and valid. Add all its vertices to globalVisitedKeys.
+                foreach (var vtx in loop)
+                {
+                    globalVisitedKeys.Add(vtx);
+                }
+
+                // Associate the loop with the correct object
+                // The sourceTriangleIndex logic seems correct based on TriangleCutJob
+                int sourceTriangleIndex = k / 2;
+                int associatedObjIdx = context.TriangleObjectIndex[sourceTriangleIndex];
+                results[associatedObjIdx].Add(loop);
+            }
+            // else: Loop was not closed or too small, discard it.
         }
 
         return results;
@@ -464,7 +486,8 @@ public class MultiMeshCut
         }
 
         // 戻り値は projectedVertices のリストに対するインデックス
-        List<int> resultIndices = FastEarClipping.Triangulate(projectedVertices);
+        // FastEarClippingが頂点を除去しても、元のインデックスにマッピングされるようにTriangulateMappedを使用
+        List<int> resultIndices = FastEarClipping.TriangulateMapped(projectedVertices, loop);
 
         if (resultIndices == null || resultIndices.Count == 0) return;
 
@@ -561,17 +584,17 @@ public class MultiMeshCut
             // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
             var layout = new[]
             {
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
-                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3),
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2)
+                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
+                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
+                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
             };
 
             data.SetVertexBufferParams(vertexCount, layout);
 
-            // これで stream 0 が有効になるので、以下の呼び出しが成功します
-            var vertices = data.GetVertexData<float3>(0);
-            var normals = data.GetVertexData<float3>(0);
-            var uvs = data.GetVertexData<float2>(0);
+            // 正しいストリームからデータを取得する
+            var vertices = data.GetVertexData<float3>(0); // stream 0
+            var normals = data.GetVertexData<float3>(1); // stream 1
+            var uvs = data.GetVertexData<float2>(2); // stream 2
 
             // NativeListからコピー
             vertices.CopyFrom(source.Vertices.AsArray());

@@ -55,7 +55,7 @@ public struct TriangleCutJob : IJobParallelFor
         float alphaAtoB = Intersect(BaseVertices[indexA], BaseVertices[indexB], blade);
         float alphaAtoC = Intersect(BaseVertices[indexA], BaseVertices[indexC], blade);
 
-        //lerp関数での新規頂点座標を取得
+        //lerp関数で新規頂点座標を取得する
         int vertIndexStart = index * 2;
         NewVertices[vertIndexStart + 0] = math.lerp(BaseVertices[indexA], BaseVertices[indexB], alphaAtoB);
         NewVertices[vertIndexStart + 1] = math.lerp(BaseVertices[indexA], BaseVertices[indexC], alphaAtoC);
@@ -92,12 +92,12 @@ public struct TriangleCutJob : IJobParallelFor
         };
         NewTriangles[triIdxStart + 1] = new NewTriangle
         {
-            Vertex1 = newV1, Vertex2 = oldB, Vertex3 = oldC,
+            Vertex1 = newV1, Vertex2 = oldB, Vertex3 = newV2,
             Submesh = submesh, Side = sideBC
         };
         NewTriangles[triIdxStart + 2] = new NewTriangle
         {
-            Vertex1 = newV1, Vertex2 = oldC, Vertex3 = newV2,
+            Vertex1 = newV2, Vertex2 = oldB, Vertex3 = oldC,
             Submesh = submesh, Side = sideBC
         };
 
@@ -128,17 +128,36 @@ public struct TriangleCutJob : IJobParallelFor
     /// <returns></returns>
     private static int3 GetFaceOrder(int status)
     {
+        // Determines the isolated vertex (x) and the other two vertices (y, z)
+        // p1 = face[0], p2 = face[1], p3 = face[2]
         return status switch
         {
-            1 or 6 => new int3(0, 1, 2), // p1(x) 孤立
-            2 or 5 => new int3(1, 2, 0), // p2(y) 孤立
-            4 or 3 => new int3(2, 0, 1), // p3(z) 孤立
-            _ => new int3(0, 0, 0)
+            // p1 (face[0]) is isolated
+            4 or 3 => new int3(0, 1, 2), // p1 is isolated. Connect p1-p2 and p1-p3.
+            // p2 (face[1]) is isolated
+            2 or 5 => new int3(1, 0, 2), // p2 is isolated. Connect p2-p1 and p2-p3.
+            // p3 (face[2]) is isolated
+            1 or 6 => new int3(2, 0, 1), // p3 is isolated. Connect p3-p1 and p3-p2.
+            _ => new int3(0, 0, 0) // Should not happen for cutting cases, represents an unhandled status.
         };
     }
 
     private static bool GetIsFront(int status)
     {
-        return status == 1 || status == 2 || status == 4;
+        // Checks if the isolated vertex is on the 'front' (positive) side of the blade.
+        // Based on the 'status' and which vertex is isolated.
+        return status switch
+        {
+            // p1 (face[0]) is isolated
+            4 => true,  // p1 is 1 (front)
+            3 => false, // p1 is 0 (back)
+            // p2 (face[1]) is isolated
+            2 => true,  // p2 is 1 (front)
+            5 => false, // p2 is 0 (back)
+            // p3 (face[2]) is isolated
+            1 => true,  // p3 is 1 (front)
+            6 => false, // p3 is 0 (back)
+            _ => false // Default for unhandled status (e.g. 0 or 7, which aren't cut)
+        };
     }
 }
