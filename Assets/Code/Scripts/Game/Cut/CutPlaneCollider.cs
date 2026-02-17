@@ -29,9 +29,11 @@ public class CutPlaneCollider : MonoBehaviour
 
         for (int i = 0; i < objects.Length; i++)
         {
-            if (objects[i].TryGetComponent<CuttableObject>(out var cuttable))
+            var cuttableChild = objects[i].GetComponentsInChildren<CuttableObject>();
+
+            foreach (var child in cuttableChild)
             {
-                cuttables.Add(cuttable);
+                cuttables.Add(child);
             }
         }
 

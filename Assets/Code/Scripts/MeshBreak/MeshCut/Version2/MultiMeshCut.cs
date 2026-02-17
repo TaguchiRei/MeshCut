@@ -218,8 +218,6 @@ public class MultiMeshCut
                             (context.BaseVertexSide[globalIndex2] << 1) |
                             (context.BaseVertexSide[globalIndex3] << 0);
 
-                        Debug.Log($"result {result}");
-
                         switch (result)
                         {
                             case 0: //0なら裏側

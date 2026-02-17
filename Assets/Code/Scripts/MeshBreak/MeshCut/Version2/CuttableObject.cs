@@ -39,12 +39,6 @@ public class CuttableObject : MonoBehaviour
         }
     }
 
-    [MethodExecutor]
-    private void Test()
-    {
-        SetMesh(Mesh.sharedMesh, Mesh.sharedMesh.vertices.ToList(), new NativePlane(transform), _physicsMaterial);
-    }
-
     public void SetMesh(
         Mesh mesh,
         List<Vector3> samplingVerts,
