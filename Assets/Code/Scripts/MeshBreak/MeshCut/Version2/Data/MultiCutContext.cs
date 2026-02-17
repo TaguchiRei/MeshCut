@@ -15,7 +15,7 @@ public class MultiCutContext : IDisposable
     public NativeArray<float3> NewNormals;
     public NativeArray<float2> NewUvs;
     public NativeArray<NewTriangle> NewTriangles;
-    public NativeParallelHashMap<int, int> CutEdges;
+    public NativeParallelMultiHashMap<int, int2> CutEdges;
     public List<BurstBreakMesh> breakMeshes;
 
     /// <summary> オブジェクトごとの切断処理に使う </summary>
@@ -78,6 +78,7 @@ public class MultiCutContext : IDisposable
         {
             burstBreakMesh.Dispose();
         }
+
         breakMeshes.Clear();
 
         BaseMeshDataArray.Dispose();

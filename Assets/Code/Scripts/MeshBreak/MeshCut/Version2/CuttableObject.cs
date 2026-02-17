@@ -60,8 +60,7 @@ public class CuttableObject : MonoBehaviour
         }
 
         gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
-
-        /*
+        
         //重心
         var centers = ClusteringVerts(samplingVerts);
 
@@ -134,7 +133,6 @@ public class CuttableObject : MonoBehaviour
         {
             _colliders[i].enabled = false;
         }
-        */
     }
 
     /// <summary>

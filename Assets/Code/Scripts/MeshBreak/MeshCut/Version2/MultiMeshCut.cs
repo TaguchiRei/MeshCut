@@ -251,7 +251,7 @@ public class MultiMeshCut
             context.NewNormals = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.NewUvs = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.NewTriangles = new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.CutEdges = new(triangleCount, Allocator.Persistent);
+            context.CutEdges = new(triangleCount * 2, Allocator.Persistent);
 
             var triangleCutJob = new TriangleCutJob
             {
@@ -276,7 +276,6 @@ public class MultiMeshCut
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
             Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
-            
 
             #endregion
 
@@ -406,51 +405,115 @@ public class MultiMeshCut
         return index < 0 ? c.BaseUvs[-(index + 1)] : c.NewUvs[index];
     }
 
-    private List<List<int>>[] FindAllLoops(MultiCutContext context, int count)
+    /// <summary>
+    /// 全オブジェクト群の切断面のループを捜索する
+    /// </summary>
+    /// <returns></returns>
+    private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
     {
-        var results = new List<List<int>>[count];
-        for (int i = 0; i < count; i++) results[i] = new();
-        if (!context.CutEdges.IsCreated) return results;
-
-        var keys = context.CutEdges.GetKeyArray(Allocator.Temp);
-        var globalVisitedKeys = new HashSet<int>(); // New: Tracks keys that have already been part of a found loop
-
-        foreach (var k in keys)
+        List<List<int>>[] allLoops = new List<List<int>>[objectCount];
+        for (int i = 0; i < objectCount; i++)
         {
-            if (globalVisitedKeys.Contains(k)) continue; // Skip if this key has already been processed as part of a loop
-
-            var currentLoopVisited = new HashSet<int>(); // Tracks vertices in the current traversal
-            var loop = new List<int>();
-            int curr = k;
-            int loopStartVertex = k;
-
-            // Traverse the loop until we close it or hit a visited vertex in current traversal
-            while (!currentLoopVisited.Contains(curr) && context.CutEdges.TryGetValue(curr, out int next))
-            {
-                currentLoopVisited.Add(curr);
-                loop.Add(curr);
-                curr = next;
-            }
-
-            // Check if the loop is valid (closed and at least 3 vertices)
-            if (curr == loopStartVertex && loop.Count >= 3)
-            {
-                // Loop is closed and valid. Add all its vertices to globalVisitedKeys.
-                foreach (var vtx in loop)
-                {
-                    globalVisitedKeys.Add(vtx);
-                }
-
-                // Associate the loop with the correct object
-                // The sourceTriangleIndex logic seems correct based on TriangleCutJob
-                int sourceTriangleIndex = k / 2;
-                int associatedObjIdx = context.TriangleObjectIndex[sourceTriangleIndex];
-                results[associatedObjIdx].Add(loop);
-            }
-            // else: Loop was not closed or too small, discard it.
+            allLoops[i] = new List<List<int>>();
         }
 
-        return results;
+        NativeParallelMultiHashMap<int, int2> allCutEdges = context.CutEdges;
+
+        for (int objIndex = 0; objIndex < objectCount; objIndex++)
+        {
+            List<int2> objectCutEdges = new List<int2>();
+            if (allCutEdges.ContainsKey(objIndex))
+            {
+                var iterator = allCutEdges.GetValuesForKey(objIndex);
+                foreach (var edge in iterator)
+                {
+                    objectCutEdges.Add(edge);
+                }
+
+                iterator.Dispose();
+            }
+
+            // 探索しやすい形にデータを整える
+            Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
+            foreach (var edge in objectCutEdges)
+            {
+                // Add edge.x -> edge.y
+                if (!adjacencyList.ContainsKey(edge.x))
+                    adjacencyList.Add(edge.x, new List<int>());
+                if (!adjacencyList[edge.x].Contains(edge.y))
+                    adjacencyList[edge.x].Add(edge.y);
+
+                // Add edge.y -> edge.x
+                if (!adjacencyList.ContainsKey(edge.y))
+                    adjacencyList.Add(edge.y, new List<int>());
+                if (!adjacencyList[edge.y].Contains(edge.x))
+                    adjacencyList[edge.y].Add(edge.x);
+            }
+
+            // オブジェクトごとのループを探す
+            HashSet<int> visitedVerticesGlobally = new HashSet<int>();
+
+            foreach (var startVertex in adjacencyList.Keys)
+            {
+                if (visitedVerticesGlobally.Contains(startVertex)) // 発見済みの場合は決める
+                    continue;
+
+                List<int> currentLoop = new List<int>();
+                int current = startVertex;
+                int previous = -1;
+
+                while (true)
+                {
+                    if (visitedVerticesGlobally.Contains(current) && current != startVertex)
+                    {
+                        foreach (var v in currentLoop)
+                        {
+                            visitedVerticesGlobally.Add(v);
+                        }
+
+                        currentLoop.Clear();
+                        break;
+                    }
+
+                    currentLoop.Add(current);
+                    visitedVerticesGlobally
+                        .Add(current);
+
+                    List<int> neighbors = adjacencyList[current];
+                    int next = -1;
+
+                    foreach (var neighbor in neighbors)
+                    {
+                        if (neighbor != previous)
+                        {
+                            next = neighbor;
+                            break;
+                        }
+                    }
+
+                    if (next == -1)
+                    {
+                        currentLoop.Clear();
+                        break;
+                    }
+
+                    if (next == startVertex)
+                    {
+                        if (currentLoop.Count >= 3)
+                        {
+                            allLoops[objIndex].Add(currentLoop);
+                        }
+
+                        break;
+                    }
+
+                    previous = current;
+                    current = next;
+                }
+            }
+        }
+
+        return allLoops;
     }
 
     /// <summary>

@@ -29,7 +29,7 @@ public struct TriangleCutJob : IJobParallelFor
     public NativeArray<NewTriangle> NewTriangles;
 
     [NativeDisableParallelForRestriction] [WriteOnly]
-    public NativeParallelHashMap<int, int>.ParallelWriter CutEdges;
+    public NativeParallelMultiHashMap<int, int2>.ParallelWriter CutEdges;
 
     /// <summary>
     /// 切断処理を行う
@@ -104,7 +104,8 @@ public struct TriangleCutJob : IJobParallelFor
         //切断後の辺を登録する。
         int startVertex = isFront ? newV1 : newV2;
         int endVertex = isFront ? newV2 : newV1;
-        CutEdges.TryAdd(startVertex, endVertex);
+        CutEdges.Add(TriangleObjectIndex[index], new(startVertex, endVertex));
+        CutEdges.Add(TriangleObjectIndex[index], new(endVertex, startVertex));
     }
 
     /// <summary>
@@ -149,13 +150,13 @@ public struct TriangleCutJob : IJobParallelFor
         return status switch
         {
             // p1 (face[0]) is isolated
-            4 => true,  // p1 is 1 (front)
+            4 => true, // p1 is 1 (front)
             3 => false, // p1 is 0 (back)
             // p2 (face[1]) is isolated
-            2 => true,  // p2 is 1 (front)
+            2 => true, // p2 is 1 (front)
             5 => false, // p2 is 0 (back)
             // p3 (face[2]) is isolated
-            1 => true,  // p3 is 1 (front)
+            1 => true, // p3 is 1 (front)
             6 => false, // p3 is 0 (back)
             _ => false // Default for unhandled status (e.g. 0 or 7, which aren't cut)
         };
