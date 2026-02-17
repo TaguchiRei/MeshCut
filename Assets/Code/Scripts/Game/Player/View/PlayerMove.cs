@@ -237,6 +237,7 @@ public interface IPlayerMove
 
     void AimStart();
     void AimEnd();
+    
     void SetGravity(Vector3 gravityDirection);
     void SetVelocity(Vector3 velocity, float magnitude);
 

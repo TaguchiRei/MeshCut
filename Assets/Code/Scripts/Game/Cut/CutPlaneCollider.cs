@@ -1,42 +1,40 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(MeshCollider))]
+[RequireComponent(typeof(BoxCollider))]
 public class CutPlaneCollider : MonoBehaviour
 {
-    private List<GameObject> _targetObject;
+    [SerializeField] private RectTransform lineRect;
+    private readonly List<GameObject> _targetObject = new();
+    private BoxCollider _boxCollider;
+
+    private void Start()
+    {
+        _boxCollider = GetComponent<BoxCollider>();
+    }
+
+    private void Update()
+    {
+        transform.localRotation = lineRect.rotation;
+    }
 
     public CuttableObject[] GetObjects()
     {
-        CuttableObject[] objects = new CuttableObject[_targetObject.Count];
+        Vector3 worldCenter = transform.TransformPoint(_boxCollider.center);
 
-        for (int i = 0; i < _targetObject.Count; i++)
+        Vector3 worldHalfExtents = Vector3.Scale(_boxCollider.size * 0.5f, transform.lossyScale);
+        var objects = Physics.OverlapBox(worldCenter, worldHalfExtents, transform.rotation);
+        List<CuttableObject> cuttables = new();
+
+        for (int i = 0; i < objects.Length; i++)
         {
-            objects[i] = _targetObject[i].GetComponent<CuttableObject>();
-        }
-
-        return objects;
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Enemy"))
-        {
-            if (!_targetObject.Contains(other.gameObject))
+            if (objects[i].TryGetComponent<CuttableObject>(out var cuttable))
             {
-                _targetObject.Add(other.gameObject);
+                cuttables.Add(cuttable);
             }
         }
-    }
 
-    private void OnTriggerExit(Collider other)
-    {
-        if (other.CompareTag("Enemy"))
-        {
-            if (_targetObject.Contains(other.gameObject))
-            {
-                _targetObject.Remove(other.gameObject);
-            }
-        }
+        return cuttables.ToArray();
     }
 }

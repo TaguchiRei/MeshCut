@@ -11,7 +11,9 @@ GameObject:
   - component: {fileID: 3264151363246129339}
   - component: {fileID: 7401782958765339968}
   - component: {fileID: 3528742113034286013}
-  m_Layer: 0
+  - component: {fileID: 6159205823045826359}
+  - component: {fileID: 321778833556170786}
+  m_Layer: 7
   m_Name: EnemyTest
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -90,3 +92,44 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!135 &6159205823045826359
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1054263537977261054}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &321778833556170786
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1054263537977261054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9ac710463bd8e3419d40f622436f550, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MeshBreak::CuttableObject
+  CapMaterial: {fileID: 2100000, guid: 4eff970757759bc498974ea325788d13, type: 2}
+  Mesh: {fileID: 0}
+  _physicsMaterial: {fileID: 13400000, guid: 679eacf3eaed43a429dec3958d93a7d3, type: 2}
+  _colliderNum: 5
+  _baseShrink: 0.95
+  _densityShrinkMin: 0.85
+  _densityThreshold: 10
+  _maxRadius: 0.5
