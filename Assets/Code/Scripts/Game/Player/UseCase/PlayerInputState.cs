@@ -6,13 +6,13 @@ using UnityEngine;
 public class PlayerInputState
 {
     public float LongPressDuration { get; private set; }
-    public float AimTIme { get; private set; }
+    public float AimTime { get; private set; }
     public float JumpPressTime;
     public Vector2 MoveInput;
 
     public PlayerInputState(float longPressDuration, float aimTime)
     {
         LongPressDuration = longPressDuration;
-        JumpPressTime = aimTime;
+        AimTime = aimTime;
     }
 }

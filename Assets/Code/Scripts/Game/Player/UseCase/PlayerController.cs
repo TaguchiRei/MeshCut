@@ -24,7 +24,7 @@ public class PlayerController
     {
         var register = active ? Registration.Register : Registration.UnRegister;
         // 移動アクションの登録
-        _inputDispatcher.ChangeActionRegistrationStartCancelled(
+        _inputDispatcher.ChangeActionRegistrationAll(
             nameof(ActionMaps.Player),
             nameof(PlayerActions.Move),
             OnMoveInput,
@@ -77,7 +77,7 @@ public class PlayerController
         if (context.started)
         {
             _playerMove.AimStart();
-            _cameraMove.LockCamera(_playerInputState.AimTIme);
+            _cameraMove.LockCamera(_playerInputState.AimTime);
         }
         else if (context.canceled)
         {

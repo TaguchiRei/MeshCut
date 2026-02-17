@@ -52,7 +52,7 @@ public class GameTimeScaleManager : MonoBehaviour, ITimeScaleManagement
         // 既に変更中なら解除
         Release();
 
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        _cts = new CancellationTokenSource();
 
         _originalTimeScale = Time.timeScale;
         Time.timeScale = scale;

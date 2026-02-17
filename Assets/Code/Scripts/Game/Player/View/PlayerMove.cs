@@ -1,9 +1,13 @@
+using System;
 using UnityEngine;
 
 public class PlayerMove : MonoBehaviour, IPlayerMove
 {
-    [Header("BasicSetting")]
-    [SerializeField] private int _walkSpeed = 5;
+    private const float ANGLE_LIMIT = 1;
+
+    [Header("BasicSetting")] [SerializeField]
+    private int _walkSpeed = 5;
+
     [SerializeField] private int _runSpeed = 8;
     [SerializeField] private int _jumpPower = 5;
     [SerializeField] private float _longPressTime = 0.5f;
@@ -17,8 +21,8 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
     public Vector3 UpVector { get; private set; }
     public bool Running { get; set; }
 
-    [Header("Components")] 
-    [SerializeField] private Rigidbody _rigidbody;
+    [Header("Components")] [SerializeField]
+    private Rigidbody _rigidbody;
 
     [SerializeField] private Transform _cameraTransform;
     [SerializeField] private CameraMove _cameraMove;
@@ -51,6 +55,11 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
 
         _rigidbody.useGravity = false;
         Running = false;
+    }
+
+    private void OnDestroy()
+    {
+        _playerController.SetActiveInput(false);
     }
 
     private void Update()
@@ -189,7 +198,8 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
 
     public void ChangeGround()
     {
-        if (Physics.Raycast(_cameraTransform.position, _cameraTransform.forward, out RaycastHit hit))
+        if (Physics.Raycast(_cameraTransform.position, _cameraTransform.forward, out RaycastHit hit) &&
+            Vector3.Angle(hit.normal, _gravityDirection) > ANGLE_LIMIT)
         {
             _cameraMove.ParentUpChange(hit.normal);
             SetGravity(-hit.normal);
