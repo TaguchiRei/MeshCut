@@ -27,6 +27,7 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
     [SerializeField] private Transform _cameraTransform;
     [SerializeField] private CameraMove _cameraMove;
     [SerializeField] private MultiCutBlade _multiCutBlade;
+    [SerializeField] private CutPlaneCollider _cutPlaneCollider;
 
     [Header("GroundCheck")] [SerializeField]
     private Vector3 _boxHalfExtents = new(0.4f, 0.05f, 0.4f);
