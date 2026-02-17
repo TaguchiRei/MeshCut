@@ -7,6 +7,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Debug = UnityEngine.Debug;
 
 public class MultiMeshCut
 {
@@ -59,7 +60,7 @@ public class MultiMeshCut
     {
         Stopwatch totalStopwatch = new Stopwatch();
         totalStopwatch.Start();
-        
+
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {

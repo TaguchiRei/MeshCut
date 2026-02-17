@@ -48,7 +48,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   CapMaterial: {fileID: 2100000, guid: 09b730f7467944043a230a7aded5275e, type: 2}
-  Mesh: {fileID: 0}
+  Mesh: {fileID: 8575801961602484525}
   _physicsMaterial: {fileID: 13400000, guid: 679eacf3eaed43a429dec3958d93a7d3, type: 2}
   _colliderNum: 15
   _baseShrink: 0.95
