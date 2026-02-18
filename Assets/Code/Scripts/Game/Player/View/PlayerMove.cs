@@ -93,8 +93,9 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
             _groundLayer
         );
 
-        if (hit.collider.CompareTag("UniqueGravity"))
+        if (hit.collider != null && hit.collider.CompareTag("UniqueGravity"))
         {
+            _cameraMove.ParentUpChange(hit.normal);
             SetGravity(-hit.normal);
         }
 

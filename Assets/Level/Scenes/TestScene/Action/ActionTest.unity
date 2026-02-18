@@ -259,6 +259,7 @@ RectTransform:
   m_Children:
   - {fileID: 1867527979}
   - {fileID: 1667210190}
+  - {fileID: 1922216070}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -565,7 +566,7 @@ GameObject:
   - component: {fileID: 922456448}
   m_Layer: 6
   m_Name: Cylinder
-  m_TagString: Untagged
+  m_TagString: UniqueGravity
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -658,12 +659,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 922456447}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 22.9, y: 61, z: 22.9}
+  m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 7.48, z: 0}
+  m_LocalScale: {x: 2.29, y: 6.1000004, z: 2.29}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1882691368}
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!1 &977610858
 GameObject:
@@ -962,7 +963,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyManager
   _enemyPrefab: {fileID: 210678276230719864, guid: bcd51300834aa344295423186d823c19, type: 3}
   _playerObject: {fileID: 1978318395}
-  _enemyCount: 300
+  _enemyCount: 200
   _enemySpeed: 6
   _enemyAccelaration: 8
   _enemyMoveDistanceMax: 6
@@ -971,7 +972,7 @@ MonoBehaviour:
   _targetPositionOffset: 5
   _vortexSpace: 0.5
   _minRadius: 5
-  _maxRadius: 50
+  _maxRadius: 30
   _maxPos: {x: 33.2, y: 1, z: 45}
   _minPos: {x: -71.9, y: 0, z: -45}
 --- !u!4 &1643562628
@@ -1626,8 +1627,85 @@ Transform:
   - {fileID: 977610859}
   - {fileID: 1962430128}
   - {fileID: 1923888102}
+  - {fileID: 922456451}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1922216069
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1922216070}
+  - component: {fileID: 1922216072}
+  - component: {fileID: 1922216071}
+  m_Layer: 5
+  m_Name: LifeGauge
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1922216070
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1922216069}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1986638563}
+  m_Father: {fileID: 129616115}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 25, y: -25}
+  m_SizeDelta: {x: 341.42, y: 51.95999}
+  m_Pivot: {x: 0, y: 1}
+--- !u!114 &1922216071
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1922216069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1922216072
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1922216069}
+  m_CullTransparentMesh: 1
 --- !u!1 &1923888101
 GameObject:
   m_ObjectHideFlags: 0
@@ -2171,6 +2249,81 @@ MonoBehaviour:
   _multiCutblade: {fileID: 1718853882}
   _lineRect: {fileID: 1667210190}
   _canvas: {fileID: 129616114}
+--- !u!1 &1986638562
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1986638563}
+  - component: {fileID: 1986638565}
+  - component: {fileID: 1986638564}
+  m_Layer: 5
+  m_Name: LifeGauge (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1986638563
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1986638562}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1922216070}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 341.42, y: 51.96}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1986638564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1986638562}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.091415524, g: 1, b: 0, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1986638565
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1986638562}
+  m_CullTransparentMesh: 1
 --- !u!1 &1998946615
 GameObject:
   m_ObjectHideFlags: 0
@@ -2202,7 +2355,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyManager
   _enemyPrefab: {fileID: 210678276230719864, guid: bcd51300834aa344295423186d823c19, type: 3}
   _playerObject: {fileID: 1978318395}
-  _enemyCount: 300
+  _enemyCount: 200
   _enemySpeed: 6
   _enemyAccelaration: 8
   _enemyMoveDistanceMax: 6
@@ -2211,7 +2364,7 @@ MonoBehaviour:
   _targetPositionOffset: 5
   _vortexSpace: 0.5
   _minRadius: 5
-  _maxRadius: 50
+  _maxRadius: 30
   _maxPos: {x: 50.9, y: 1, z: 45}
   _minPos: {x: -51.4, y: 0, z: -45}
 --- !u!4 &1998946617
@@ -2372,7 +2525,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyManager
   _enemyPrefab: {fileID: 210678276230719864, guid: bcd51300834aa344295423186d823c19, type: 3}
   _playerObject: {fileID: 1978318395}
-  _enemyCount: 300
+  _enemyCount: 200
   _enemySpeed: 6
   _enemyAccelaration: 8
   _enemyMoveDistanceMax: 6
@@ -2381,7 +2534,7 @@ MonoBehaviour:
   _targetPositionOffset: 5
   _vortexSpace: 0.5
   _minRadius: 5
-  _maxRadius: 50
+  _maxRadius: 30
   _maxPos: {x: 45, y: 1, z: 45}
   _minPos: {x: -45, y: 0, z: -45}
 --- !u!4 &2118067512
@@ -2416,4 +2569,3 @@ SceneRoots:
   - {fileID: 1998946617}
   - {fileID: 1643562628}
   - {fileID: 218332497}
-  - {fileID: 922456451}
