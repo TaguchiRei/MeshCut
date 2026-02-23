@@ -111,7 +111,8 @@ namespace MeshBreak.MeshCut
             Debug.Log($"左右に振り分け完了。所要時間{stopwatch.ElapsedMilliseconds}ms");
 #endif
 
-            Material[] mats = target.GetComponent<MeshRenderer>().sharedMaterials;
+            Material[] mats = target.GetComponent<MeshRenderer>().materials;
+
             // 取得したマテリアル配列の最後のマテリアルが、カット面のマテリアルでない場合
             if (mats[^1].name != capMaterial.name)
             {

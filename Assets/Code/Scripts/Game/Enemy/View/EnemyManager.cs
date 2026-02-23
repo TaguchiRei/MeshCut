@@ -66,6 +66,8 @@ public class EnemyManager : MonoBehaviour
                 MoveStartDistance = Random.Range(_enemyMoveDistanceMin, _enemyMoveDistanceMax),
                 MoveSpeedModifier = 1f + Random.Range(-_speedModifier, _speedModifier)
             };
+
+            _enemyObjects[i].transform.localRotation = Quaternion.identity;
         }
 
         _initialized = true;
@@ -85,7 +87,7 @@ public class EnemyManager : MonoBehaviour
             _enemyData[i].UpdatePosition(Time.deltaTime, _minPos, _maxPos);
 
             // 3. GameObjectへの反映
-            _enemyObjects[i].transform.position = _enemyData[i].Position;
+            _enemyObjects[i].transform.localPosition = _enemyData[i].Position;
         }
     }
 

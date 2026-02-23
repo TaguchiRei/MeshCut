@@ -27,6 +27,8 @@ public class CameraMove : MonoBehaviour, ICameraMove
     {
         _targetRotation = transform.rotation;
         CanMove = true;
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
         if (ServiceLocator.Instance.TryGetService(out _gameTimeScaleManager))
         {
             _gameTimeScaleManager.ReleaseEvent += OnTimeScaleResume;
@@ -93,6 +95,8 @@ public class CameraMove : MonoBehaviour, ICameraMove
 
         _cts = new();
 
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
         LockCamera(lockTime, _cts.Token).Forget();
     }
 
@@ -101,6 +105,8 @@ public class CameraMove : MonoBehaviour, ICameraMove
         if (_cts == null) return;
 
         // タスクをキャンセルして CTS を破棄
+        Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
         _cts.Cancel();
         _cts.Dispose();
         _cts = null;

@@ -26,6 +26,8 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
 
     [SerializeField] private Transform _cameraTransform;
     [SerializeField] private CameraMove _cameraMove;
+    [SerializeField] private MultiCutBlade _multiCutBlade;
+    [SerializeField] private CutPlaneCollider _cutPlaneCollider;
 
     [Header("GroundCheck")] [SerializeField]
     private Vector3 _boxHalfExtents = new(0.4f, 0.05f, 0.4f);
@@ -90,6 +92,12 @@ public class PlayerMove : MonoBehaviour, IPlayerMove
             _checkDistance,
             _groundLayer
         );
+
+        if (hit.collider != null && hit.collider.CompareTag("UniqueGravity"))
+        {
+            _cameraMove.ParentUpChange(hit.normal);
+            SetGravity(-hit.normal);
+        }
 
         return hit.normal;
     }
@@ -235,6 +243,7 @@ public interface IPlayerMove
 
     void AimStart();
     void AimEnd();
+
     void SetGravity(Vector3 gravityDirection);
     void SetVelocity(Vector3 velocity, float magnitude);
 

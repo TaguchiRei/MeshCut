@@ -10,12 +10,13 @@ public class CuttableObject : MonoBehaviour
     public Action ReuseAction;
 
     public Material CapMaterial;
-    public Mesh Mesh;
+    public MeshFilter Mesh;
 
     [SerializeField] private PhysicsMaterial _physicsMaterial;
     [SerializeField] private int _colliderNum;
 
-    [Header("Collider Radius Settings")] [SerializeField, Range(0.5f, 1f), Tooltip("基本縮小率")]
+    [Header("Collider設定")] 
+    [SerializeField, Range(0.5f, 1f), Tooltip("基本縮小率")]
     private float _baseShrink = 0.95f;
 
     [SerializeField, Range(0.5f, 1f), Tooltip("低密度なクラスタの差異の最小縮小率")]
@@ -34,20 +35,8 @@ public class CuttableObject : MonoBehaviour
     {
         if (gameObject.TryGetComponent<MeshFilter>(out var meshFilter))
         {
-            Mesh = meshFilter.sharedMesh;
+            Mesh = meshFilter;
         }
-
-        _colliders = new();
-        for (int i = 0; i < _colliderNum; i++)
-        {
-            _colliders.Add(gameObject.AddComponent<SphereCollider>());
-        }
-    }
-
-    [MethodExecutor]
-    private void Test()
-    {
-        SetMesh(Mesh, Mesh.vertices.ToList(), new NativePlane(transform), _physicsMaterial);
     }
 
     public void SetMesh(
@@ -56,6 +45,15 @@ public class CuttableObject : MonoBehaviour
         NativePlane localBlade,
         PhysicsMaterial newFaceMat)
     {
+        if (_colliders == null || _colliders.Count == 0)
+        {
+            _colliders = new();
+            for (int i = 0; i < _colliderNum; i++)
+            {
+                _colliders.Add(gameObject.AddComponent<SphereCollider>());
+            }
+        }
+
         gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
 
         //重心

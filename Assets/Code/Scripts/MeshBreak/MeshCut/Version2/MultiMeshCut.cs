@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using Cysharp.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Debug = UnityEngine.Debug;
 
 public class MultiMeshCut
 {
@@ -57,15 +58,20 @@ public class MultiMeshCut
 
     private async UniTask CutAsync(CuttableObject[] breakables, NativePlane blade, int batchCount, int sampling)
     {
+        Stopwatch totalStopwatch = new Stopwatch();
+        totalStopwatch.Start();
+
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {
+            Stopwatch stopwatch = new Stopwatch(); // 各セクション計測用
+
             Mesh[] mesh = new Mesh[breakables.Length];
 
             //MeshDataArrayを取得
             for (int i = 0; i < breakables.Length; i++)
             {
-                mesh[i] = breakables[i].Mesh;
+                mesh[i] = breakables[i].Mesh.sharedMesh;
             }
 
             context.BaseMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
@@ -97,20 +103,6 @@ public class MultiMeshCut
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             int startIndex = 0;
-            
-            var verts = breakables[0].Mesh.vertices;
-            for (int i = 0; i < context.BaseVertices.Length; i++)
-            {
-                if (verts[i] == (Vector3)context.BaseVertices[i])
-                {
-                    Debug.Log("same");
-                }
-                else
-                {
-                    Debug.LogWarning($"verts {verts[i]}  base {context.BaseVertices[i]}");
-                }
-            }
-
 
             //オブジェクト毎にループする初期化を行う
             for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
@@ -157,6 +149,9 @@ public class MultiMeshCut
             }
 
             Debug.Log("頂点群データ取得完了");
+            stopwatch.Stop();
+            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
 
             #region 頂点のサイドを取得
 
@@ -180,9 +175,6 @@ public class MultiMeshCut
 
             context.breakMeshes = new();
             List<int> triangleObjectTable = new();
-            // context.CutFaces = new(Allocator.Persistent); // コンストラクタで初期化済みのため削除
-            // context.CutFaceSubmeshId = new(Allocator.Persistent); // 同上
-            // context.TriangleObjectIndex = new(Allocator.Persistent); // 同上
 
             var vertices = context.BaseVertices;
             var normals = context.BaseNormals;
@@ -191,7 +183,7 @@ public class MultiMeshCut
             //オブジェクト数分ループ
             for (int objIndex = 0; objIndex < context.BaseMeshDataArray.Length; objIndex++)
             {
-                var objectStartIndex = context.StartIndex;
+                var objectStartIndex = context.StartIndex[objIndex];
                 var meshData = context.BaseMeshDataArray[objIndex];
                 var triangles = meshData.GetIndexData<ushort>();
                 BurstBreakMesh frontSide = new BurstBreakMesh(meshData.vertexCount);
@@ -211,37 +203,42 @@ public class MultiMeshCut
                     //三角形ごとにループ
                     for (int i = 0; i < indexData.Length; i += 3)
                     {
-                        //ここで取得できるのはオブジェクトごとのインデックス番号なので、開始位置でオフセットを書ける
-                        var p1 = indexData[i + 0] + objectStartIndex[objIndex];
-                        var p2 = indexData[i + 1] + objectStartIndex[objIndex];
-                        var p3 = indexData[i + 2] + objectStartIndex[objIndex];
+                        // 全体のインデックス
+                        var globalIndex1 = indexData[i + 0] + objectStartIndex;
+                        var globalIndex2 = indexData[i + 1] + objectStartIndex;
+                        var globalIndex3 = indexData[i + 2] + objectStartIndex;
+
+                        // オブジェクトごとのインデックス
+                        var localIndex1 = indexData[i + 0];
+                        var localIndex2 = indexData[i + 1];
+                        var localIndex3 = indexData[i + 2];
 
                         int result =
-                            (1 << context.BaseVertexSide[p1]) |
-                            (1 << context.BaseVertexSide[p2]) |
-                            (1 << context.BaseVertexSide[p3]);
+                            (context.BaseVertexSide[globalIndex1] << 2) |
+                            (context.BaseVertexSide[globalIndex2] << 1) |
+                            (context.BaseVertexSide[globalIndex3] << 0);
 
                         switch (result)
                         {
                             case 0: //0なら裏側
                                 backSide.AddTriangleLegacyIndex(
-                                    p1, p2, p3,
-                                    vertices[p1], vertices[p2], vertices[p3],
-                                    normals[p1], normals[p2], normals[p3],
-                                    uvs[p1], uvs[p2], uvs[p3],
+                                    localIndex1, localIndex2, localIndex3,
+                                    vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
+                                    normals[globalIndex1], normals[globalIndex2], normals[globalIndex3],
+                                    uvs[globalIndex1], uvs[globalIndex2], uvs[globalIndex3],
                                     submesh);
                                 break;
                             case 7:
                                 frontSide.AddTriangleLegacyIndex(
-                                    p1, p2, p3,
-                                    vertices[p1], vertices[p2], vertices[p3],
-                                    normals[p1], normals[p2], normals[p3],
-                                    uvs[p1], uvs[p2], uvs[p3],
+                                    localIndex1, localIndex2, localIndex3,
+                                    vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
+                                    normals[globalIndex1], normals[globalIndex2], normals[globalIndex3],
+                                    uvs[globalIndex1], uvs[globalIndex2], uvs[globalIndex3],
                                     submesh);
                                 break;
                             default:
                                 triangleObjectTable.Add(objIndex);
-                                context.CutFaces.Add(new(p1, p2, p3));
+                                context.CutFaces.Add(new(globalIndex1, globalIndex2, globalIndex3));
                                 context.CutStatus.Add(result);
                                 context.CutFaceSubmeshId.Add(submesh);
                                 context.TriangleObjectIndex.Add(objIndex);
@@ -265,7 +262,7 @@ public class MultiMeshCut
             context.NewNormals = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.NewUvs = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.NewTriangles = new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.CutEdges = new(triangleCount, Allocator.Persistent);
+            context.CutEdges = new(triangleCount * 2, Allocator.Persistent);
 
             var triangleCutJob = new TriangleCutJob
             {
@@ -289,7 +286,7 @@ public class MultiMeshCut
 
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log("面切断完了");
+            Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
 
             #endregion
 
@@ -364,6 +361,8 @@ public class MultiMeshCut
         finally
         {
             context.Dispose();
+            totalStopwatch.Stop();
+            Debug.Log($"計測: MultiMeshCut.CutAsync 全体処理時間 - {totalStopwatch.ElapsedMilliseconds} ms");
         }
     }
 
@@ -419,30 +418,115 @@ public class MultiMeshCut
         return index < 0 ? c.BaseUvs[-(index + 1)] : c.NewUvs[index];
     }
 
-    private List<List<int>>[] FindAllLoops(MultiCutContext context, int count)
+    /// <summary>
+    /// 全オブジェクト群の切断面のループを捜索する
+    /// </summary>
+    /// <returns></returns>
+    private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
     {
-        var results = new List<List<int>>[count];
-        for (int i = 0; i < count; i++) results[i] = new();
-        if (!context.CutEdges.IsCreated) return results;
-
-        var visited = new HashSet<int>();
-        var keys = context.CutEdges.GetKeyArray(Allocator.Temp);
-        foreach (var k in keys)
+        List<List<int>>[] allLoops = new List<List<int>>[objectCount];
+        for (int i = 0; i < objectCount; i++)
         {
-            if (visited.Contains(k)) continue;
-            var loop = new List<int>();
-            int curr = k;
-            while (!visited.Contains(curr) && context.CutEdges.TryGetValue(curr, out int next))
-            {
-                visited.Add(curr);
-                loop.Add(curr);
-                curr = next;
-            }
-
-            if (loop.Count >= 3) results[context.TriangleObjectIndex[loop[0] / 2]].Add(loop);
+            allLoops[i] = new List<List<int>>();
         }
 
-        return results;
+        NativeParallelMultiHashMap<int, int2> allCutEdges = context.CutEdges;
+
+        for (int objIndex = 0; objIndex < objectCount; objIndex++)
+        {
+            List<int2> objectCutEdges = new List<int2>();
+            if (allCutEdges.ContainsKey(objIndex))
+            {
+                var iterator = allCutEdges.GetValuesForKey(objIndex);
+                foreach (var edge in iterator)
+                {
+                    objectCutEdges.Add(edge);
+                }
+
+                iterator.Dispose();
+            }
+
+            // 探索しやすい形にデータを整える
+            Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
+            foreach (var edge in objectCutEdges)
+            {
+                // Add edge.x -> edge.y
+                if (!adjacencyList.ContainsKey(edge.x))
+                    adjacencyList.Add(edge.x, new List<int>());
+                if (!adjacencyList[edge.x].Contains(edge.y))
+                    adjacencyList[edge.x].Add(edge.y);
+
+                // Add edge.y -> edge.x
+                if (!adjacencyList.ContainsKey(edge.y))
+                    adjacencyList.Add(edge.y, new List<int>());
+                if (!adjacencyList[edge.y].Contains(edge.x))
+                    adjacencyList[edge.y].Add(edge.x);
+            }
+
+            // オブジェクトごとのループを探す
+            HashSet<int> visitedVerticesGlobally = new HashSet<int>();
+
+            foreach (var startVertex in adjacencyList.Keys)
+            {
+                if (visitedVerticesGlobally.Contains(startVertex)) // 発見済みの場合は決める
+                    continue;
+
+                List<int> currentLoop = new List<int>();
+                int current = startVertex;
+                int previous = -1;
+
+                while (true)
+                {
+                    if (visitedVerticesGlobally.Contains(current) && current != startVertex)
+                    {
+                        foreach (var v in currentLoop)
+                        {
+                            visitedVerticesGlobally.Add(v);
+                        }
+
+                        currentLoop.Clear();
+                        break;
+                    }
+
+                    currentLoop.Add(current);
+                    visitedVerticesGlobally
+                        .Add(current);
+
+                    List<int> neighbors = adjacencyList[current];
+                    int next = -1;
+
+                    foreach (var neighbor in neighbors)
+                    {
+                        if (neighbor != previous)
+                        {
+                            next = neighbor;
+                            break;
+                        }
+                    }
+
+                    if (next == -1)
+                    {
+                        currentLoop.Clear();
+                        break;
+                    }
+
+                    if (next == startVertex)
+                    {
+                        if (currentLoop.Count >= 3)
+                        {
+                            allLoops[objIndex].Add(currentLoop);
+                        }
+
+                        break;
+                    }
+
+                    previous = current;
+                    current = next;
+                }
+            }
+        }
+
+        return allLoops;
     }
 
     /// <summary>
@@ -478,7 +562,8 @@ public class MultiMeshCut
         }
 
         // 戻り値は projectedVertices のリストに対するインデックス
-        List<int> resultIndices = FastEarClipping.Triangulate(projectedVertices);
+        // FastEarClippingが頂点を除去しても、元のインデックスにマッピングされるようにTriangulateMappedを使用
+        List<int> resultIndices = FastEarClipping.TriangulateMapped(projectedVertices, loop);
 
         if (resultIndices == null || resultIndices.Count == 0) return;
 
@@ -510,6 +595,55 @@ public class MultiMeshCut
         }
     }
 
+    private Mesh[] FinalizeMeshesSimple(List<BurstBreakMesh> breakMeshes)
+    {
+        int fragmentCount = breakMeshes.Count;
+        Mesh[] resultMeshes = new Mesh[fragmentCount];
+
+        for (int i = 0; i < fragmentCount; i++)
+        {
+            var source = breakMeshes[i];
+            Mesh mesh = new Mesh();
+
+            // NativeArray -> List に変換
+            List<Vector3> verts = new List<Vector3>(source.Vertices.Length);
+            for (int v = 0; v < source.Vertices.Length; v++)
+                verts.Add(source.Vertices[v]);
+
+            List<Vector3> normals = new List<Vector3>(source.Normals.Length);
+            for (int n = 0; n < source.Normals.Length; n++)
+                normals.Add(source.Normals[n]);
+
+            List<Vector2> uvs = new List<Vector2>(source.Uvs.Length);
+            for (int u = 0; u < source.Uvs.Length; u++)
+                uvs.Add(source.Uvs[u]);
+
+            mesh.SetVertices(verts);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+
+            // サブメッシュとインデックス
+            mesh.subMeshCount = source.Triangles.Count;
+            for (int s = 0; s < source.Triangles.Count; s++)
+            {
+                // NativeList<int> -> List<int> に変換
+                List<int> indices = new List<int>(source.Triangles[s].Length);
+                for (int j = 0; j < source.Triangles[s].Length; j++)
+                    indices.Add(source.Triangles[s][j]);
+
+                mesh.SetTriangles(indices, s);
+            }
+
+            // バウンディングボックスの更新
+            mesh.RecalculateBounds();
+
+            resultMeshes[i] = mesh;
+        }
+
+        return resultMeshes;
+    }
+
+
     private Mesh[] FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
     {
         int fragmentCount = breakMeshes.Count;
@@ -522,21 +656,21 @@ public class MultiMeshCut
 
             // 頂点属性の設定
             int vertexCount = source.Vertices.Length;
-            
+
             // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
             var layout = new[]
             {
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
-                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3),
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2)
+                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
+                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
+                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
             };
-            
+
             data.SetVertexBufferParams(vertexCount, layout);
 
-            // これで stream 0 が有効になるので、以下の呼び出しが成功します
-            var vertices = data.GetVertexData<float3>(0);
-            var normals = data.GetVertexData<float3>(0);
-            var uvs = data.GetVertexData<float2>(0);
+            // 正しいストリームからデータを取得する
+            var vertices = data.GetVertexData<float3>(0); // stream 0
+            var normals = data.GetVertexData<float3>(1); // stream 1
+            var uvs = data.GetVertexData<float2>(2); // stream 2
 
             // NativeListからコピー
             vertices.CopyFrom(source.Vertices.AsArray());
