@@ -13,4 +13,5 @@ public enum OutListSceneName
     MeshDataTestScene,
     PoissonDiskSamplingTest,
     TestScene,
+    IKTest,
 }
