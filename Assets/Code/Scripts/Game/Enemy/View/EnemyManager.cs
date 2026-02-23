@@ -80,8 +80,7 @@ public class EnemyManager : MonoBehaviour
 
         for (int i = 0; i < _enemyData.Length; i++)
         {
-            // 1. まずターゲットに向かって速度を更新（毎フレーム行うことで滑らかに）
-            // UpdateEnemyVelocityで行っていた計算をここ、もしくは頻度の高いループに移動
+            // まずターゲットに向かって速度を更新
 
             // 2. 座標の更新
             _enemyData[i].UpdatePosition(Time.deltaTime, _minPos, _maxPos);
