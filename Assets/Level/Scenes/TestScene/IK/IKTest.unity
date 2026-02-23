@@ -247,16 +247,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a53b686d0f9d2734da0d5ee7147abc92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InsectLegIK
-  _root: {fileID: 877641491}
-  _knee: {fileID: 1562106705}
+  _root: {fileID: 956522424}
+  _knee: {fileID: 832925793}
   _footTarget: {fileID: 361483067}
   _upperLength: 2.1145298
   _lowerLength: 2.6268845
   _bendDirection: {x: 0, y: 1, z: 0}
   _legPosition: {fileID: 1978535779}
---- !u!4 &877641491 stripped
+--- !u!4 &832925793 stripped
 Transform:
-  m_CorrespondingSourceObject: {fileID: -9064601200702153490, guid: af944d2f814103b4dbc8303b0e9cf335, type: 3}
+  m_CorrespondingSourceObject: {fileID: -8799778457794289907, guid: af944d2f814103b4dbc8303b0e9cf335, type: 3}
+  m_PrefabInstance: {fileID: 131238071}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &956522424 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -4993617819701496341, guid: af944d2f814103b4dbc8303b0e9cf335, type: 3}
   m_PrefabInstance: {fileID: 131238071}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &1107445999
@@ -478,11 +483,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &1562106705 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -2937173111512454871, guid: af944d2f814103b4dbc8303b0e9cf335, type: 3}
-  m_PrefabInstance: {fileID: 131238071}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1978535778
 GameObject:
   m_ObjectHideFlags: 0

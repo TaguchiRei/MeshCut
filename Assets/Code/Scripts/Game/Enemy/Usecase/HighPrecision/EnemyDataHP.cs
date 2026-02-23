@@ -10,6 +10,15 @@ public struct EnemyDataHP
     public float MoveSpeedModifier;
     public bool IsMoving;
 
+    /// <summary>
+    ///　座標および移動ベクトルの更新を行う
+    /// </summary>
+    /// <param name="targetPosition"></param>
+    /// <param name="baseSpeed"></param>
+    /// <param name="acceleration"></param>
+    /// <param name="deltaTime"></param>
+    /// <param name="minBounds"></param>
+    /// <param name="maxBounds"></param>
     public void UpdateMovement(
         Vector3 targetPosition,
         float baseSpeed,

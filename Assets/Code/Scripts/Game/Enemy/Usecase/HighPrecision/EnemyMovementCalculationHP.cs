@@ -29,7 +29,7 @@ public class EnemyMovementCalculationHP
             float sqrDistPast = (projectedPast - enemy.Position).sqrMagnitude;
             Vector3 chosenPlayerPos = (sqrDistCurrent < sqrDistPast) ? projectedCurrent : projectedPast;
 
-            // 螺旋オフセットの計算（反転ロジックを含む）
+            // 螺旋オフセットの計算
             Vector3 offset = CalculatePosition(
                 i,
                 context.GlobalIndex,
