@@ -13,4 +13,7 @@ public enum OutListSceneName
     MeshDataTestScene,
     PoissonDiskSamplingTest,
     TestScene,
+    IKTest,
+    GPUInstancingTest,
+    Version3Test,
 }
