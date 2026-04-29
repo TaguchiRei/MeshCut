@@ -28,7 +28,7 @@ namespace MeshBreak.MeshCut
         private bool[] _baseVerticesSide;
 
         private TriangleData _triangleData;
-        [SerializeField] private CutObjectPool _cutObjectPool;
+        [SerializeField] private CutObjectPool _objectPool;
 
         private void Start()
         {
@@ -139,7 +139,7 @@ namespace MeshBreak.MeshCut
             {
                 Mesh leftMesh = MeshDataSupport.ToMesh(_leftMeshData, "Split Mesh Right");
 
-                var leftResult = _cutObjectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
+                var leftResult = _objectPool.GenerateCutObject(target, _leftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
 
                 leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
@@ -149,7 +149,7 @@ namespace MeshBreak.MeshCut
 
             Mesh rightMesh = MeshDataSupport.ToMesh(_rightMeshData, "Split Mesh Left");
 
-            var result = _cutObjectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
+            var result = _objectPool.GenerateCutObject(target, _rightMeshData.Vertices, mats, centers);
             if (!result.Item2) result.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
 
             result.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
