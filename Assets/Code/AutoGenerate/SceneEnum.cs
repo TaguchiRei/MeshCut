@@ -15,4 +15,5 @@ public enum OutListSceneName
     TestScene,
     IKTest,
     GPUInstancingTest,
+    Version3Test,
 }
