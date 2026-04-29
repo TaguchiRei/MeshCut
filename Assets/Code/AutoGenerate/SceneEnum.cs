@@ -14,4 +14,6 @@ public enum OutListSceneName
     PoissonDiskSamplingTest,
     TestScene,
     IKTest,
+    GPUInstancingTest,
+    Version3Test,
 }
