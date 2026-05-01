@@ -49,8 +49,8 @@ namespace MeshBreak.MeshCut.Version3
             var baseNorms  = input.Normals;
             var baseUVs    = input.UVs;
 
-            var leftMeshData  = new BreakMeshData(baseVerts, baseNorms, baseUVs);
-            var rightMeshData = new BreakMeshData(baseVerts, baseNorms, baseUVs);
+            var leftMeshData  = new CutMeshData(baseVerts, baseNorms, baseUVs);
+            var rightMeshData = new CutMeshData(baseVerts, baseNorms, baseUVs);
             var centers       = new List<Vector3>();
             var capConnections = new Dictionary<Vector3, List<Vector3>>();
 
@@ -99,11 +99,6 @@ namespace MeshBreak.MeshCut.Version3
         /// <summary>
         /// 切断結果をGameObjectに変換する
         /// </summary>
-        /// <param name="target"></param>
-        /// <param name="result"></param>
-        /// <param name="originalMaterials"></param>
-        /// <param name="capMaterial"></param>
-        /// <returns></returns>
         public GameObject[] ApplyResultOnMainThread(
             GameObject target,
             MeshCutResult result,
@@ -125,14 +120,14 @@ namespace MeshBreak.MeshCut.Version3
 
             if (result.LeftMeshData.Vertices.Count >= 2)
             {
-                var leftMesh  = MeshDataSupport.ToMesh(result.LeftMeshData, "Split Mesh Left");
+                var leftMesh   = CreateMeshFromCutData(result.LeftMeshData, "Split Mesh Left");
                 var leftResult = objectShardPool.GenerateCutObject(target, result.LeftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
                 leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
                 leftObj = leftResult.Item1;
             }
 
-            var rightMesh  = MeshDataSupport.ToMesh(result.RightMeshData, "Split Mesh Right");
+            var rightMesh   = CreateMeshFromCutData(result.RightMeshData, "Split Mesh Right");
             var rightResult = objectShardPool.GenerateCutObject(target, result.RightMeshData.Vertices, mats, centers);
             if (!rightResult.Item2) rightResult.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
             rightResult.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
@@ -140,6 +135,21 @@ namespace MeshBreak.MeshCut.Version3
 
             target.SetActive(false);
             return new[] { leftObj, rightObj };
+        }
+
+        private Mesh CreateMeshFromCutData(CutMeshData data, string name)
+        {
+            var mesh = new Mesh { name = name };
+            if (data.Vertices.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            
+            mesh.SetVertices(data.Vertices);
+            mesh.SetNormals(data.Normals);
+            mesh.SetUVs(0, data.Uvs);
+            mesh.subMeshCount = data.SubIndices.Count;
+            for (int i = 0; i < data.SubIndices.Count; i++)
+                mesh.SetTriangles(data.SubIndices[i], i);
+            
+            return mesh;
         }
         
         public async Task<GameObject[]> CutAsync(
@@ -170,25 +180,12 @@ namespace MeshBreak.MeshCut.Version3
         /// <summary>
         /// 面を切断する
         /// </summary>
-        /// <param name="submesh"></param>
-        /// <param name="index1"></param>
-        /// <param name="index2"></param>
-        /// <param name="index3"></param>
-        /// <param name="blade"></param>
-        /// <param name="baseVertices"></param>
-        /// <param name="baseNormals"></param>
-        /// <param name="baseUVs"></param>
-        /// <param name="baseVerticesSide"></param>
-        /// <param name="leftMeshData"></param>
-        /// <param name="rightMeshData"></param>
-        /// <param name="capConnections"></param>
-        /// <param name="triangleData"></param>
         private static void CutFace(
             int submesh, int index1, int index2, int index3,
             in Plane blade,
             Vector3[] baseVertices, Vector3[] baseNormals, Vector2[] baseUVs,
             bool[] baseVerticesSide,
-            BreakMeshData leftMeshData, BreakMeshData rightMeshData,
+            CutMeshData leftMeshData, CutMeshData rightMeshData,
             Dictionary<Vector3, List<Vector3>> capConnections,
             ref TriangleData triangleData)
         {
@@ -297,16 +294,10 @@ namespace MeshBreak.MeshCut.Version3
         /// <summary>
         /// 切断面を埋める
         /// </summary>
-        /// <param name="blade"></param>
-        /// <param name="capConnections"></param>
-        /// <param name="leftMeshData"></param>
-        /// <param name="rightMeshData"></param>
-        /// <param name="centers"></param>
-        /// <param name="triangleData"></param>
         private static void Capping(
             in Plane blade,
             Dictionary<Vector3, List<Vector3>> capConnections,
-            BreakMeshData leftMeshData, BreakMeshData rightMeshData,
+            CutMeshData leftMeshData, CutMeshData rightMeshData,
             List<Vector3> centers,
             ref TriangleData triangleData)
         {
@@ -338,16 +329,10 @@ namespace MeshBreak.MeshCut.Version3
         /// <summary>
         /// 埋めた切断面のUVを作成
         /// </summary>
-        /// <param name="vertices"></param>
-        /// <param name="blade"></param>
-        /// <param name="leftMeshData"></param>
-        /// <param name="rightMeshData"></param>
-        /// <param name="centers"></param>
-        /// <param name="triangleData"></param>
         private static void FillCap(
             List<Vector3> vertices,
             in Plane blade,
-            BreakMeshData leftMeshData, BreakMeshData rightMeshData,
+            CutMeshData leftMeshData, CutMeshData rightMeshData,
             List<Vector3> centers,
             ref TriangleData triangleData)
         {
