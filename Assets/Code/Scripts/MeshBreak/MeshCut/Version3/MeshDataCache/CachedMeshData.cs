@@ -15,8 +15,8 @@ namespace MeshBreak.MeshCut.Version3
         {
             MeshName = mesh.name;
             Vertices = mesh.vertices;
-            Normals  = mesh.normals;
-            UVs      = mesh.uv;
+            Normals = mesh.normals;
+            UVs = mesh.uv;
 
             int subCount = mesh.subMeshCount;
             SubMeshTriangles = new int[subCount][];
