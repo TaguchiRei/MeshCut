@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
-public class MeshCutTest : MonoBehaviour
+public class MeshCutBatchRunnerTest : MonoBehaviour
 {
     [SerializeField] private GameObject _blade;
     [SerializeField] private MeshFilter _meshFilter;

@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4599256499064416567}
   - component: {fileID: -7718845921551843452}
   m_Layer: 7
-  m_Name: BreakableObject
+  m_Name: CuttableObject
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

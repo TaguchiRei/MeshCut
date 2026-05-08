@@ -25,6 +25,59 @@ namespace MeshBreak.MeshCut
         {
             StartCoroutine(PoolGenerator());
         }
+        
+        /// <summary>
+        /// オブジェクトプールから切断後オブジェクトを取得する
+        /// </summary>
+        public (GameObject, bool) GenerateCutObject(
+            GameObject baseObject,
+            Vector3[] verts,
+            Material[] mats,
+            List<Vector3> cutFaceCenterPos,
+            List<Vector3> oldCutFaces = null)
+        {
+            if (_preCutPool.Count > 0)
+            {
+                var pooledObject = _preCutPool.Dequeue();
+
+                if (pooledObject == null)
+                {
+                    Debug.LogError("[ObjectShardPool] プールから取り出したオブジェクトが null です。生成処理に失敗している可能性があります。");
+                    return default;
+                }
+
+                if (!pooledObject.TryGetComponent<BreakableObject>(out var cuttable))
+                {
+                    Debug.LogError($"[ObjectShardPool] プールされたオブジェクト {pooledObject.name} に BreakableObject コンポーネントが見つかりません。プレハブの設定を確認してください。", pooledObject);
+                    return default;
+                }
+
+                cuttable.SetParentHash(baseObject.GetInstanceID());
+                cuttable.transform.position = baseObject.transform.position;
+                cuttable.transform.rotation = baseObject.transform.rotation;
+                
+                if (cuttable.MeshRenderer != null)
+                {
+                    cuttable.MeshRenderer.materials = mats;
+                }
+                else
+                {
+                    Debug.LogWarning($"[ObjectShardPool] {pooledObject.name} の MeshRenderer が null です。", pooledObject);
+                }
+
+                bool result = cuttable.ColliderWeightReduction(
+                    verts,
+                    cutFaceCenterPos
+                );
+
+                _postCutPool[cuttable.GetInstanceID()] = cuttable.gameObject;
+
+                return (cuttable.gameObject, result);
+            }
+
+            Debug.LogWarning("[ObjectShardPool] プールが空です。_preCutObjectInstanceNum の値を増やすか、返却処理を確認してください。");
+            return default;
+        }
 
         /// <summary>
         /// オブジェクトプールから切断後オブジェクトを取得する
@@ -40,12 +93,30 @@ namespace MeshBreak.MeshCut
             {
                 var pooledObject = _preCutPool.Dequeue();
 
-                var cuttable = pooledObject.GetComponent<BreakableObjectL>();
+                if (pooledObject == null)
+                {
+                    Debug.LogError("[ObjectShardPool] プールから取り出したオブジェクトが null です。生成処理に失敗している可能性があります。");
+                    return default;
+                }
+
+                if (!pooledObject.TryGetComponent<BreakableObject>(out var cuttable))
+                {
+                    Debug.LogError($"[ObjectShardPool] プールされたオブジェクト {pooledObject.name} に BreakableObject コンポーネントが見つかりません。プレハブの設定を確認してください。", pooledObject);
+                    return default;
+                }
 
                 cuttable.SetParentHash(baseObject.GetInstanceID());
                 cuttable.transform.position = baseObject.transform.position;
                 cuttable.transform.rotation = baseObject.transform.rotation;
-                cuttable.MeshRenderer.materials = mats;
+                
+                if (cuttable.MeshRenderer != null)
+                {
+                    cuttable.MeshRenderer.materials = mats;
+                }
+                else
+                {
+                    Debug.LogWarning($"[ObjectShardPool] {pooledObject.name} の MeshRenderer が null です。", pooledObject);
+                }
 
                 bool result = cuttable.ColliderWeightReduction(
                     verts,
@@ -57,6 +128,7 @@ namespace MeshBreak.MeshCut
                 return (cuttable.gameObject, result);
             }
 
+            Debug.LogWarning("[ObjectShardPool] プールが空です。_preCutObjectInstanceNum の値を増やすか、返却処理を確認してください。");
             return default;
         }
 
