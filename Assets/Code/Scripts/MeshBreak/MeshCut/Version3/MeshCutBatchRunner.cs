@@ -14,12 +14,10 @@ namespace MeshBreak.MeshCut.Version3
         [SerializeField] private ObjectShardPool _objectShardPool;
         [SerializeField] private Collider _collider;
 
-        /// <summary> 1バッチあたりの最大オブジェクト数 </summary>
-        [SerializeField] private int _batchSize = 4;
+        public const int MaxVertexCount = 50000;
 
-        private const int MaxVertexCount = 50000;
-
-        private static readonly ThreadLocal<CutBuffers> ThreadBuffers = new(() => new CutBuffers(MaxVertexCount));
+        private static readonly ThreadLocal<CutBuffers> ThreadBuffers
+            = new ThreadLocal<CutBuffers>(() => new CutBuffers(MaxVertexCount));
 
         private class CutBuffers
         {
@@ -52,33 +50,51 @@ namespace MeshBreak.MeshCut.Version3
             }
         }
 
-        /// <summary>
-        /// 複数オブジェクトをバッチに分けて並列切断する
-        /// </summary>
         public async UniTask<List<GameObject>> CutMeshBatchAsync(BreakableObject[] targets, Plane blade)
         {
 #if UNITY_EDITOR
             var sw = Stopwatch.StartNew();
 #endif
             // --- Step 1: メインスレッドで全オブジェクトのデータを収集 ---
-            // CollectInputOnMainThread はUnityAPIを使うため順次実行が必要
-            var inputs = new List<(MeshCutInput input, Material[] materials, Material capMaterial)>(targets.Length);
+            // キャッシュ済みグループと断片グループに分けて収集
+            var inputs =
+                new List<(MeshCutInput input, Material[] materials, Material capMaterial, int vertexCount)>(
+                    targets.Length);
 
             foreach (var target in targets)
             {
                 if (target == null) continue;
-                // GetComponent不要 — BreakableObjectから直接取得
-                var input = CollectInputOnMainThread(target.MeshFilter.mesh, blade, target.transform);
+
+                MeshCutInput input;
+
+                if (!target.IsCutFragment &&
+                    MeshDataCache.Instance.TryGet(target.MeshFilter.sharedMesh, out var cached))
+                {
+                    // 元モデル → キャッシュから取得
+                    input = CollectInputFromCache(cached, blade, target.transform);
+                }
+                else
+                {
+                    // 切断済み断片 → MeshFilter.meshから直接読む
+                    input = CollectInputOnMainThread(target.MeshFilter.mesh, blade, target.transform);
+                }
+
                 var materials = target.MeshRenderer.materials;
-                inputs.Add((input, materials, target.CutFaceMaterial));
+                inputs.Add((input, materials, target.CutFaceMaterial, input.Vertices.Length));
             }
 
 #if UNITY_EDITOR
             Debug.Log($"[Batch] 全データ収集完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
 #endif
-            // --- Step 2: 全オブジェクトを一度にスレッドプールへ投げる ---
-            var allTasks = inputs
-                .Select(item => UniTask.RunOnThreadPool(() => Calculate(item.input)))
+            // --- Step 2: 頂点数でソートして重いものと軽いものを分けて並列投入 ---
+            // 重いメッシュが軽いメッシュの処理を待たせないようにソート
+            var sortedInputs = inputs
+                .Select((item, idx) => (item, originalIdx: idx))
+                .OrderByDescending(x => x.item.vertexCount)
+                .ToList();
+
+            var allTasks = sortedInputs
+                .Select(x => UniTask.RunOnThreadPool(() => Calculate(x.item.input)))
                 .ToArray();
 
             var allResults = await UniTask.WhenAll(allTasks);
@@ -86,16 +102,18 @@ namespace MeshBreak.MeshCut.Version3
 #if UNITY_EDITOR
             Debug.Log($"[Batch] 全計算完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
 #endif
-
             // --- Step 3: メインスレッドで全結果をGameObjectに反映 ---
+            // ソート前のインデックスに対応するtargetsと突き合わせる
             List<GameObject> results = new();
-            for (int i = 0; i < inputs.Count; i++)
+            for (int i = 0; i < sortedInputs.Count; i++)
             {
-                var target = targets[i];
+                var originalIdx = sortedInputs[i].originalIdx;
+                var target = targets[originalIdx];
                 if (target == null) continue;
 
-                var (_, materials, capMaterial) = inputs[i];
-                results.AddRange(ApplyResultOnMainThread(target, allResults[i], materials, capMaterial));
+                var (item, _) = sortedInputs[i];
+                results.AddRange(
+                    ApplyResultOnMainThread(target, allResults[i], item.materials, item.capMaterial));
             }
 
 #if UNITY_EDITOR
@@ -103,20 +121,6 @@ namespace MeshBreak.MeshCut.Version3
             sw.Stop();
 #endif
             return results;
-        }
-
-        /// <summary>
-        /// リストをバッチサイズごとに分割する
-        /// </summary>
-        private static List<List<T>> CreateBatches<T>(List<T> source, int batchSize)
-        {
-            var batches = new List<List<T>>();
-            for (int i = 0; i < source.Count; i += batchSize)
-            {
-                batches.Add(source.GetRange(i, Mathf.Min(batchSize, source.Count - i)));
-            }
-
-            return batches;
         }
 
         private BreakableObject[] CheckOverlapObjects()
@@ -144,6 +148,24 @@ namespace MeshBreak.MeshCut.Version3
             return objects.ToArray();
         }
 
+        /// <summary>
+        /// キャッシュ済みデータからMeshCutInputを生成する（元モデル用）
+        /// </summary>
+        public static MeshCutInput CollectInputFromCache(CachedMeshData cached, Plane blade, Transform transform)
+        {
+            return new MeshCutInput(
+                cached.Vertices,
+                cached.Normals,
+                cached.UVs,
+                cached.SubMeshTriangles,
+                TransformPlane(blade, transform.worldToLocalMatrix),
+                transform.localToWorldMatrix
+            );
+        }
+
+        /// <summary>
+        /// MeshFilter.meshから直接読む（切断済み断片用）
+        /// </summary>
         public static MeshCutInput CollectInputOnMainThread(Mesh mesh, Plane blade, Transform transform)
         {
             int subCount = mesh.subMeshCount;
@@ -180,13 +202,13 @@ namespace MeshBreak.MeshCut.Version3
             var baseNorms = input.Normals;
             var baseUVs = input.UVs;
 
-
             var leftMeshData = new CutMeshData(baseVerts, baseNorms, baseUVs,
                 buf.LeftVertex, buf.LeftNormal, buf.LeftUv);
             var rightMeshData = new CutMeshData(baseVerts, baseNorms, baseUVs,
                 buf.RightVertex, buf.RightNormal, buf.RightUv);
+
             var centers = new List<Vector3>();
-            var capConnections = new Dictionary<Vector3, List<Vector3>>();
+            var capConnections = new Dictionary<Vector3, List<Vector3>>(1024);
 
             Debug.Log($"[Phase1] 初期化完了 {sw.ElapsedMilliseconds}ms  頂点数:{baseVerts.Length}");
 
@@ -195,7 +217,6 @@ namespace MeshBreak.MeshCut.Version3
                 baseVertsSide[i] = blade.GetSide(baseVerts[i]);
 
             Debug.Log($"[Phase2a] 左右判定完了 {sw.ElapsedMilliseconds}ms");
-
 
             for (int submesh = 0; submesh < input.SubMeshTriangles.Length; submesh++)
             {
@@ -246,7 +267,7 @@ namespace MeshBreak.MeshCut.Version3
             var result = new MeshCutResult(leftMeshData, rightMeshData, centers);
 
             Debug.Log(
-                $"[Phase3] 完了 {sw.ElapsedMilliseconds}ms  左:{leftMeshData.Vertices.Length}頂点  右:{rightMeshData.Vertices.Length}頂点");
+                $"[Phase3] 完了 {sw.ElapsedMilliseconds}ms  左:{leftMeshData.VertexCount}頂点  右:{rightMeshData.VertexCount}頂点");
             sw.Stop();
 
             return result;
@@ -274,19 +295,25 @@ namespace MeshBreak.MeshCut.Version3
             if (result.LeftMeshData.VertexCount >= 2)
             {
                 var leftMesh = CreateMeshFromCutData(result.LeftMeshData, "Split Mesh Left");
-                var leftResult =
-                    _objectShardPool.GenerateCutObject(target.gameObject, result.LeftMeshData.Vertices, mats, centers);
+                var leftResult = _objectShardPool.GenerateCutObject(
+                    target.gameObject, result.LeftMeshData.Vertices, mats, centers);
                 if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
                 leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
                 leftObj = leftResult.Item1;
             }
 
             var rightMesh = CreateMeshFromCutData(result.RightMeshData, "Split Mesh Right");
-            var rightResult =
-                _objectShardPool.GenerateCutObject(target.gameObject, result.RightMeshData.Vertices, mats, centers);
+            var rightResult = _objectShardPool.GenerateCutObject(
+                target.gameObject, result.RightMeshData.Vertices, mats, centers);
             if (!rightResult.Item2) rightResult.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
             rightResult.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
             rightObj = rightResult.Item1;
+
+            // 生成した断片に切断済みフラグをマーク
+            if (leftObj != null && leftObj.TryGetComponent<BreakableObject>(out var leftBreakable))
+                leftBreakable.MarkAsCutFragment();
+            if (rightObj != null && rightObj.TryGetComponent<BreakableObject>(out var rightBreakable))
+                rightBreakable.MarkAsCutFragment();
 
             target.gameObject.SetActive(false);
             return new[] { leftObj, rightObj };
@@ -297,7 +324,6 @@ namespace MeshBreak.MeshCut.Version3
             var mesh = new Mesh { name = name };
             if (data.VertexCount > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
 
-            // VertexCountまでのスライスをSetVerticesに渡す
             mesh.SetVertices(data.Vertices, 0, data.VertexCount);
             mesh.SetNormals(data.Normals, 0, data.VertexCount);
             mesh.SetUVs(0, data.Uvs, 0, data.VertexCount);

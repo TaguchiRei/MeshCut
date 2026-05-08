@@ -2,21 +2,18 @@ using UnityEngine;
 
 namespace MeshBreak.MeshCut.Version3
 {
-    /// <summary>
-    /// ステージ開始時にUnityから取得したメッシュデータのキャッシュ
-    /// </summary>
     public class CachedMeshData
     {
-        public readonly int ModelId;
+        public readonly string MeshName;
         public readonly Vector3[] Vertices;
         public readonly Vector3[] Normals;
         public readonly Vector2[] UVs;
         public readonly int[][] SubMeshTriangles;
         public readonly int VertexCount;
 
-        public CachedMeshData(int modelId, Mesh mesh)
+        public CachedMeshData(Mesh mesh)
         {
-            ModelId  = modelId;
+            MeshName = mesh.name;
             Vertices = mesh.vertices;
             Normals  = mesh.normals;
             UVs      = mesh.uv;

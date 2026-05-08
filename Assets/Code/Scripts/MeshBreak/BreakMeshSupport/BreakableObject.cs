@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UsefulAttribute;
 using Debug = UnityEngine.Debug;
@@ -26,6 +28,13 @@ namespace MeshBreak
         private readonly List<List<int>> _nearVertex = new();
         private int _parentHash;
 
+        /// <summary>
+        /// 切断済み断片かどうか。
+        /// trueの場合はMeshDataCacheではなくMeshFilter.meshから直接データを読む。
+        /// </summary>
+        public bool IsCutFragment { get; private set; } = false;
+
+
         private void Awake()
         {
             _colliderNum = Mathf.Max(_colliderNum, 10);
@@ -41,8 +50,16 @@ namespace MeshBreak
 
         private void Start()
         {
-            var mesh = GetComponent<MeshFilter>().mesh;
+            var mesh = MeshFilter.mesh;
             Debug.Log($"オブジェクト{gameObject.name}  頂点数{mesh.vertexCount}　三角形の数{mesh.triangles.Length / 3}");
+        }
+
+        /// <summary>
+        /// 切断済み断片としてマークする。断片生成時に呼ぶ。
+        /// </summary>
+        public void MarkAsCutFragment()
+        {
+            IsCutFragment = true;
         }
 
         public void SetParentHash(int hash)
@@ -245,6 +262,9 @@ namespace MeshBreak
                 _rigidbody.angularVelocity = Vector3.zero;
                 _rigidbody.isKinematic = true;
             }
+
+            // リサイクル時に断片フラグをリセット
+            IsCutFragment = false;
 
             gameObject.SetActive(false);
         }
