@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
+using MeshBreak.MeshCut.Version2;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -66,27 +67,12 @@ public class MultiMeshCut
         {
             Stopwatch stopwatch = new Stopwatch(); // 各セクション計測用
 
-            Mesh[] mesh = new Mesh[breakables.Length];
-
-            //MeshDataArrayを取得
-            for (int i = 0; i < breakables.Length; i++)
-            {
-                mesh[i] = breakables[i].Mesh.sharedMesh;
-            }
-
-            context.BaseMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
-
             //合計頂点数等取得
             int totalVerticesCount = 0;
-            int maxVerticesCount = 0;
-            for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
+            for (int i = 0; i < breakables.Length; i++)
             {
-                var vertexCount = context.BaseMeshDataArray[i].vertexCount;
-                totalVerticesCount += vertexCount;
-                if (vertexCount > maxVerticesCount)
-                {
-                    maxVerticesCount = vertexCount;
-                }
+                MeshDataCache.Instance.Get(breakables[i].MeshId, out var cached);
+                totalVerticesCount += cached.VertexCount;
             }
 
             //ベースのデータを保持する配列を初期化
@@ -98,33 +84,33 @@ public class MultiMeshCut
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             context.Blades =
-                new(context.BaseMeshDataArray.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                new(breakables.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.VertexObjectIndex =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             int startIndex = 0;
 
             //オブジェクト毎にループする初期化を行う
-            for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
+            for (int i = 0; i < breakables.Length; i++)
             {
-                var data = context.BaseMeshDataArray[i];
+                MeshDataCache.Instance.Get(breakables[i].MeshId, out var cached);
 
                 #region Base頂点配列初期化
 
-                var baseV = context.BaseVertices.GetSubArray(startIndex, data.vertexCount);
-                var baseN = context.BaseNormals.GetSubArray(startIndex, data.vertexCount);
-                var baseU = context.BaseUvs.GetSubArray(startIndex, data.vertexCount);
+                var baseV = context.BaseVertices.GetSubArray(startIndex, cached.VertexCount);
+                var baseN = context.BaseNormals.GetSubArray(startIndex, cached.VertexCount);
+                var baseU = context.BaseUvs.GetSubArray(startIndex, cached.VertexCount);
 
-                data.GetVertices(baseV.Reinterpret<Vector3>());
-                data.GetNormals(baseN.Reinterpret<Vector3>());
-                data.GetUVs(0, baseU.Reinterpret<Vector2>());
+                baseV.Reinterpret<Vector3>().CopyFrom(cached.Vertices);
+                baseN.Reinterpret<Vector3>().CopyFrom(cached.Normals);
+                baseU.Reinterpret<Vector2>().CopyFrom(cached.UVs);
 
                 #endregion
 
                 #region Blades初期化
 
                 //Bladeと頂点の対応をとるための配列
-                for (int j = 0; j < data.vertexCount; j++)
+                for (int j = 0; j < cached.VertexCount; j++)
                 {
                     context.VertexObjectIndex[startIndex + j] = i;
                 }
@@ -145,7 +131,7 @@ public class MultiMeshCut
                 context.StartIndex.Add(startIndex);
 
                 //次ループの結合頂点配列の開始インデックスとして扱える
-                startIndex += data.vertexCount;
+                startIndex += cached.VertexCount;
             }
 
             Debug.Log("頂点群データ取得完了");
@@ -181,24 +167,21 @@ public class MultiMeshCut
             var uvs = context.BaseUvs;
 
             //オブジェクト数分ループ
-            for (int objIndex = 0; objIndex < context.BaseMeshDataArray.Length; objIndex++)
+            for (int objIndex = 0; objIndex < breakables.Length; objIndex++)
             {
+                MeshDataCache.Instance.Get(breakables[objIndex].MeshId, out var cached);
                 var objectStartIndex = context.StartIndex[objIndex];
-                var meshData = context.BaseMeshDataArray[objIndex];
-                var triangles = meshData.GetIndexData<ushort>();
-                BurstBreakMesh frontSide = new BurstBreakMesh(meshData.vertexCount);
-                BurstBreakMesh backSide = new BurstBreakMesh(meshData.vertexCount);
+                
+                BurstBreakMesh frontSide = new BurstBreakMesh(cached.VertexCount);
+                BurstBreakMesh backSide = new BurstBreakMesh(cached.VertexCount);
 
                 //サブメッシュ数分ループ
-                for (int submesh = 0; submesh < meshData.subMeshCount; submesh++)
+                for (int submesh = 0; submesh < cached.SubMeshTriangles.Length; submesh++)
                 {
                     frontSide.AddSubmesh();
                     backSide.AddSubmesh();
-                    SubMeshDescriptor subMeshDesc = meshData.GetSubMesh(submesh);
-                    int start = subMeshDesc.indexStart;
-                    int count = subMeshDesc.indexCount;
-
-                    var indexData = triangles.GetSubArray(start, count);
+                    
+                    var indexData = cached.SubMeshTriangles[submesh];
 
                     //三角形ごとにループ
                     for (int i = 0; i < indexData.Length; i += 3)

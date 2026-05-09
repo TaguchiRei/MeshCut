@@ -6,7 +6,6 @@ using UnityEngine;
 
 public class MultiCutContext : IDisposable
 {
-    public Mesh.MeshDataArray BaseMeshDataArray;
     public NativeArray<float3> BaseVertices;
     public NativeArray<float3> BaseNormals;
     public NativeArray<float2> BaseUvs;
@@ -80,8 +79,6 @@ public class MultiCutContext : IDisposable
         }
 
         breakMeshes.Clear();
-
-        BaseMeshDataArray.Dispose();
     }
 }
 

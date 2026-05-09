@@ -70,8 +70,6 @@ public class MultiCutBlade : MonoBehaviour
 
         Debug.Log("切断処理完了");
 
-        var obj = _pool.GetObjects(2);
-
         // 3. プールから必要な数だけ破片オブジェクトを一括取得
         // ターゲット1つにつき前後2つの破片が必要
         int requiredCount = targets.Length * 2;
@@ -98,14 +96,13 @@ public class MultiCutBlade : MonoBehaviour
     }
 
     private void ApplyResult(
-        (GameObject gameObject, CuttableObject cuttable) stub,
+        CuttableObject cuttable,
         Mesh mesh,
         List<Vector3> samplingPoints,
         CuttableObject original,
         NativePlane worldBlade)
     {
-        GameObject fragObj = stub.gameObject;
-        CuttableObject cuttable = stub.cuttable;
+        GameObject fragObj = cuttable.gameObject;
 
         // Transform同期
         fragObj.transform.SetPositionAndRotation(
