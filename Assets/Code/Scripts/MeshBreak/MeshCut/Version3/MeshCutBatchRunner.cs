@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UsefulAttribute;
 using Debug = UnityEngine.Debug;
 
@@ -36,6 +37,13 @@ namespace MeshBreak.MeshCut.Version3
             }
         }
 
+        private struct VertexData
+        {
+            public Vector3 Position;
+            public Vector3 Normal;
+            public Vector2 UV;
+        }
+
         [MethodExecutor]
         public async void CutMesh()
         {
@@ -55,7 +63,6 @@ namespace MeshBreak.MeshCut.Version3
 #if UNITY_EDITOR
             var sw = Stopwatch.StartNew();
 #endif
-            // メインスレッドで全オブジェクトのデータを収集
             // キャッシュ済みグループと断片グループに分けて収集
             var inputs =
                 new List<(MeshCutInput input, Material[] materials, Material capMaterial, int vertexCount)>(
@@ -69,13 +76,13 @@ namespace MeshBreak.MeshCut.Version3
 
                 if (!target.IsCutFragment)
                 {
-                    // 元モデル → キャッシュから取得
+                    // キャッシュから取得
                     MeshDataCache.Instance.Get(target.MeshId, out var cached);
                     input = CollectInputFromCache(cached, blade, target.transform);
                 }
                 else
                 {
-                    // 切断済み断片 → MeshFilter.meshから直接読む
+                    // 切断済みのものはMeshFilter.meshから直接読む
                     input = CollectInputOnMainThread(target.MeshFilter.mesh, blade, target.transform);
                 }
 
@@ -87,7 +94,6 @@ namespace MeshBreak.MeshCut.Version3
             Debug.Log($"[Batch] 全データ収集完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
 #endif
             // 頂点数でソートして重いものと軽いものを分けて並列投入
-            // 重いメッシュが軽いメッシュの処理を待たせないようにソート
             var sortedInputs = inputs
                 .Select((item, idx) => (item, originalIdx: idx))
                 .OrderByDescending(x => x.item.vertexCount)
@@ -125,7 +131,9 @@ namespace MeshBreak.MeshCut.Version3
 
         private BreakableObject[] CheckOverlapObjects()
         {
-            List<BreakableObject> objects = new();
+            // 重複を防ぐためのセット
+            HashSet<BreakableObject> uniqueObjects = new();
+
             Collider[] hits = Physics.OverlapBox(
                 _collider.bounds.center,
                 _collider.bounds.extents,
@@ -134,22 +142,28 @@ namespace MeshBreak.MeshCut.Version3
 
             foreach (Collider hit in hits)
             {
-                if (!hit.gameObject.TryGetComponent(out BreakableObject breakable)) continue;
+                // BreakableObjectコンポーネントがついているか（親も含めて探す場合はGetComponentInParent）
+                if (!hit.TryGetComponent(out BreakableObject breakable)) continue;
 
+                // すでにリストに追加済みならスキップ
+                if (uniqueObjects.Contains(breakable)) continue;
+
+                // 頂点数チェック
                 if (breakable.MeshFilter.mesh.vertexCount > MaxVertexCount)
                 {
                     Debug.LogWarning($"{hit.gameObject.name} は頂点数が {MaxVertexCount} を超えるため切断をスキップします");
                     continue;
                 }
 
-                objects.Add(breakable);
+                uniqueObjects.Add(breakable);
             }
 
-            return objects.ToArray();
+            // 配列に変換して返す
+            return uniqueObjects.ToArray();
         }
 
         /// <summary>
-        /// キャッシュ済みデータからMeshCutInputを生成する（元モデル用）
+        /// キャッシュ済みデータからMeshCutInputを生成する
         /// </summary>
         public static MeshCutInput CollectInputFromCache(CachedMeshData cached, Plane blade, Transform transform)
         {
@@ -164,7 +178,7 @@ namespace MeshBreak.MeshCut.Version3
         }
 
         /// <summary>
-        /// MeshFilter.meshから直接読む（切断済み断片用）
+        /// MeshFilter.meshから直接読む
         /// </summary>
         public static MeshCutInput CollectInputOnMainThread(Mesh mesh, Plane blade, Transform transform)
         {
@@ -297,7 +311,6 @@ namespace MeshBreak.MeshCut.Version3
                 var leftMesh = CreateMeshFromCutData(result.LeftMeshData, "Split Mesh Left");
                 var leftResult = _objectShardPool.GenerateCutObject(
                     target.gameObject, result.LeftMeshData.Vertices, mats, centers);
-                if (!leftResult.Item2) leftResult.Item1.GetComponent<MeshCollider>().sharedMesh = leftMesh;
                 leftResult.Item1.GetComponent<MeshFilter>().mesh = leftMesh;
                 leftObj = leftResult.Item1;
             }
@@ -305,7 +318,6 @@ namespace MeshBreak.MeshCut.Version3
             var rightMesh = CreateMeshFromCutData(result.RightMeshData, "Split Mesh Right");
             var rightResult = _objectShardPool.GenerateCutObject(
                 target.gameObject, result.RightMeshData.Vertices, mats, centers);
-            if (!rightResult.Item2) rightResult.Item1.GetComponent<MeshCollider>().sharedMesh = rightMesh;
             rightResult.Item1.GetComponent<MeshFilter>().mesh = rightMesh;
             rightObj = rightResult.Item1;
 
@@ -321,15 +333,137 @@ namespace MeshBreak.MeshCut.Version3
 
         private Mesh CreateMeshFromCutData(CutMeshData data, string name)
         {
-            var mesh = new Mesh { name = name };
-            if (data.VertexCount > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            var mesh = new Mesh
+            {
+                name = name
+            };
 
-            mesh.SetVertices(data.Vertices, 0, data.VertexCount);
-            mesh.SetNormals(data.Normals, 0, data.VertexCount);
-            mesh.SetUVs(0, data.Uvs, 0, data.VertexCount);
-            mesh.subMeshCount = data.SubIndices.Count;
+            if (data.VertexCount > 65535)
+                mesh.indexFormat = IndexFormat.UInt32;
+
+            // -----------------------------
+            // MeshData 作成
+            // -----------------------------
+            var meshDataArray = Mesh.AllocateWritableMeshData(1);
+            var meshData = meshDataArray[0];
+
+            // -----------------------------
+            // Vertex Buffer 定義
+            // -----------------------------
+            meshData.SetVertexBufferParams(
+                data.VertexCount,
+                new VertexAttributeDescriptor(
+                    VertexAttribute.Position,
+                    VertexAttributeFormat.Float32,
+                    3),
+                new VertexAttributeDescriptor(
+                    VertexAttribute.Normal,
+                    VertexAttributeFormat.Float32,
+                    3),
+                new VertexAttributeDescriptor(
+                    VertexAttribute.TexCoord0,
+                    VertexAttributeFormat.Float32,
+                    2)
+            );
+
+            // 頂点構造体
+            var vertices = meshData.GetVertexData<VertexData>();
+
+            for (int i = 0; i < data.VertexCount; i++)
+            {
+                vertices[i] = new VertexData
+                {
+                    Position = data.Vertices[i],
+                    Normal = data.Normals[i],
+                    UV = data.Uvs[i]
+                };
+            }
+
+            // -----------------------------
+            // Index Buffer
+            // -----------------------------
+            int totalIndexCount = 0;
+
             for (int i = 0; i < data.SubIndices.Count; i++)
-                mesh.SetTriangles(data.SubIndices[i], i);
+                totalIndexCount += data.SubIndices[i].Count;
+
+            bool useUInt32 = data.VertexCount > 65535;
+
+            meshData.SetIndexBufferParams(
+                totalIndexCount,
+                useUInt32 ? IndexFormat.UInt32 : IndexFormat.UInt16
+            );
+
+            meshData.subMeshCount = data.SubIndices.Count;
+
+            // -----------------------------
+            // Index 書き込み
+            // -----------------------------
+            int indexOffset = 0;
+
+            if (useUInt32)
+            {
+                var indices = meshData.GetIndexData<uint>();
+
+                for (int subMesh = 0; subMesh < data.SubIndices.Count; subMesh++)
+                {
+                    var tris = data.SubIndices[subMesh];
+
+                    for (int i = 0; i < tris.Count; i++)
+                    {
+                        indices[indexOffset + i] = (uint)tris[i];
+                    }
+
+                    meshData.SetSubMesh(
+                        subMesh,
+                        new SubMeshDescriptor(indexOffset, tris.Count)
+                        {
+                            topology = MeshTopology.Triangles
+                        },
+                        MeshUpdateFlags.DontRecalculateBounds
+                    );
+
+                    indexOffset += tris.Count;
+                }
+            }
+            else
+            {
+                var indices = meshData.GetIndexData<ushort>();
+
+                for (int subMesh = 0; subMesh < data.SubIndices.Count; subMesh++)
+                {
+                    var tris = data.SubIndices[subMesh];
+
+                    for (int i = 0; i < tris.Count; i++)
+                    {
+                        indices[indexOffset + i] = (ushort)tris[i];
+                    }
+
+                    meshData.SetSubMesh(
+                        subMesh,
+                        new SubMeshDescriptor(indexOffset, tris.Count)
+                        {
+                            topology = MeshTopology.Triangles
+                        },
+                        MeshUpdateFlags.DontRecalculateBounds
+                    );
+
+                    indexOffset += tris.Count;
+                }
+            }
+
+            // -----------------------------
+            // Mesh 反映
+            // -----------------------------
+            Mesh.ApplyAndDisposeWritableMeshData(
+                meshDataArray,
+                mesh,
+                MeshUpdateFlags.DontRecalculateBounds |
+                MeshUpdateFlags.DontValidateIndices |
+                MeshUpdateFlags.DontNotifyMeshUsers
+            );
+
+            mesh.RecalculateBounds();
 
             return mesh;
         }
