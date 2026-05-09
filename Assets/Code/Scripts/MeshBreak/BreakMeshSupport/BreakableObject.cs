@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 using UsefulAttribute;
 using Debug = UnityEngine.Debug;
@@ -16,6 +14,7 @@ namespace MeshBreak
         public MeshRenderer MeshRenderer;
         public MeshCollider MeshCollider;
         public Material CutFaceMaterial;
+        public int MeshId = 0;
 
         [SerializeField] private int _maxSamplingVert = 300;
         [SerializeField] private int _colliderNum;
@@ -26,7 +25,6 @@ namespace MeshBreak
         private readonly List<Vector3> _clusteringSamples = new();
         private readonly List<Vector3> _centers = new();
         private readonly List<List<int>> _nearVertex = new();
-        private int _parentHash;
 
         /// <summary>
         /// 切断済み断片かどうか。
@@ -60,11 +58,6 @@ namespace MeshBreak
         public void MarkAsCutFragment()
         {
             IsCutFragment = true;
-        }
-
-        public void SetParentHash(int hash)
-        {
-            _parentHash = hash;
         }
 
         #region 当たり判定の単純化

@@ -9,8 +9,7 @@ namespace MeshBreak.MeshCut
         [SerializeField, Tooltip("あらかじめ生成しておくインスタンス数")]
         private int _preCutObjectInstanceNum;
 
-        [SerializeField]
-        private GameObject _cutObjectPrefab;
+        [SerializeField] private GameObject _cutObjectPrefab;
 
         private RecycleBuffer<BreakableObject> _recycleBuffer;
 
@@ -120,28 +119,26 @@ namespace MeshBreak.MeshCut
         }
 
         private void SetupBreakableObject(
-            BreakableObject cuttable,
+            BreakableObject breakable,
             GameObject baseObject,
             Material[] mats)
         {
-            cuttable.gameObject.SetActive(true);
+            breakable.gameObject.SetActive(true);
 
-            cuttable.SetParentHash(baseObject.GetInstanceID());
-
-            Transform cuttableTransform = cuttable.transform;
+            Transform cuttableTransform = breakable.transform;
 
             cuttableTransform.position = baseObject.transform.position;
             cuttableTransform.rotation = baseObject.transform.rotation;
 
-            if (cuttable.MeshRenderer != null)
+            if (breakable.MeshRenderer != null)
             {
-                cuttable.MeshRenderer.materials = mats;
+                breakable.MeshRenderer.materials = mats;
             }
             else
             {
                 Debug.LogWarning(
-                    $"[ObjectShardPool] {cuttable.name} の MeshRenderer が null です。",
-                    cuttable
+                    $"[ObjectShardPool] {breakable.name} の MeshRenderer が null です。",
+                    breakable
                 );
             }
         }

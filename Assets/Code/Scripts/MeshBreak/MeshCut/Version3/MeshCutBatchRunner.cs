@@ -13,17 +13,8 @@ namespace MeshBreak.MeshCut.Version3
     {
         [SerializeField] private ObjectShardPool _objectShardPool;
         [SerializeField] private Collider _collider;
-        [SerializeField] private MeshRegistry _meshRegistry;
 
         public const int MaxVertexCount = 50000;
-
-        private void Awake()
-        {
-            if (_meshRegistry != null)
-            {
-                MeshDataCache.Instance.RegisterStage(_meshRegistry);
-            }
-        }
 
         private static readonly ThreadLocal<CutBuffers> ThreadBuffers
             = new ThreadLocal<CutBuffers>(() => new CutBuffers(MaxVertexCount));
@@ -64,7 +55,7 @@ namespace MeshBreak.MeshCut.Version3
 #if UNITY_EDITOR
             var sw = Stopwatch.StartNew();
 #endif
-            // --- Step 1: メインスレッドで全オブジェクトのデータを収集 ---
+            // メインスレッドで全オブジェクトのデータを収集
             // キャッシュ済みグループと断片グループに分けて収集
             var inputs =
                 new List<(MeshCutInput input, Material[] materials, Material capMaterial, int vertexCount)>(
@@ -95,7 +86,7 @@ namespace MeshBreak.MeshCut.Version3
 #if UNITY_EDITOR
             Debug.Log($"[Batch] 全データ収集完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
 #endif
-            // --- Step 2: 頂点数でソートして重いものと軽いものを分けて並列投入 ---
+            // 頂点数でソートして重いものと軽いものを分けて並列投入
             // 重いメッシュが軽いメッシュの処理を待たせないようにソート
             var sortedInputs = inputs
                 .Select((item, idx) => (item, originalIdx: idx))
@@ -111,7 +102,7 @@ namespace MeshBreak.MeshCut.Version3
 #if UNITY_EDITOR
             Debug.Log($"[Batch] 全計算完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
 #endif
-            // --- Step 3: メインスレッドで全結果をGameObjectに反映 ---
+            // メインスレッドで全結果をGameObjectに反映
             // ソート前のインデックスに対応するtargetsと突き合わせる
             List<GameObject> results = new();
             for (int i = 0; i < sortedInputs.Count; i++)

@@ -7,8 +7,7 @@ namespace MeshBreak.MeshCut.Version3
     {
         public static MeshDataCache Instance { get; private set; }
 
-        /// <summary> Mesh参照 → CachedMeshData </summary>
-        private readonly Dictionary<Mesh, CachedMeshData> _cache = new();
+        List<CachedMeshData> _cache = new();
 
         private void Awake()
         {
@@ -17,39 +16,46 @@ namespace MeshBreak.MeshCut.Version3
                 Destroy(gameObject);
                 return;
             }
+
             Instance = this;
         }
 
         /// <summary>
         /// ステージ開始時にMeshRegistryを渡して登録する
         /// </summary>
-        public void RegisterStage(MeshRegistry registry)
+        public void Initialize()
         {
-            _cache.Clear();
+            var objects = GetComponentsInChildren<BreakableObject>();
+            List<Mesh> meshes = new();
 
-            foreach (var mesh in registry.Meshes)
+            foreach (var breakable in objects)
             {
-                if (mesh == null) continue;
-
-                if (_cache.ContainsKey(mesh))
+                var mesh = breakable.MeshFilter.sharedMesh;
+                if (!meshes.Contains(mesh))
                 {
-                    Debug.LogWarning($"[MeshDataCache] {mesh.name} は既に登録済みです。スキップします。");
-                    continue;
+                    meshes.Add(mesh);
+                    _cache.Add(new CachedMeshData(mesh));
+                    breakable.MeshId = _cache.Count;
                 }
-
-                if (mesh.vertexCount > MeshCutBatchRunner.MaxVertexCount)
+                else
                 {
-                    Debug.LogWarning($"[MeshDataCache] {mesh.name} の頂点数({mesh.vertexCount})が上限を超えています。登録をスキップします。");
-                    continue;
+                    breakable.MeshId = meshes.FindIndex(x => x == mesh);
                 }
-
-                _cache[mesh] = new CachedMeshData(mesh);
-                Debug.Log($"[MeshDataCache] {mesh.name} を登録しました。頂点数:{mesh.vertexCount}");
             }
         }
 
-        public bool TryGet(Mesh mesh, out CachedMeshData data)
-            => _cache.TryGetValue(mesh, out data);
+        public void Get(int meshId, out CachedMeshData data)
+        {
+            if (_cache.Count <= meshId || meshId < 0)
+            {
+                Debug.LogError("[MeshDataCache]IDの値が不正です");
+                data = null;
+            }
+            else
+            {
+                data = _cache[meshId];
+            }
+        }
 
         public void Unload()
         {
