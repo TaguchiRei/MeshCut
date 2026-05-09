@@ -305,7 +305,6 @@ public class MultiMeshCut
             var allLoops = FindAllLoops(context, breakables.Length);
             for (int i = 0; i < breakables.Length; i++)
             {
-                Debug.Log($"Object {i}: {allLoops[i].Count} loops found.");
                 context.breakMeshes[i * 2].AddSubmesh(); // 断面用サブメッシュ
                 context.breakMeshes[i * 2 + 1].AddSubmesh();
                 foreach (var loop in allLoops[i])
@@ -433,11 +432,12 @@ public class MultiMeshCut
         }
 
         var allCutEdges = context.CutEdges;
+        const float precision = 10000f; // 0.1mm単位で丸める
 
         for (int objIndex = 0; objIndex < objectCount; objIndex++)
         {
-            // 座標から代表インデックスへのマップ
-            Dictionary<float3, int> posToRepresentative = new Dictionary<float3, int>();
+            // 座標(量子化済み)から代表インデックスへのマップ
+            Dictionary<long3, int> posToRepresentative = new Dictionary<long3, int>();
             // 代表インデックス間の隣接リスト
             Dictionary<int, List<int>> adjacency = new Dictionary<int, List<int>>();
 
@@ -450,19 +450,30 @@ public class MultiMeshCut
                 {
                     edgeCount++;
                     
-                    // x, y の座標を取得して代表インデックスを決定
-                    float3 posA = context.NewVertices[edge.x];
-                    float3 posB = context.NewVertices[edge.y];
+                    float3 vA = context.NewVertices[edge.x];
+                    float3 vB = context.NewVertices[edge.y];
 
-                    if (!posToRepresentative.TryGetValue(posA, out int repA))
+                    // 座標を整数値に変換して誤差を吸収
+                    long3 keyA = new long3(
+                        (long)math.round(vA.x * precision),
+                        (long)math.round(vA.y * precision),
+                        (long)math.round(vA.z * precision)
+                    );
+                    long3 keyB = new long3(
+                        (long)math.round(vB.x * precision),
+                        (long)math.round(vB.y * precision),
+                        (long)math.round(vB.z * precision)
+                    );
+
+                    if (!posToRepresentative.TryGetValue(keyA, out int repA))
                     {
                         repA = edge.x;
-                        posToRepresentative.Add(posA, repA);
+                        posToRepresentative.Add(keyA, repA);
                     }
-                    if (!posToRepresentative.TryGetValue(posB, out int repB))
+                    if (!posToRepresentative.TryGetValue(keyB, out int repB))
                     {
                         repB = edge.y;
-                        posToRepresentative.Add(posB, repB);
+                        posToRepresentative.Add(keyB, repB);
                     }
 
                     // 代表インデックス同士を繋ぐ
@@ -471,16 +482,20 @@ public class MultiMeshCut
                         listA = new List<int>();
                         adjacency.Add(repA, listA);
                     }
-                    listA.Add(repB);
-
-                    if (!adjacency.TryGetValue(repB, out var listB))
+                    // 同じ頂点間のエッジ（縮退エッジ）を避ける
+                    if (repA != repB)
                     {
-                        listB = new List<int>();
-                        adjacency.Add(repB, listB);
+                        if (!listA.Contains(repB)) listA.Add(repB);
+
+                        if (!adjacency.TryGetValue(repB, out var listB))
+                        {
+                            listB = new List<int>();
+                            adjacency.Add(repB, listB);
+                        }
+                        if (!listB.Contains(repA)) listB.Add(repA);
                     }
-                    listB.Add(repA);
                 }
-                Debug.Log($"Object {objIndex}: {edgeCount} edges processed into adjacency (spatial).");
+                Debug.Log($"Object {objIndex}: {edgeCount} edges processed (quantized). Adjacency keys: {adjacency.Count}");
 
                 iterator.Dispose();
             }
@@ -695,5 +710,137 @@ public class MultiMeshCut
         Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
 
         return resultMeshes;
+    }
+}
+
+[Serializable]
+public struct long3 : IEquatable<long3>
+{
+    public long x;
+    public long y;
+    public long z;
+
+    public static readonly long3 zero = new long3(0, 0, 0);
+    public static readonly long3 one = new long3(1, 1, 1);
+
+    public long3(long x, long y, long z)
+    {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    public long this[int index]
+    {
+        get
+        {
+            return index switch
+            {
+                0 => x,
+                1 => y,
+                2 => z,
+                _ => throw new IndexOutOfRangeException("Invalid Long3 index!")
+            };
+        }
+        set
+        {
+            switch (index)
+            {
+                case 0:
+                    x = value;
+                    break;
+                case 1:
+                    y = value;
+                    break;
+                case 2:
+                    z = value;
+                    break;
+                default:
+                    throw new IndexOutOfRangeException("Invalid Long3 index!");
+            }
+        }
+    }
+
+    public static long3 operator +(long3 a, long3 b)
+    {
+        return new long3(a.x + b.x, a.y + b.y, a.z + b.z);
+    }
+
+    public static long3 operator -(long3 a, long3 b)
+    {
+        return new long3(a.x - b.x, a.y - b.y, a.z - b.z);
+    }
+
+    public static long3 operator *(long3 a, long b)
+    {
+        return new long3(a.x * b, a.y * b, a.z * b);
+    }
+
+    public static long3 operator /(long3 a, long b)
+    {
+        return new long3(a.x / b, a.y / b, a.z / b);
+    }
+
+    public static bool operator ==(long3 a, long3 b)
+    {
+        return a.Equals(b);
+    }
+
+    public static bool operator !=(long3 a, long3 b)
+    {
+        return !a.Equals(b);
+    }
+
+    public bool Equals(long3 other)
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is long3 other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(x, y, z);
+    }
+
+    public override string ToString()
+    {
+        return $"({x}, {y}, {z})";
+    }
+
+    public long MagnitudeSquared()
+    {
+        return x * x + y * y + z * z;
+    }
+
+    public double Magnitude()
+    {
+        return Math.Sqrt(MagnitudeSquared());
+    }
+
+    public static long Dot(long3 a, long3 b)
+    {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    public static long3 Min(long3 a, long3 b)
+    {
+        return new long3(
+            Math.Min(a.x, b.x),
+            Math.Min(a.y, b.y),
+            Math.Min(a.z, b.z)
+        );
+    }
+
+    public static long3 Max(long3 a, long3 b)
+    {
+        return new long3(
+            Math.Max(a.x, b.x),
+            Math.Max(a.y, b.y),
+            Math.Max(a.z, b.z)
+        );
     }
 }
