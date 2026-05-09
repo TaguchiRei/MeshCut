@@ -13,8 +13,17 @@ namespace MeshBreak.MeshCut.Version3
     {
         [SerializeField] private ObjectShardPool _objectShardPool;
         [SerializeField] private Collider _collider;
+        [SerializeField] private MeshRegistry _meshRegistry;
 
         public const int MaxVertexCount = 50000;
+
+        private void Awake()
+        {
+            if (_meshRegistry != null)
+            {
+                MeshDataCache.Instance.RegisterStage(_meshRegistry);
+            }
+        }
 
         private static readonly ThreadLocal<CutBuffers> ThreadBuffers
             = new ThreadLocal<CutBuffers>(() => new CutBuffers(MaxVertexCount));
