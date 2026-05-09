@@ -32,9 +32,23 @@ namespace MeshBreak
         /// </summary>
         public bool IsCutFragment { get; private set; } = false;
 
-
         private void Awake()
         {
+            if (MeshFilter == null)
+            {
+                MeshFilter = gameObject.GetComponent<MeshFilter>();
+            }
+
+            if (MeshRenderer == null)
+            {
+                MeshRenderer = gameObject.GetComponent<MeshRenderer>();
+            }
+
+            if (CutFaceMaterial == null)
+            {
+                CutFaceMaterial = gameObject.GetComponent<MeshRenderer>().material;
+            }
+
             _colliderNum = Mathf.Max(_colliderNum, 10);
 
             for (int i = 0; i < _colliderNum; i++)

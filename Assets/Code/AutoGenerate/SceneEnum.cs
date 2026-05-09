@@ -12,7 +12,6 @@ public enum OutListSceneName
     BurstCut,
     MeshDataTestScene,
     PoissonDiskSamplingTest,
-    TestScene,
     IKTest,
     GPUInstancingTest,
     Version3Test,

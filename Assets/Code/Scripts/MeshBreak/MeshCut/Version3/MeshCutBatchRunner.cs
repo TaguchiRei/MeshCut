@@ -15,7 +15,7 @@ namespace MeshBreak.MeshCut.Version3
         [SerializeField] private ObjectShardPool _objectShardPool;
         [SerializeField] private Collider _collider;
 
-        public const int MaxVertexCount = 50000;
+        public const int MaxVertexCount = 3000000;
 
         private static readonly ThreadLocal<CutBuffers> ThreadBuffers
             = new ThreadLocal<CutBuffers>(() => new CutBuffers(MaxVertexCount));
@@ -54,6 +54,7 @@ namespace MeshBreak.MeshCut.Version3
             var results = await CutMeshBatchAsync(targets, blade);
             foreach (var result in results)
             {
+                if (result == null) continue;
                 result.SetActive(true);
             }
         }
@@ -62,6 +63,7 @@ namespace MeshBreak.MeshCut.Version3
         {
 #if UNITY_EDITOR
             var sw = Stopwatch.StartNew();
+            long ms = 0;
 #endif
             // キャッシュ済みグループと断片グループに分けて収集
             var inputs =
@@ -91,7 +93,9 @@ namespace MeshBreak.MeshCut.Version3
             }
 
 #if UNITY_EDITOR
-            Debug.Log($"[Batch] 全データ収集完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
+            Debug.Log(
+                $"[Batch] 全データ収集完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms 前回からの比較{sw.ElapsedMilliseconds - ms}");
+            ms = sw.ElapsedMilliseconds;
 #endif
             // 頂点数でソートして重いものと軽いものを分けて並列投入
             var sortedInputs = inputs
@@ -106,13 +110,24 @@ namespace MeshBreak.MeshCut.Version3
             var allResults = await UniTask.WhenAll(allTasks);
 
 #if UNITY_EDITOR
-            Debug.Log($"[Batch] 全計算完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms");
+            Debug.Log(
+                $"[Batch] 全計算完了 ({inputs.Count}件) {sw.ElapsedMilliseconds}ms 前回からの比較{sw.ElapsedMilliseconds - ms}");
+            ms = sw.ElapsedMilliseconds;
 #endif
+
             // メインスレッドで全結果をGameObjectに反映
             // ソート前のインデックスに対応するtargetsと突き合わせる
             List<GameObject> results = new();
+            var generationSw = Stopwatch.StartNew();
             for (int i = 0; i < sortedInputs.Count; i++)
             {
+                // 5msごとにフレームを跨ぐ
+                if (generationSw.ElapsedMilliseconds >= 5)
+                {
+                    await UniTask.Yield();
+                    generationSw.Restart();
+                }
+
                 var originalIdx = sortedInputs[i].originalIdx;
                 var target = targets[originalIdx];
                 if (target == null) continue;
@@ -123,7 +138,8 @@ namespace MeshBreak.MeshCut.Version3
             }
 
 #if UNITY_EDITOR
-            Debug.Log($"[Batch] 全GameObject生成完了 {sw.ElapsedMilliseconds}ms");
+            Debug.Log($"[Batch] 全GameObject生成完了 {sw.ElapsedMilliseconds}ms 前回からの比較{sw.ElapsedMilliseconds - ms}");
+            ms = sw.ElapsedMilliseconds;
             sw.Stop();
 #endif
             return results;

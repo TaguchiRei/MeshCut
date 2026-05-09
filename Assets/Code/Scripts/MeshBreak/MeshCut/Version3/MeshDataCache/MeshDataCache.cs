@@ -9,7 +9,7 @@ namespace MeshBreak.MeshCut.Version3
 
         List<CachedMeshData> _cache = new();
 
-        private void Awake()
+        private void Start()
         {
             if (Instance != null)
             {

@@ -305,12 +305,13 @@ public class MultiMeshCut
             var allLoops = FindAllLoops(context, breakables.Length);
             for (int i = 0; i < breakables.Length; i++)
             {
+                Debug.Log($"Object {i}: {allLoops[i].Count} loops found.");
                 context.breakMeshes[i * 2].AddSubmesh(); // 断面用サブメッシュ
                 context.breakMeshes[i * 2 + 1].AddSubmesh();
                 foreach (var loop in allLoops[i])
                 {
-                    FillCapForLoop(i, loop, context, context.breakMeshes[i * 2], true);
-                    FillCapForLoop(i, loop, context, context.breakMeshes[i * 2 + 1], false);
+                    FillCapFan(i, loop, context, context.breakMeshes[i * 2], true);
+                    FillCapFan(i, loop, context, context.breakMeshes[i * 2 + 1], false);
                 }
             }
 
@@ -425,103 +426,128 @@ public class MultiMeshCut
     private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
     {
         List<List<int>>[] allLoops = new List<List<int>>[objectCount];
+
         for (int i = 0; i < objectCount; i++)
         {
             allLoops[i] = new List<List<int>>();
         }
 
-        NativeParallelMultiHashMap<int, int2> allCutEdges = context.CutEdges;
+        var allCutEdges = context.CutEdges;
 
         for (int objIndex = 0; objIndex < objectCount; objIndex++)
         {
-            List<int2> objectCutEdges = new List<int2>();
+            // 座標から代表インデックスへのマップ
+            Dictionary<float3, int> posToRepresentative = new Dictionary<float3, int>();
+            // 代表インデックス間の隣接リスト
+            Dictionary<int, List<int>> adjacency = new Dictionary<int, List<int>>();
+
             if (allCutEdges.ContainsKey(objIndex))
             {
                 var iterator = allCutEdges.GetValuesForKey(objIndex);
+                int edgeCount = 0;
+
                 foreach (var edge in iterator)
                 {
-                    objectCutEdges.Add(edge);
+                    edgeCount++;
+                    
+                    // x, y の座標を取得して代表インデックスを決定
+                    float3 posA = context.NewVertices[edge.x];
+                    float3 posB = context.NewVertices[edge.y];
+
+                    if (!posToRepresentative.TryGetValue(posA, out int repA))
+                    {
+                        repA = edge.x;
+                        posToRepresentative.Add(posA, repA);
+                    }
+                    if (!posToRepresentative.TryGetValue(posB, out int repB))
+                    {
+                        repB = edge.y;
+                        posToRepresentative.Add(posB, repB);
+                    }
+
+                    // 代表インデックス同士を繋ぐ
+                    if (!adjacency.TryGetValue(repA, out var listA))
+                    {
+                        listA = new List<int>();
+                        adjacency.Add(repA, listA);
+                    }
+                    listA.Add(repB);
+
+                    if (!adjacency.TryGetValue(repB, out var listB))
+                    {
+                        listB = new List<int>();
+                        adjacency.Add(repB, listB);
+                    }
+                    listB.Add(repA);
                 }
+                Debug.Log($"Object {objIndex}: {edgeCount} edges processed into adjacency (spatial).");
 
                 iterator.Dispose();
             }
-
-            // 探索しやすい形にデータを整える
-            Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
-            foreach (var edge in objectCutEdges)
+            else
             {
-                // Add edge.x -> edge.y
-                if (!adjacencyList.ContainsKey(edge.x))
-                    adjacencyList.Add(edge.x, new List<int>());
-                if (!adjacencyList[edge.x].Contains(edge.y))
-                    adjacencyList[edge.x].Add(edge.y);
-
-                // Add edge.y -> edge.x
-                if (!adjacencyList.ContainsKey(edge.y))
-                    adjacencyList.Add(edge.y, new List<int>());
-                if (!adjacencyList[edge.y].Contains(edge.x))
-                    adjacencyList[edge.y].Add(edge.x);
+                Debug.Log($"Object {objIndex}: No edges found in CutEdges.");
             }
 
-            // オブジェクトごとのループを探す
-            HashSet<int> visitedVerticesGlobally = new HashSet<int>();
+            HashSet<(int, int)> visitedEdges = new HashSet<(int, int)>();
 
-            foreach (var startVertex in adjacencyList.Keys)
+            foreach (var kv in adjacency)
             {
-                if (visitedVerticesGlobally.Contains(startVertex)) // 発見済みの場合は決める
-                    continue;
+                int start = kv.Key;
 
-                List<int> currentLoop = new List<int>();
-                int current = startVertex;
-                int previous = -1;
-
-                while (true)
+                foreach (var nextStart in kv.Value)
                 {
-                    if (visitedVerticesGlobally.Contains(current) && current != startVertex)
+                    if (visitedEdges.Contains((start, nextStart))) continue;
+
+                    List<int> loop = new List<int>();
+
+                    int prev = start;
+                    int current = nextStart;
+
+                    loop.Add(start);
+
+                    visitedEdges.Add((start, nextStart));
+                    visitedEdges.Add((nextStart, start));
+
+                    while (true)
                     {
-                        foreach (var v in currentLoop)
+                        loop.Add(current);
+
+                        var neighbors = adjacency[current];
+
+                        int next = -1;
+
+                        for (int i = 0; i < neighbors.Count; i++)
                         {
-                            visitedVerticesGlobally.Add(v);
+                            if (neighbors[i] != prev)
+                            {
+                                next = neighbors[i];
+                                break;
+                            }
                         }
 
-                        currentLoop.Clear();
-                        break;
-                    }
+                        if (next == -1)
+                            break;
 
-                    currentLoop.Add(current);
-                    visitedVerticesGlobally
-                        .Add(current);
-
-                    List<int> neighbors = adjacencyList[current];
-                    int next = -1;
-
-                    foreach (var neighbor in neighbors)
-                    {
-                        if (neighbor != previous)
+                        if (next == start)
                         {
-                            next = neighbor;
+                            if (loop.Count >= 3)
+                            {
+                                allLoops[objIndex].Add(loop);
+                            }
+
                             break;
                         }
+
+                        if (visitedEdges.Contains((current, next)))
+                            break;
+
+                        visitedEdges.Add((current, next));
+                        visitedEdges.Add((next, current));
+
+                        prev = current;
+                        current = next;
                     }
-
-                    if (next == -1)
-                    {
-                        currentLoop.Clear();
-                        break;
-                    }
-
-                    if (next == startVertex)
-                    {
-                        if (currentLoop.Count >= 3)
-                        {
-                            allLoops[objIndex].Add(currentLoop);
-                        }
-
-                        break;
-                    }
-
-                    previous = current;
-                    current = next;
                 }
             }
         }
@@ -530,119 +556,85 @@ public class MultiMeshCut
     }
 
     /// <summary>
-    /// 改良耳切法を利用して断面メッシュ作成
+    /// 断面メッシュを重心と外縁の頂点で作成(凹型未対応だが、軽量)
     /// </summary>
     /// <param name="objIdx"></param>
     /// <param name="loop"></param>
     /// <param name="context"></param>
     /// <param name="target"></param>
     /// <param name="isFront"></param>
-    private void FillCapForLoop(int objIdx, List<int> loop, MultiCutContext context, BurstBreakMesh target,
+    private void FillCapFan(
+        int objIdx,
+        List<int> loop,
+        MultiCutContext context,
+        BurstBreakMesh target,
         bool isFront)
     {
+        if (loop == null || loop.Count < 3)
+            return;
+
         var blade = context.Blades[objIdx];
 
-        // UV方向のベクトルを作成
-        float3 normal = blade.Normal;
-        float3 tangent = math.abs(normal.y) > 0.999f
-            ? math.cross(normal, new float3(1, 0, 0))
-            : math.cross(normal, new float3(0, 1, 0));
-        tangent = math.normalize(tangent);
-        float3 bitangent = math.normalize(math.cross(normal, tangent));
+        // 重心を求める
+        float3 center = float3.zero;
 
-        // UV方向ベクトルを利用して座標を変換
-        int vertexCount = loop.Count;
-        List<Vector2> projectedVertices = new List<Vector2>(vertexCount); //変換した座標群を入れるリスト
-        for (int i = 0; i < vertexCount; i++)
+        for (int i = 0; i < loop.Count; i++)
         {
-            //ループは必ず新規頂点のみで構成されている
-            float3 v3d = context.NewVertices[loop[i]];
-            float3 relative = v3d - blade.Position;
-            projectedVertices.Add(new Vector2(math.dot(relative, tangent), math.dot(relative, bitangent)));
+            center += context.NewVertices[loop[i]];
         }
 
-        // 戻り値は projectedVertices のリストに対するインデックス
-        // FastEarClippingが頂点を除去しても、元のインデックスにマッピングされるようにTriangulateMappedを使用
-        List<int> resultIndices = FastEarClipping.TriangulateMapped(projectedVertices, loop);
+        center /= loop.Count;
 
-        if (resultIndices == null || resultIndices.Count == 0) return;
+        // UV座標を定義
 
-        // 断面サブメッシュに追加
-        int capSubmeshIndex = target.Triangles.Count - 1;
+        float3 normal = blade.Normal;
 
-        // 断面の法線を作成
+        float3 tangent =
+            math.abs(normal.y) > 0.999f
+                ? math.normalize(math.cross(normal, new float3(1, 0, 0)))
+                : math.normalize(math.cross(normal, new float3(0, 1, 0)));
+
+        float3 bitangent = math.normalize(math.cross(normal, tangent));
+
+        // 法線作成
+
         float3 faceNormal = isFront ? -blade.Normal : blade.Normal;
 
-        for (int i = 0; i < resultIndices.Count; i += 3)
+        int capSubmeshIndex = target.Triangles.Count - 1;
+
+        // 各三角形を作成
+
+        for (int i = 0; i < loop.Count; i++)
         {
-            // 耳切り法の結果を元の NewVertices のインデックスに復元
-            int idx0 = loop[resultIndices[i]];
-            int idx1 = loop[resultIndices[i + 1]];
-            int idx2 = loop[resultIndices[i + 2]];
+            int currentIndex = loop[i];
+            int nextIndex = loop[(i + 1) % loop.Count];
 
-            // 頂点属性の取得
-            float3 v0 = context.NewVertices[idx0], v1 = context.NewVertices[idx1], v2 = context.NewVertices[idx2];
-            float3 n0 = context.NewNormals[idx0], n1 = context.NewNormals[idx1], n2 = context.NewNormals[idx2];
-            float2 u0 = context.NewUvs[idx0], u1 = context.NewUvs[idx1], u2 = context.NewUvs[idx2];
+            float3 v0 = context.NewVertices[currentIndex];
+            float3 v1 = context.NewVertices[nextIndex];
+            float3 v2 = center;
 
-            // 断面なので、法線は全て一律で断面法線（faceNormal）を割り当てる
+            // UVを作成
+
+            float3 d0 = v0 - center;
+            float3 d1 = v1 - center;
+
+            float2 uv0 = new float2(0.5f + math.dot(d0, tangent), 0.5f + math.dot(d0, bitangent));
+
+            float2 uv1 = new float2(0.5f + math.dot(d1, tangent), 0.5f + math.dot(d1, bitangent));
+
+            float2 uv2 = new float2(0.5f, 0.5f);
+
+            // 三角形を追加
+
             target.AddTriangle(
                 v0, v1, v2,
                 faceNormal, faceNormal, faceNormal,
-                u0, u1, u2,
-                faceNormal, capSubmeshIndex
+                uv0, uv1, uv2,
+                faceNormal,
+                capSubmeshIndex
             );
         }
     }
-
-    private Mesh[] FinalizeMeshesSimple(List<BurstBreakMesh> breakMeshes)
-    {
-        int fragmentCount = breakMeshes.Count;
-        Mesh[] resultMeshes = new Mesh[fragmentCount];
-
-        for (int i = 0; i < fragmentCount; i++)
-        {
-            var source = breakMeshes[i];
-            Mesh mesh = new Mesh();
-
-            // NativeArray -> List に変換
-            List<Vector3> verts = new List<Vector3>(source.Vertices.Length);
-            for (int v = 0; v < source.Vertices.Length; v++)
-                verts.Add(source.Vertices[v]);
-
-            List<Vector3> normals = new List<Vector3>(source.Normals.Length);
-            for (int n = 0; n < source.Normals.Length; n++)
-                normals.Add(source.Normals[n]);
-
-            List<Vector2> uvs = new List<Vector2>(source.Uvs.Length);
-            for (int u = 0; u < source.Uvs.Length; u++)
-                uvs.Add(source.Uvs[u]);
-
-            mesh.SetVertices(verts);
-            mesh.SetNormals(normals);
-            mesh.SetUVs(0, uvs);
-
-            // サブメッシュとインデックス
-            mesh.subMeshCount = source.Triangles.Count;
-            for (int s = 0; s < source.Triangles.Count; s++)
-            {
-                // NativeList<int> -> List<int> に変換
-                List<int> indices = new List<int>(source.Triangles[s].Length);
-                for (int j = 0; j < source.Triangles[s].Length; j++)
-                    indices.Add(source.Triangles[s][j]);
-
-                mesh.SetTriangles(indices, s);
-            }
-
-            // バウンディングボックスの更新
-            mesh.RecalculateBounds();
-
-            resultMeshes[i] = mesh;
-        }
-
-        return resultMeshes;
-    }
-
 
     private Mesh[] FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
     {
@@ -657,7 +649,7 @@ public class MultiMeshCut
             // 頂点属性の設定
             int vertexCount = source.Vertices.Length;
 
-            // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
+            //  0, 1, 2 と分けて指定する
             var layout = new[]
             {
                 new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
