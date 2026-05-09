@@ -18,6 +18,8 @@ namespace MeshBreak.MeshCut.Version3
             }
 
             Instance = this;
+            Initialize();
+            Debug.Log($"[MeshDataCache] cache Completed.  Object Count{_cache.Count}]");
         }
 
         /// <summary>
@@ -25,30 +27,44 @@ namespace MeshBreak.MeshCut.Version3
         /// </summary>
         public void Initialize()
         {
+            // 初期化時に一度キャッシュをクリアしておくと安全
+            _cache.Clear();
+    
             var objects = GetComponentsInChildren<BreakableObject>();
-            List<Mesh> meshes = new();
+            List<Mesh> registeredMeshes = new();
 
             foreach (var breakable in objects)
             {
                 var mesh = breakable.MeshFilter.sharedMesh;
-                if (!meshes.Contains(mesh))
+                if (mesh == null) continue;
+
+                int index = registeredMeshes.IndexOf(mesh);
+
+                if (index == -1) 
                 {
-                    meshes.Add(mesh);
+                    // 未登録なら新しく追加
+                    registeredMeshes.Add(mesh);
                     _cache.Add(new CachedMeshData(mesh));
-                    breakable.MeshId = _cache.Count;
+            
+                    // 追加した直後の「末尾のインデックス」をIDにする
+                    // Countが1ならIDは0、Countが2ならIDは1になる
+                    breakable.MeshId = registeredMeshes.Count - 1;
                 }
-                else
+                else 
                 {
-                    breakable.MeshId = meshes.FindIndex(x => x == mesh);
+                    // 登録済みならそのインデックスをそのままIDにする
+                    breakable.MeshId = index;
                 }
             }
+    
+            Debug.Log($"[MeshDataCache] cache Completed. Cache Count: {_cache.Count}");
         }
 
         public void Get(int meshId, out CachedMeshData data)
         {
             if (_cache.Count <= meshId || meshId < 0)
             {
-                Debug.LogError("[MeshDataCache]IDの値が不正です");
+                Debug.LogError($"[MeshDataCache]IDの値が不正です {meshId}");
                 data = null;
             }
             else

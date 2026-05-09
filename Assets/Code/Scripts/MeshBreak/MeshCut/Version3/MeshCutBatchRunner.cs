@@ -67,10 +67,10 @@ namespace MeshBreak.MeshCut.Version3
 
                 MeshCutInput input;
 
-                if (!target.IsCutFragment &&
-                    MeshDataCache.Instance.TryGet(target.MeshFilter.sharedMesh, out var cached))
+                if (!target.IsCutFragment)
                 {
                     // 元モデル → キャッシュから取得
+                    MeshDataCache.Instance.Get(target.MeshId, out var cached);
                     input = CollectInputFromCache(cached, blade, target.transform);
                 }
                 else

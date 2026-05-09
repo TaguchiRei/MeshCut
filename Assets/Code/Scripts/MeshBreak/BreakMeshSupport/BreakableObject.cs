@@ -46,12 +46,6 @@ namespace MeshBreak
             }
         }
 
-        private void Start()
-        {
-            var mesh = MeshFilter.mesh;
-            Debug.Log($"オブジェクト{gameObject.name}  頂点数{mesh.vertexCount}　三角形の数{mesh.triangles.Length / 3}");
-        }
-
         /// <summary>
         /// 切断済み断片としてマークする。断片生成時に呼ぶ。
         /// </summary>
