@@ -9,25 +9,26 @@ public class MeshCutObjectPool : MonoBehaviour
     [SerializeField] private int _generateCapacity;
     [SerializeField] private GameObject _prefab;
 
-    private List<(GameObject gameObject, CuttableObject cuttable)> _unusedObjects;
-    private List<(GameObject gameObject, CuttableObject cuttable)> _usedObjects;
+    private RecycleBuffer<CuttableObject> _recycleBuffer;
 
     private async void Start()
     {
         IsGenerated = false;
-        _unusedObjects = new();
-        _usedObjects = new();
         var objects = await InstantiateAsync(_prefab, _generateCapacity, transform);
-        foreach (var obj in objects)
+        
+        CuttableObject[] buffer = new CuttableObject[_generateCapacity];
+        for (int i = 0; i < objects.Length; i++)
         {
+            var obj = objects[i];
             obj.SetActive(false);
-            _unusedObjects.Add((obj, obj.GetComponent<CuttableObject>()));
+            buffer[i] = obj.GetComponent<CuttableObject>();
         }
 
+        _recycleBuffer = new RecycleBuffer<CuttableObject>(buffer);
         IsGenerated = true;
     }
 
-    public List<(GameObject, CuttableObject)> GetObjects(int objectCount)
+    public List<CuttableObject> GetObjects(int objectCount)
     {
         if (objectCount > _generateCapacity)
         {
@@ -35,45 +36,21 @@ public class MeshCutObjectPool : MonoBehaviour
             objectCount = _generateCapacity;
         }
 
-        // 不足分を使用中のオブジェクトから回収
-        if (_unusedObjects.Count < objectCount)
+        List<CuttableObject> results = new(objectCount);
+        for (int i = 0; i < objectCount; i++)
         {
-            int shortCount = objectCount - _unusedObjects.Count;
-
-            // 必要な数だけ先頭(古いもの)から抜き出す
-            var reusable = _usedObjects.GetRange(0, shortCount);
-            _usedObjects.RemoveRange(0, shortCount);
-
-            // 回収アクションの実行
-            foreach (var item in reusable)
-            {
-                item.cuttable.ReuseAction?.Invoke();
-                item.gameObject.SetActive(false);
-            }
-
-            _unusedObjects.AddRange(reusable);
+            var item = _recycleBuffer.Get();
+            // Get内で既にOnRecycleが呼ばれる(使用中の場合)
+            results.Add(item);
         }
-
-        // 取得
-        var results = _unusedObjects.GetRange(0, objectCount);
-        _unusedObjects.RemoveRange(0, objectCount);
-        _usedObjects.AddRange(results);
 
         return results;
     }
 
-    public void ReleaseObject((GameObject, CuttableObject) releaseObject)
+    public void ReleaseObject(CuttableObject releaseObject)
     {
-        if (_usedObjects.Contains(releaseObject))
-        {
-            releaseObject.Item2.ReuseAction?.Invoke();
-            releaseObject.Item1.gameObject.SetActive(false);
-            _usedObjects.Remove(releaseObject);
-            _unusedObjects.Add(releaseObject);
-        }
-        else
-        {
-            Debug.LogWarning("このオブジェクトはすでに返還済みか、オブジェクトプールに登録されていません");
-        }
+        if (releaseObject == null) return;
+        releaseObject.OnRecycle();
+        _recycleBuffer.Release(releaseObject);
     }
 }

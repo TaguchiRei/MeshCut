@@ -5,8 +5,17 @@ using UnityEngine;
 using UsefulAttribute;
 using Random = UnityEngine.Random;
 
-public class CuttableObject : MonoBehaviour
+public class CuttableObject : MonoBehaviour, IRecyclable
 {
+    public int RecycleId { get; set; }
+    public int MeshId { get; set; }
+
+    public void OnRecycle()
+    {
+        ReuseAction?.Invoke();
+        gameObject.SetActive(false);
+    }
+
     public Action ReuseAction;
 
     public Material CapMaterial;
