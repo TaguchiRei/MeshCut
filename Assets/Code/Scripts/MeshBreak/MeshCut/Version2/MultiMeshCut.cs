@@ -12,6 +12,7 @@ using Debug = UnityEngine.Debug;
 
 public class MultiMeshCut
 {
+    public float LimitMs = 5;
     public bool Complete { private set; get; }
     public Mesh[] CutMesh { private set; get; }
     public List<List<Vector3>> SamplingPoints { private set; get; }
@@ -62,10 +63,12 @@ public class MultiMeshCut
         Stopwatch totalStopwatch = new Stopwatch();
         totalStopwatch.Start();
 
+        Stopwatch frameStopwatch = Stopwatch.StartNew();
+
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {
-            Stopwatch stopwatch = new Stopwatch(); // 各セクション計測用
+            Stopwatch stopwatch = Stopwatch.StartNew(); // 各セクション計測用
 
             //合計頂点数等取得
             int totalVerticesCount = 0;
@@ -132,12 +135,14 @@ public class MultiMeshCut
 
                 //次ループの結合頂点配列の開始インデックスとして扱える
                 startIndex += cached.VertexCount;
+
+                await CheckTime(frameStopwatch, LimitMs);
             }
 
             Debug.Log("頂点群データ取得完了");
-            stopwatch.Stop();
             Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
             stopwatch.Reset();
+            stopwatch.Start();
 
             #region 頂点のサイドを取得
 
@@ -154,6 +159,9 @@ public class MultiMeshCut
             await vertexGetSideHandle.ToUniTask(PlayerLoopTiming.Update);
 
             Debug.Log("頂点群仕分け完了");
+            Debug.Log($"計測: 頂点仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
+            stopwatch.Start();
 
             #endregion
 
@@ -171,7 +179,7 @@ public class MultiMeshCut
             {
                 MeshDataCache.Instance.Get(breakables[objIndex].MeshId, out var cached);
                 var objectStartIndex = context.StartIndex[objIndex];
-                
+
                 BurstBreakMesh frontSide = new BurstBreakMesh(cached.VertexCount);
                 BurstBreakMesh backSide = new BurstBreakMesh(cached.VertexCount);
 
@@ -180,7 +188,7 @@ public class MultiMeshCut
                 {
                     frontSide.AddSubmesh();
                     backSide.AddSubmesh();
-                    
+
                     var indexData = cached.SubMeshTriangles[submesh];
 
                     //三角形ごとにループ
@@ -227,14 +235,21 @@ public class MultiMeshCut
                                 context.TriangleObjectIndex.Add(objIndex);
                                 break;
                         }
+
+                        if (i % 1024 == 0) await CheckTime(frameStopwatch, LimitMs);
                     }
                 }
 
                 context.breakMeshes.Add(frontSide);
                 context.breakMeshes.Add(backSide);
+
+                await CheckTime(frameStopwatch, LimitMs);
             }
 
             Debug.Log("面仕分け完了");
+            Debug.Log($"計測: 面仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
+            stopwatch.Start();
 
             #endregion
 
@@ -270,6 +285,9 @@ public class MultiMeshCut
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
             Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
+            Debug.Log($"計測: 面切断処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
+            stopwatch.Start();
 
             #endregion
 
@@ -282,10 +300,12 @@ public class MultiMeshCut
                 int objIdx = context.TriangleObjectIndex[i / 3];
                 var target = context.breakMeshes[objIdx * 2 + (nt.Side == 1 ? 0 : 1)];
                 AddNewTriangle(target, nt, context);
+
+                if (i % 1024 == 0) await CheckTime(frameStopwatch, LimitMs);
             }
 
-            // ループ抽出と耳切り法
-            var allLoops = FindAllLoops(context, breakables.Length);
+            // ループ抽出と断面生成
+            var allLoops = await FindAllLoopsAsync(context, breakables.Length, frameStopwatch);
             for (int i = 0; i < breakables.Length; i++)
             {
                 context.breakMeshes[i * 2].AddSubmesh(); // 断面用サブメッシュ
@@ -295,9 +315,14 @@ public class MultiMeshCut
                     FillCapFan(i, loop, context, context.breakMeshes[i * 2], true);
                     FillCapFan(i, loop, context, context.breakMeshes[i * 2 + 1], false);
                 }
+
+                await CheckTime(frameStopwatch, LimitMs);
             }
 
-            Debug.Log("耳切法により断面生成完了");
+            Debug.Log("重心計算を利用した断面生成完了");
+            Debug.Log($"計測: 断面生成処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
+            stopwatch.Start();
 
             #endregion
 
@@ -318,7 +343,7 @@ public class MultiMeshCut
                 }
                 else
                 {
-                    // 均等にサンプリング（例：150点程度を目標にする）
+                    // 均等にサンプリング
                     float step = (float)totalCount / sampling;
                     for (int j = 0; j < sampling; j++)
                     {
@@ -328,11 +353,16 @@ public class MultiMeshCut
                 }
 
                 colliderVerticesPerFragment.Add(simplifiedVerts);
+
+                await CheckTime(frameStopwatch, LimitMs);
             }
 
             Debug.Log("メッシュ生成完了");
+            Debug.Log($"計測: メッシュ生成処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Reset();
+            stopwatch.Start();
 
-            CutMesh = FinalizeMeshes(context.breakMeshes);
+            CutMesh = await FinalizeMeshesAsync(context.breakMeshes, frameStopwatch);
             SamplingPoints = colliderVerticesPerFragment;
             Complete = true;
         }
@@ -346,6 +376,16 @@ public class MultiMeshCut
             context.Dispose();
             totalStopwatch.Stop();
             Debug.Log($"計測: MultiMeshCut.CutAsync 全体処理時間 - {totalStopwatch.ElapsedMilliseconds} ms");
+        }
+    }
+
+    private async UniTask CheckTime(Stopwatch stopwatch, float limitMs = 5f)
+    {
+        if (stopwatch.ElapsedMilliseconds > limitMs)
+        {
+            await UniTask.Yield();
+            stopwatch.Restart();
+            Debug.Log($"処理時間が長すぎたため、次のフレームに送りました。");
         }
     }
 
@@ -405,7 +445,8 @@ public class MultiMeshCut
     /// 全オブジェクト群の切断面のループを捜索する
     /// </summary>
     /// <returns></returns>
-    private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
+    private async UniTask<List<List<int>>[]> FindAllLoopsAsync(MultiCutContext context, int objectCount,
+        Stopwatch frameStopwatch)
     {
         List<List<int>>[] allLoops = new List<List<int>>[objectCount];
 
@@ -432,7 +473,7 @@ public class MultiMeshCut
                 foreach (var edge in iterator)
                 {
                     edgeCount++;
-                    
+
                     float3 vA = context.NewVertices[edge.x];
                     float3 vB = context.NewVertices[edge.y];
 
@@ -453,6 +494,7 @@ public class MultiMeshCut
                         repA = edge.x;
                         posToRepresentative.Add(keyA, repA);
                     }
+
                     if (!posToRepresentative.TryGetValue(keyB, out int repB))
                     {
                         repB = edge.y;
@@ -465,6 +507,7 @@ public class MultiMeshCut
                         listA = new List<int>();
                         adjacency.Add(repA, listA);
                     }
+
                     // 同じ頂点間のエッジ（縮退エッジ）を避ける
                     if (repA != repB)
                     {
@@ -475,10 +518,12 @@ public class MultiMeshCut
                             listB = new List<int>();
                             adjacency.Add(repB, listB);
                         }
+
                         if (!listB.Contains(repA)) listB.Add(repA);
                     }
+
+                    if (edgeCount % 1024 == 0) await CheckTime(frameStopwatch);
                 }
-                Debug.Log($"Object {objIndex}: {edgeCount} edges processed (quantized). Adjacency keys: {adjacency.Count}");
 
                 iterator.Dispose();
             }
@@ -547,6 +592,8 @@ public class MultiMeshCut
                         current = next;
                     }
                 }
+
+                await CheckTime(frameStopwatch);
             }
         }
 
@@ -634,7 +681,7 @@ public class MultiMeshCut
         }
     }
 
-    private Mesh[] FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
+    private async UniTask<Mesh[]> FinalizeMeshesAsync(List<BurstBreakMesh> breakMeshes, Stopwatch frameStopwatch)
     {
         int fragmentCount = breakMeshes.Count;
         var writableDataArray = Mesh.AllocateWritableMeshData(fragmentCount);
@@ -685,6 +732,8 @@ public class MultiMeshCut
                 data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount), MeshUpdateFlags.DontRecalculateBounds);
                 indexOffset += subCount;
             }
+
+            await CheckTime(frameStopwatch);
         }
 
         Mesh[] resultMeshes = new Mesh[fragmentCount];

@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using UsefulAttribute;
 using Random = UnityEngine.Random;
 
 public class CuttableObject : MonoBehaviour, IRecyclable
 {
     public int RecycleId { get; set; }
     public int MeshId { get; set; }
+
+    public Rigidbody Rig;
+    public Renderer Renderer;
 
     public void OnRecycle()
     {
@@ -24,8 +25,7 @@ public class CuttableObject : MonoBehaviour, IRecyclable
     [SerializeField] private PhysicsMaterial _physicsMaterial;
     [SerializeField] private int _colliderNum;
 
-    [Header("Collider設定")] 
-    [SerializeField, Range(0.5f, 1f), Tooltip("基本縮小率")]
+    [Header("Collider設定")] [SerializeField, Range(0.5f, 1f), Tooltip("基本縮小率")]
     private float _baseShrink = 0.95f;
 
     [SerializeField, Range(0.5f, 1f), Tooltip("低密度なクラスタの差異の最小縮小率")]
@@ -40,41 +40,67 @@ public class CuttableObject : MonoBehaviour, IRecyclable
 
     private List<SphereCollider> _colliders;
 
-    private void Start()
+    private void Awake()
     {
-        if (gameObject.TryGetComponent<MeshFilter>(out var meshFilter))
+        _colliders = new List<SphereCollider>(_colliderNum);
+
+        for (int i = 0; i < _colliderNum; i++)
         {
-            Mesh = meshFilter;
+            var col = gameObject.AddComponent<SphereCollider>();
+
+            col.enabled = false;
+            col.sharedMaterial = _physicsMaterial;
+
+            _colliders.Add(col);
+        }
+
+        if (Mesh == null)
+        {
+            TryGetComponent(out Mesh);
+        }
+
+        if (Rig == null)
+        {
+            TryGetComponent(out Rig);
+        }
+
+        if (Renderer == null)
+        {
+            TryGetComponent(out Renderer);
         }
     }
 
-    public void SetMesh(
-        Mesh mesh,
-        List<Vector3> samplingVerts,
-        NativePlane localBlade,
-        PhysicsMaterial newFaceMat)
+    public void SetupCollider(
+        NativePlane worldBlade,
+        List<Vector3> samplingPoints)
     {
-        if (_colliders == null || _colliders.Count == 0)
+        int sampleCount = samplingPoints.Count;
+
+        if (sampleCount == 0)
         {
-            _colliders = new();
-            for (int i = 0; i < _colliderNum; i++)
-            {
-                _colliders.Add(gameObject.AddComponent<SphereCollider>());
-            }
+            DisableUnusedColliders(0);
+            return;
         }
 
-        gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
+        // ワールド -> ローカル変換
+        List<Vector3> localPoints = new(sampleCount);
 
-        //重心
-        var centers = ClusteringVerts(samplingVerts);
+        Matrix4x4 worldToLocal = transform.worldToLocalMatrix;
 
-        int sampleCount = samplingVerts.Count;
+        for (int i = 0; i < sampleCount; i++)
+        {
+            localPoints.Add(worldToLocal.MultiplyPoint3x4(samplingPoints[i]));
+        }
+
+        // クラスタリング
+        List<Vector3> centers = ClusteringVerts(localPoints);
+
         int clusterCount = centers.Count;
 
-        // 各頂点の所属クラスタ捜索
         int[] belongCluster = new int[sampleCount];
         int[] clusterVertCount = new int[clusterCount];
 
+        // 所属クラスタ探索
         for (int i = 0; i < sampleCount; i++)
         {
             float minDist = float.MaxValue;
@@ -82,7 +108,8 @@ public class CuttableObject : MonoBehaviour, IRecyclable
 
             for (int j = 0; j < clusterCount; j++)
             {
-                float dist = (centers[j] - samplingVerts[i]).sqrMagnitude;
+                float dist = (centers[j] - localPoints[i]).sqrMagnitude;
+
                 if (dist < minDist)
                 {
                     minDist = dist;
@@ -94,46 +121,53 @@ public class CuttableObject : MonoBehaviour, IRecyclable
             clusterVertCount[nearest]++;
         }
 
+        // Collider設定
         for (int i = 0; i < clusterCount; i++)
         {
-            float minDistSq = float.MaxValue;
+            float maxDistSq = 0f;
 
             for (int v = 0; v < sampleCount; v++)
             {
-                if (belongCluster[v] != i) continue;
+                if (belongCluster[v] != i)
+                    continue;
 
-                float distSq = (centers[i] - samplingVerts[v]).sqrMagnitude;
-                if (distSq < minDistSq)
-                    minDistSq = distSq;
+                float distSq =
+                    (centers[i] - localPoints[v]).sqrMagnitude;
+
+                if (distSq > maxDistSq)
+                    maxDistSq = distSq;
             }
 
-            if (Mathf.Approximately(minDistSq, float.MaxValue))
-                continue;
+            float radius = Mathf.Sqrt(maxDistSq);
 
-            float radius = Mathf.Sqrt(minDistSq);
-
-            // 基本縮小
             radius *= _baseShrink;
 
-            // 頂点密度による追加縮小
             if (clusterVertCount[i] < _densityThreshold)
             {
-                float t = 1f - (clusterVertCount[i] / (float)_densityThreshold);
-                float densityShrink = Mathf.Lerp(_baseShrink, _densityShrinkMin, t);
+                float t =
+                    1f - (clusterVertCount[i] / (float)_densityThreshold);
+
+                float densityShrink =
+                    Mathf.Lerp(_baseShrink, _densityShrinkMin, t);
+
                 radius *= densityShrink;
             }
 
-            // 最大半径制限
             radius = Mathf.Min(radius, _maxRadius);
 
-            // コライダー生成
-            var col = _colliders[i];
+            SphereCollider col = _colliders[i];
+
+            col.enabled = true;
             col.center = centers[i];
             col.radius = radius;
-            col.material = newFaceMat;
         }
 
-        for (int i = clusterCount; i < _colliders.Count; i++)
+        DisableUnusedColliders(clusterCount);
+    }
+
+    private void DisableUnusedColliders(int startIndex)
+    {
+        for (int i = startIndex; i < _colliders.Count; i++)
         {
             _colliders[i].enabled = false;
         }
