@@ -63,14 +63,12 @@ public class MultiMeshCut
         Stopwatch totalStopwatch = new Stopwatch();
         totalStopwatch.Start();
 
-        Stopwatch frameStopwatch = Stopwatch.StartNew();
-
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {
-            Stopwatch stopwatch = Stopwatch.StartNew(); // 各セクション計測用
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
-            //合計頂点数等取得
+            // [メインスレッド] Unity API (Mesh, Transform) を使う初期化
             int totalVerticesCount = 0;
             for (int i = 0; i < breakables.Length; i++)
             {
@@ -78,27 +76,28 @@ public class MultiMeshCut
                 totalVerticesCount += cached.VertexCount;
             }
 
-            //ベースのデータを保持する配列を初期化
             context.BaseVertices =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.BaseNormals = new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.BaseUvs = new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.BaseNormals =
+                new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.BaseUvs =
+                new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.BaseVertexSide =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-
             context.Blades =
                 new(breakables.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.VertexObjectIndex =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
-            int startIndex = 0;
+            // Transform参照はメインスレッドで先にキャッシュしておく
+            var objectRotations = new quaternion[breakables.Length];
+            var objectScales = new float3[breakables.Length];
+            var objectPositions = new float3[breakables.Length];
 
-            //オブジェクト毎にループする初期化を行う
+            int startIndex = 0;
             for (int i = 0; i < breakables.Length; i++)
             {
                 MeshDataCache.Instance.Get(breakables[i].MeshId, out var cached);
-
-                #region Base頂点配列初期化
 
                 var baseV = context.BaseVertices.GetSubArray(startIndex, cached.VertexCount);
                 var baseN = context.BaseNormals.GetSubArray(startIndex, cached.VertexCount);
@@ -108,44 +107,43 @@ public class MultiMeshCut
                 baseN.Reinterpret<Vector3>().CopyFrom(cached.Normals);
                 baseU.Reinterpret<Vector2>().CopyFrom(cached.UVs);
 
-                #endregion
-
-                #region Blades初期化
-
-                //Bladeと頂点の対応をとるための配列
                 for (int j = 0; j < cached.VertexCount; j++)
-                {
                     context.VertexObjectIndex[startIndex + j] = i;
-                }
 
-                //オブジェクトごとにBladeの位置と回転、スケールにオフセットを掛ける
-                var cutObject = breakables[i].gameObject;
-                quaternion invRot = math.inverse(cutObject.transform.rotation);
-                float3 reciprocal = math.rcp(cutObject.transform.localScale);
-                float3 position = blade.Position - (float3)cutObject.transform.position;
+                // Transform値をここで取り出してキャッシュ
+                var t = breakables[i].gameObject.transform;
+                objectRotations[i] = t.rotation;
+                objectScales[i] = t.localScale;
+                objectPositions[i] = t.position;
+
+                context.StartIndex.Add(startIndex);
+                startIndex += cached.VertexCount;
+            }
+
+            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
+
+
+            // Blade計算 (Transform参照なし・純粋な数値計算)
+            await Awaitable.BackgroundThreadAsync();
+
+            for (int i = 0; i < breakables.Length; i++)
+            {
+                quaternion invRot = math.inverse(objectRotations[i]);
+                float3 reciprocal = math.rcp(objectScales[i]);
+                float3 position = blade.Position - objectPositions[i];
                 position = math.mul(invRot, position);
                 position *= reciprocal;
                 float3 normal = math.mul(invRot, blade.Normal);
                 normal *= reciprocal;
                 context.Blades[i] = new NativePlane(position, normal);
-
-                #endregion
-
-                context.StartIndex.Add(startIndex);
-
-                //次ループの結合頂点配列の開始インデックスとして扱える
-                startIndex += cached.VertexCount;
-
-                await CheckTime(frameStopwatch, LimitMs);
             }
 
+            await Awaitable.MainThreadAsync();
+
             Debug.Log("頂点群データ取得完了");
-            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
-
-            #region 頂点のサイドを取得
-
+            
+            // 頂点サイド判定 (既存通り)
             var vertexGetSideJob = new VertexGetSideJob
             {
                 Vertices = context.BaseVertices,
@@ -154,18 +152,17 @@ public class MultiMeshCut
                 VertexSides = context.BaseVertexSide
             };
 
-            JobHandle vertexGetSideHandle = vertexGetSideJob.Schedule(context.BaseVertices.Length, batchCount);
+            JobHandle vertexGetSideHandle =
+                vertexGetSideJob.Schedule(context.BaseVertices.Length, batchCount);
 
             await vertexGetSideHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log("頂点群仕分け完了");
             Debug.Log($"計測: 頂点仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
-
-            #endregion
-
-            #region 左右分け
+            stopwatch.Restart();
+            
+            // [バックグラウンド] 左右分け・面分類
+            // (pure C# ループ。JobのComplete後なので NativeArray 読み取りは安全)
+            await Awaitable.BackgroundThreadAsync();
 
             context.breakMeshes = new();
             List<int> triangleObjectTable = new();
@@ -174,7 +171,6 @@ public class MultiMeshCut
             var normals = context.BaseNormals;
             var uvs = context.BaseUvs;
 
-            //オブジェクト数分ループ
             for (int objIndex = 0; objIndex < breakables.Length; objIndex++)
             {
                 MeshDataCache.Instance.Get(breakables[objIndex].MeshId, out var cached);
@@ -183,7 +179,6 @@ public class MultiMeshCut
                 BurstBreakMesh frontSide = new BurstBreakMesh(cached.VertexCount);
                 BurstBreakMesh backSide = new BurstBreakMesh(cached.VertexCount);
 
-                //サブメッシュ数分ループ
                 for (int submesh = 0; submesh < cached.SubMeshTriangles.Length; submesh++)
                 {
                     frontSide.AddSubmesh();
@@ -191,15 +186,12 @@ public class MultiMeshCut
 
                     var indexData = cached.SubMeshTriangles[submesh];
 
-                    //三角形ごとにループ
                     for (int i = 0; i < indexData.Length; i += 3)
                     {
-                        // 全体のインデックス
                         var globalIndex1 = indexData[i + 0] + objectStartIndex;
                         var globalIndex2 = indexData[i + 1] + objectStartIndex;
                         var globalIndex3 = indexData[i + 2] + objectStartIndex;
 
-                        // オブジェクトごとのインデックス
                         var localIndex1 = indexData[i + 0];
                         var localIndex2 = indexData[i + 1];
                         var localIndex3 = indexData[i + 2];
@@ -211,7 +203,7 @@ public class MultiMeshCut
 
                         switch (result)
                         {
-                            case 0: //0なら裏側
+                            case 0:
                                 backSide.AddTriangleLegacyIndex(
                                     localIndex1, localIndex2, localIndex3,
                                     vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
@@ -235,31 +227,31 @@ public class MultiMeshCut
                                 context.TriangleObjectIndex.Add(objIndex);
                                 break;
                         }
-
-                        if (i % 1024 == 0) await CheckTime(frameStopwatch, LimitMs);
                     }
                 }
 
                 context.breakMeshes.Add(frontSide);
                 context.breakMeshes.Add(backSide);
-
-                await CheckTime(frameStopwatch, LimitMs);
             }
 
-            Debug.Log("面仕分け完了");
             Debug.Log($"計測: 面仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
+            stopwatch.Restart();
 
-            #endregion
-
-            #region 三角形の分割
+            // ────────────────────────────────────────────
+            // ここで一度メインスレッドに戻り、Jobをスケジュール
+            // (JobHandle.Schedule はメインスレッド必須)
+            // ────────────────────────────────────────────
+            await Awaitable.MainThreadAsync();
 
             int triangleCount = triangleObjectTable.Count;
-            context.NewVertices = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewNormals = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewUvs = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewTriangles = new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewVertices =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewNormals =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewUvs =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewTriangles =
+                new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.CutEdges = new(triangleCount * 2, Allocator.Persistent);
 
             var triangleCutJob = new TriangleCutJob
@@ -272,7 +264,6 @@ public class MultiMeshCut
                 BaseVertices = context.BaseVertices,
                 BaseNormals = context.BaseNormals,
                 BaseUvs = context.BaseUvs,
-
                 NewVertices = context.NewVertices,
                 NewNormals = context.NewNormals,
                 NewUvs = context.NewUvs,
@@ -284,50 +275,40 @@ public class MultiMeshCut
 
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
             Debug.Log($"計測: 面切断処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
+            stopwatch.Restart();
 
-            #endregion
+            // ────────────────────────────────────────────
+            // [バックグラウンド] 断面穴埋め・ループ抽出・コライダー配列作成
+            // ────────────────────────────────────────────
+            await Awaitable.BackgroundThreadAsync();
 
-            #region 切断面の穴埋め処理
-
-            //切断した三角形を追加
             for (int i = 0; i < context.NewTriangles.Length; i++)
             {
                 var nt = context.NewTriangles[i];
                 int objIdx = context.TriangleObjectIndex[i / 3];
                 var target = context.breakMeshes[objIdx * 2 + (nt.Side == 1 ? 0 : 1)];
                 AddNewTriangle(target, nt, context);
-
-                if (i % 1024 == 0) await CheckTime(frameStopwatch, LimitMs);
             }
 
-            // ループ抽出と断面生成
-            var allLoops = await FindAllLoopsAsync(context, breakables.Length, frameStopwatch);
+            var allLoops = FindAllLoops(context, breakables.Length);
+
             for (int i = 0; i < breakables.Length; i++)
             {
-                context.breakMeshes[i * 2].AddSubmesh(); // 断面用サブメッシュ
+                context.breakMeshes[i * 2].AddSubmesh();
                 context.breakMeshes[i * 2 + 1].AddSubmesh();
                 foreach (var loop in allLoops[i])
                 {
                     FillCapFan(i, loop, context, context.breakMeshes[i * 2], true);
                     FillCapFan(i, loop, context, context.breakMeshes[i * 2 + 1], false);
                 }
-
-                await CheckTime(frameStopwatch, LimitMs);
             }
 
-            Debug.Log("重心計算を利用した断面生成完了");
-            Debug.Log($"計測: 断面生成処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
+            Debug.Log($"計測: 断面生成 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
 
-            #endregion
-
+            // コライダー用配列
             List<List<Vector3>> colliderVerticesPerFragment = new();
-
             for (int i = 0; i < context.breakMeshes.Count; i++)
             {
                 var source = context.breakMeshes[i];
@@ -335,36 +316,30 @@ public class MultiMeshCut
                 int totalCount = rawVerts.Length;
 
                 List<Vector3> simplifiedVerts = new List<Vector3>();
-
                 if (totalCount <= 200)
                 {
-                    // 頂点数が少なければそのまま全コピー
-                    for (int j = 0; j < totalCount; j++) simplifiedVerts.Add(rawVerts[j]);
+                    for (int j = 0; j < totalCount; j++)
+                        simplifiedVerts.Add(rawVerts[j]);
                 }
                 else
                 {
-                    // 均等にサンプリング
                     float step = (float)totalCount / sampling;
                     for (int j = 0; j < sampling; j++)
-                    {
-                        int index = (int)(j * step);
-                        simplifiedVerts.Add(rawVerts[index]);
-                    }
+                        simplifiedVerts.Add(rawVerts[(int)(j * step)]);
                 }
 
                 colliderVerticesPerFragment.Add(simplifiedVerts);
-
-                await CheckTime(frameStopwatch, LimitMs);
             }
 
-            Debug.Log("メッシュ生成完了");
-            Debug.Log($"計測: メッシュ生成処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-            stopwatch.Start();
-
-            CutMesh = await FinalizeMeshesAsync(context.breakMeshes, frameStopwatch);
+            // FinalizeMeshes は内部でメインスレッドへの切り替えを自前で行う
+            CutMesh = await FinalizeMeshes(context.breakMeshes);
+            
+            await UniTask.SwitchToMainThread();
+            
             SamplingPoints = colliderVerticesPerFragment;
             Complete = true;
+
+            Debug.Log($"計測: メッシュ生成 - {stopwatch.ElapsedMilliseconds} ms");
         }
         catch (Exception e)
         {
@@ -376,16 +351,6 @@ public class MultiMeshCut
             context.Dispose();
             totalStopwatch.Stop();
             Debug.Log($"計測: MultiMeshCut.CutAsync 全体処理時間 - {totalStopwatch.ElapsedMilliseconds} ms");
-        }
-    }
-
-    private async UniTask CheckTime(Stopwatch stopwatch, float limitMs = 5f)
-    {
-        if (stopwatch.ElapsedMilliseconds > limitMs)
-        {
-            await UniTask.Yield();
-            stopwatch.Restart();
-            Debug.Log($"処理時間が長すぎたため、次のフレームに送りました。");
         }
     }
 
@@ -445,9 +410,9 @@ public class MultiMeshCut
     /// 全オブジェクト群の切断面のループを捜索する
     /// </summary>
     /// <returns></returns>
-    private async UniTask<List<List<int>>[]> FindAllLoopsAsync(MultiCutContext context, int objectCount,
-        Stopwatch frameStopwatch)
+    private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
     {
+        Stopwatch sw = Stopwatch.StartNew();
         List<List<int>>[] allLoops = new List<List<int>>[objectCount];
 
         for (int i = 0; i < objectCount; i++)
@@ -521,8 +486,6 @@ public class MultiMeshCut
 
                         if (!listB.Contains(repA)) listB.Add(repA);
                     }
-
-                    if (edgeCount % 1024 == 0) await CheckTime(frameStopwatch);
                 }
 
                 iterator.Dispose();
@@ -592,10 +555,10 @@ public class MultiMeshCut
                         current = next;
                     }
                 }
-
-                await CheckTime(frameStopwatch);
             }
         }
+
+        Debug.Log($"切断面ループ捜索完了 処理時間{sw.ElapsedMilliseconds}ms");
 
         return allLoops;
     }
@@ -681,63 +644,82 @@ public class MultiMeshCut
         }
     }
 
-    private async UniTask<Mesh[]> FinalizeMeshesAsync(List<BurstBreakMesh> breakMeshes, Stopwatch frameStopwatch)
+    private static readonly VertexAttributeDescriptor[] VertexLayout =
+    {
+        new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
+        new(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
+        new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
+    };
+
+    private async Awaitable<Mesh[]> FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
     {
         int fragmentCount = breakMeshes.Count;
+
+        // AllocateWritableMeshData はメインスレッド必須なので最初に切り替える
+        await Awaitable.MainThreadAsync();
+
         var writableDataArray = Mesh.AllocateWritableMeshData(fragmentCount);
+
+        // 重いメモリコピーをバックグラウンドで実行
+        await Awaitable.BackgroundThreadAsync();
 
         for (int i = 0; i < fragmentCount; i++)
         {
             var source = breakMeshes[i];
             var data = writableDataArray[i];
 
-            // 頂点属性の設定
             int vertexCount = source.Vertices.Length;
 
-            //  0, 1, 2 と分けて指定する
-            var layout = new[]
-            {
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
-                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
-            };
+            // Vertex Buffer
+            data.SetVertexBufferParams(vertexCount, VertexLayout);
 
-            data.SetVertexBufferParams(vertexCount, layout);
+            var vertices = data.GetVertexData<float3>(0);
+            var normals = data.GetVertexData<float3>(1);
+            var uvs = data.GetVertexData<float2>(2);
 
-            // 正しいストリームからデータを取得する
-            var vertices = data.GetVertexData<float3>(0); // stream 0
-            var normals = data.GetVertexData<float3>(1); // stream 1
-            var uvs = data.GetVertexData<float2>(2); // stream 2
-
-            // NativeListからコピー
             vertices.CopyFrom(source.Vertices.AsArray());
             normals.CopyFrom(source.Normals.AsArray());
             uvs.CopyFrom(source.Uvs.AsArray());
 
-            // サブメッシュとインデックスの設定
+            // Index Buffer
             int totalIndexCount = 0;
-            foreach (var subTri in source.Triangles) totalIndexCount += subTri.Length;
 
-            data.SetIndexBufferParams(totalIndexCount, IndexFormat.UInt32);
-            var indices = data.GetIndexData<int>();
-
-            int indexOffset = 0;
-            data.subMeshCount = source.Triangles.Count;
             for (int s = 0; s < source.Triangles.Count; s++)
             {
-                int subCount = source.Triangles[s].Length;
-                var subIndices = source.Triangles[s];
-                for (int j = 0; j < subCount; j++) indices[indexOffset + j] = subIndices[j];
-
-                data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount), MeshUpdateFlags.DontRecalculateBounds);
-                indexOffset += subCount;
+                totalIndexCount += source.Triangles[s].Length;
             }
 
-            await CheckTime(frameStopwatch);
+            data.SetIndexBufferParams(totalIndexCount, IndexFormat.UInt32);
+
+            var indices = data.GetIndexData<int>();
+
+            // SubMesh
+            data.subMeshCount = source.Triangles.Count;
+
+            int indexOffset = 0;
+
+            for (int s = 0; s < source.Triangles.Count; s++)
+            {
+                var subIndices = source.Triangles[s];
+                int subCount = subIndices.Length;
+
+                // memcpy化
+                indices.GetSubArray(indexOffset, subCount).CopyFrom(subIndices.AsArray());
+
+                data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount), MeshUpdateFlags.DontRecalculateBounds);
+
+                indexOffset += subCount;
+            }
         }
 
+        // Mesh生成はメインスレッドで
+        await Awaitable.MainThreadAsync();
+
         Mesh[] resultMeshes = new Mesh[fragmentCount];
-        for (int i = 0; i < fragmentCount; i++) resultMeshes[i] = new Mesh();
+        for (int i = 0; i < fragmentCount; i++)
+        {
+            resultMeshes[i] = new Mesh();
+        }
 
         Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
 
