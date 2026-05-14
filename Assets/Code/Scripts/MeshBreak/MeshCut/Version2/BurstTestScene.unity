@@ -21591,7 +21591,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef632e034c062de4d9e5c0dd523b23bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MeshBreak::MeshCutObjectPool
-  _generateCapacity: 1000
+  _generateCapacity: 400
   _prefab: {fileID: 1645310680162591767, guid: c59c8eae19c62ab48897e25b5cdd76a2, type: 3}
 --- !u!4 &1861200188
 Transform:
