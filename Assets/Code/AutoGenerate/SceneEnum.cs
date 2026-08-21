@@ -1,17 +1,20 @@
 ﻿// 自動生成ファイルの為、手動での編集は上書きされます。
 public enum InListSceneName
 {
-    SampleScene,
+    ActionTest,
 }
 
 public enum OutListSceneName
 {
+    MeshCutTestScene,
+    MeshCutTestScene_Package,
+    Release,
     BurstTestScene,
     MeshBoolenOperatorTestScene,
-    ActionTest,
     BurstCut,
     MeshDataTestScene,
     PoissonDiskSamplingTest,
+    SampleScene,
     IKTest,
     GPUInstancingTest,
     Version3Test,

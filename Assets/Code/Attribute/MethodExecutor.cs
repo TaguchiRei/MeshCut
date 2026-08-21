@@ -38,11 +38,11 @@ namespace UsefulAttribute
         }
     }
 
+#if UNITY_EDITOR
 
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class InspectorButtonEditor : UnityEditor.Editor
+    public class InspectorButtonEditor : Editor
     {
-#if UNITY_EDITOR
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
@@ -73,6 +73,6 @@ namespace UsefulAttribute
                 GUI.enabled = true; // 元に戻す
             }
         }
-#endif
     }
+#endif
 }

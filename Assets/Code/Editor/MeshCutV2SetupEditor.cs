@@ -23,7 +23,7 @@ namespace MeshBreak.MeshCut.Editor
 
         private Vector2 _scrollPos;
 
-        [MenuItem("Window/MeshCut/Version2 Setup")]
+        [MenuItem("UsefulTools/UsefulMesh/MeshCut/Version2 Setup")]
         public static void ShowWindow()
         {
             var window = GetWindow<MeshCutV2SetupEditor>("MeshCut V2 Setup");

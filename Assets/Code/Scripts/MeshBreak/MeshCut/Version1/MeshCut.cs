@@ -52,8 +52,8 @@ namespace MeshBreak.MeshCut
             _baseUVs = _targetMesh.uv;
 
             _baseVerticesSide = new bool[_baseVertices.Length];
-#if UNITY_EDITOR
             Stopwatch stopwatch = new Stopwatch();
+#if UNITY_EDITOR
             stopwatch.Start();
 #endif
 
@@ -263,7 +263,7 @@ namespace MeshBreak.MeshCut
             // distance = -(n・左頂点 + d) / (n・dir)
             float t1 = (-Vector3.Dot(_blade.normal, leftPoints[0]) - _blade.distance) / dot1;
 
-            
+
             // 新頂点とUV、法線の補間を手動計算
             Vector3 newVertex1 = leftPoints[0] + dir1 * t1;
             Vector2 newUv1 = leftUvs[0] + (rightUvs[0] - leftUvs[0]) * t1;
