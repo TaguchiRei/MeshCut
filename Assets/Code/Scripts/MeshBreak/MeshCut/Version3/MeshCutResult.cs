@@ -1,17 +1,18 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MeshBreak.MeshCut.Version3
 {
     public class MeshCutResult
     {
-        public readonly BreakMeshData LeftMeshData;
-        public readonly BreakMeshData RightMeshData;
-        public readonly System.Collections.Generic.List<Vector3> Centers;
+        public readonly CutMeshData LeftMeshData;
+        public readonly CutMeshData RightMeshData;
+        public readonly List<Vector3> Centers;
 
         public MeshCutResult(
-            BreakMeshData left,
-            BreakMeshData right,
-            System.Collections.Generic.List<Vector3> centers)
+            CutMeshData left,
+            CutMeshData right,
+            List<Vector3> centers)
         {
             LeftMeshData = left;
             RightMeshData = right;

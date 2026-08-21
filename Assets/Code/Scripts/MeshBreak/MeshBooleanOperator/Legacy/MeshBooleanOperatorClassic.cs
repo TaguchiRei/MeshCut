@@ -62,8 +62,10 @@ namespace Code.Scripts.MeshBreak.MeshBooleanOperator
 #endif
                 await MeshCalculationSupport.CheckInsideMesh(_booleanVertices, _booleanMesh.triangles, t);
 
+#if UNITY_EDITOR
                 stopwatch.Stop();
                 a += stopwatch.ElapsedMilliseconds;
+#endif
             }
 
             Debug.Log($"平均{a / _targetMesh.vertices.Length}ms");

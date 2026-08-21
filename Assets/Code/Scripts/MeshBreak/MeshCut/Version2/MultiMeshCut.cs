@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
+using MeshBreak.MeshCut.Version2;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -11,6 +12,7 @@ using Debug = UnityEngine.Debug;
 
 public class MultiMeshCut
 {
+    public float LimitMs = 5;
     public bool Complete { private set; get; }
     public Mesh[] CutMesh { private set; get; }
     public List<List<Vector3>> SamplingPoints { private set; get; }
@@ -64,97 +66,84 @@ public class MultiMeshCut
         MultiCutContext context = new MultiCutContext(breakables.Length);
         try
         {
-            Stopwatch stopwatch = new Stopwatch(); // 各セクション計測用
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
-            Mesh[] mesh = new Mesh[breakables.Length];
-
-            //MeshDataArrayを取得
+            // [メインスレッド] Unity API (Mesh, Transform) を使う初期化
+            int totalVerticesCount = 0;
             for (int i = 0; i < breakables.Length; i++)
             {
-                mesh[i] = breakables[i].Mesh.sharedMesh;
+                MeshDataCache.Instance.Get(breakables[i].MeshId, out var cached);
+                totalVerticesCount += cached.VertexCount;
             }
 
-            context.BaseMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
-
-            //合計頂点数等取得
-            int totalVerticesCount = 0;
-            int maxVerticesCount = 0;
-            for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
-            {
-                var vertexCount = context.BaseMeshDataArray[i].vertexCount;
-                totalVerticesCount += vertexCount;
-                if (vertexCount > maxVerticesCount)
-                {
-                    maxVerticesCount = vertexCount;
-                }
-            }
-
-            //ベースのデータを保持する配列を初期化
             context.BaseVertices =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.BaseNormals = new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.BaseUvs = new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.BaseNormals =
+                new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.BaseUvs =
+                new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.BaseVertexSide =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-
             context.Blades =
-                new(context.BaseMeshDataArray.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                new(breakables.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.VertexObjectIndex =
                 new(totalVerticesCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
+            // Transform参照はメインスレッドで先にキャッシュしておく
+            var objectRotations = new quaternion[breakables.Length];
+            var objectScales = new float3[breakables.Length];
+            var objectPositions = new float3[breakables.Length];
+
             int startIndex = 0;
-
-            //オブジェクト毎にループする初期化を行う
-            for (int i = 0; i < context.BaseMeshDataArray.Length; i++)
+            for (int i = 0; i < breakables.Length; i++)
             {
-                var data = context.BaseMeshDataArray[i];
+                MeshDataCache.Instance.Get(breakables[i].MeshId, out var cached);
 
-                #region Base頂点配列初期化
+                var baseV = context.BaseVertices.GetSubArray(startIndex, cached.VertexCount);
+                var baseN = context.BaseNormals.GetSubArray(startIndex, cached.VertexCount);
+                var baseU = context.BaseUvs.GetSubArray(startIndex, cached.VertexCount);
 
-                var baseV = context.BaseVertices.GetSubArray(startIndex, data.vertexCount);
-                var baseN = context.BaseNormals.GetSubArray(startIndex, data.vertexCount);
-                var baseU = context.BaseUvs.GetSubArray(startIndex, data.vertexCount);
+                baseV.Reinterpret<Vector3>().CopyFrom(cached.Vertices);
+                baseN.Reinterpret<Vector3>().CopyFrom(cached.Normals);
+                baseU.Reinterpret<Vector2>().CopyFrom(cached.UVs);
 
-                data.GetVertices(baseV.Reinterpret<Vector3>());
-                data.GetNormals(baseN.Reinterpret<Vector3>());
-                data.GetUVs(0, baseU.Reinterpret<Vector2>());
-
-                #endregion
-
-                #region Blades初期化
-
-                //Bladeと頂点の対応をとるための配列
-                for (int j = 0; j < data.vertexCount; j++)
-                {
+                for (int j = 0; j < cached.VertexCount; j++)
                     context.VertexObjectIndex[startIndex + j] = i;
-                }
 
-                //オブジェクトごとにBladeの位置と回転、スケールにオフセットを掛ける
-                var cutObject = breakables[i].gameObject;
-                quaternion invRot = math.inverse(cutObject.transform.rotation);
-                float3 reciprocal = math.rcp(cutObject.transform.localScale);
-                float3 position = blade.Position - (float3)cutObject.transform.position;
+                // Transform値をここで取り出してキャッシュ
+                var t = breakables[i].gameObject.transform;
+                objectRotations[i] = t.rotation;
+                objectScales[i] = t.localScale;
+                objectPositions[i] = t.position;
+
+                context.StartIndex.Add(startIndex);
+                startIndex += cached.VertexCount;
+            }
+
+            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
+
+
+            // Blade計算 (Transform参照なし・純粋な数値計算)
+            await Awaitable.BackgroundThreadAsync();
+
+            for (int i = 0; i < breakables.Length; i++)
+            {
+                quaternion invRot = math.inverse(objectRotations[i]);
+                float3 reciprocal = math.rcp(objectScales[i]);
+                float3 position = blade.Position - objectPositions[i];
                 position = math.mul(invRot, position);
                 position *= reciprocal;
                 float3 normal = math.mul(invRot, blade.Normal);
                 normal *= reciprocal;
                 context.Blades[i] = new NativePlane(position, normal);
-
-                #endregion
-
-                context.StartIndex.Add(startIndex);
-
-                //次ループの結合頂点配列の開始インデックスとして扱える
-                startIndex += data.vertexCount;
             }
 
+            await Awaitable.MainThreadAsync();
+
             Debug.Log("頂点群データ取得完了");
-            stopwatch.Stop();
-            Debug.Log($"計測: 初期化処理 - {stopwatch.ElapsedMilliseconds} ms");
-            stopwatch.Reset();
-
-            #region 頂点のサイドを取得
-
+            
+            // 頂点サイド判定 (既存通り)
             var vertexGetSideJob = new VertexGetSideJob
             {
                 Vertices = context.BaseVertices,
@@ -163,15 +152,17 @@ public class MultiMeshCut
                 VertexSides = context.BaseVertexSide
             };
 
-            JobHandle vertexGetSideHandle = vertexGetSideJob.Schedule(context.BaseVertices.Length, batchCount);
+            JobHandle vertexGetSideHandle =
+                vertexGetSideJob.Schedule(context.BaseVertices.Length, batchCount);
 
             await vertexGetSideHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log("頂点群仕分け完了");
-
-            #endregion
-
-            #region 左右分け
+            Debug.Log($"計測: 頂点仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
+            
+            // [バックグラウンド] 左右分け・面分類
+            // (pure C# ループ。JobのComplete後なので NativeArray 読み取りは安全)
+            await Awaitable.BackgroundThreadAsync();
 
             context.breakMeshes = new();
             List<int> triangleObjectTable = new();
@@ -180,35 +171,27 @@ public class MultiMeshCut
             var normals = context.BaseNormals;
             var uvs = context.BaseUvs;
 
-            //オブジェクト数分ループ
-            for (int objIndex = 0; objIndex < context.BaseMeshDataArray.Length; objIndex++)
+            for (int objIndex = 0; objIndex < breakables.Length; objIndex++)
             {
+                MeshDataCache.Instance.Get(breakables[objIndex].MeshId, out var cached);
                 var objectStartIndex = context.StartIndex[objIndex];
-                var meshData = context.BaseMeshDataArray[objIndex];
-                var triangles = meshData.GetIndexData<ushort>();
-                BurstBreakMesh frontSide = new BurstBreakMesh(meshData.vertexCount);
-                BurstBreakMesh backSide = new BurstBreakMesh(meshData.vertexCount);
 
-                //サブメッシュ数分ループ
-                for (int submesh = 0; submesh < meshData.subMeshCount; submesh++)
+                BurstBreakMesh frontSide = new BurstBreakMesh(cached.VertexCount);
+                BurstBreakMesh backSide = new BurstBreakMesh(cached.VertexCount);
+
+                for (int submesh = 0; submesh < cached.SubMeshTriangles.Length; submesh++)
                 {
                     frontSide.AddSubmesh();
                     backSide.AddSubmesh();
-                    SubMeshDescriptor subMeshDesc = meshData.GetSubMesh(submesh);
-                    int start = subMeshDesc.indexStart;
-                    int count = subMeshDesc.indexCount;
 
-                    var indexData = triangles.GetSubArray(start, count);
+                    var indexData = cached.SubMeshTriangles[submesh];
 
-                    //三角形ごとにループ
                     for (int i = 0; i < indexData.Length; i += 3)
                     {
-                        // 全体のインデックス
                         var globalIndex1 = indexData[i + 0] + objectStartIndex;
                         var globalIndex2 = indexData[i + 1] + objectStartIndex;
                         var globalIndex3 = indexData[i + 2] + objectStartIndex;
 
-                        // オブジェクトごとのインデックス
                         var localIndex1 = indexData[i + 0];
                         var localIndex2 = indexData[i + 1];
                         var localIndex3 = indexData[i + 2];
@@ -220,7 +203,7 @@ public class MultiMeshCut
 
                         switch (result)
                         {
-                            case 0: //0なら裏側
+                            case 0:
                                 backSide.AddTriangleLegacyIndex(
                                     localIndex1, localIndex2, localIndex3,
                                     vertices[globalIndex1], vertices[globalIndex2], vertices[globalIndex3],
@@ -251,17 +234,24 @@ public class MultiMeshCut
                 context.breakMeshes.Add(backSide);
             }
 
-            Debug.Log("面仕分け完了");
+            Debug.Log($"計測: 面仕分け処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
 
-            #endregion
-
-            #region 三角形の分割
+            // ────────────────────────────────────────────
+            // ここで一度メインスレッドに戻り、Jobをスケジュール
+            // (JobHandle.Schedule はメインスレッド必須)
+            // ────────────────────────────────────────────
+            await Awaitable.MainThreadAsync();
 
             int triangleCount = triangleObjectTable.Count;
-            context.NewVertices = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewNormals = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewUvs = new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            context.NewTriangles = new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewVertices =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewNormals =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewUvs =
+                new(triangleCount * 2, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            context.NewTriangles =
+                new(triangleCount * 3, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             context.CutEdges = new(triangleCount * 2, Allocator.Persistent);
 
             var triangleCutJob = new TriangleCutJob
@@ -274,7 +264,6 @@ public class MultiMeshCut
                 BaseVertices = context.BaseVertices,
                 BaseNormals = context.BaseNormals,
                 BaseUvs = context.BaseUvs,
-
                 NewVertices = context.NewVertices,
                 NewNormals = context.NewNormals,
                 NewUvs = context.NewUvs,
@@ -286,13 +275,14 @@ public class MultiMeshCut
 
             await triangleCutHandle.ToUniTask(PlayerLoopTiming.Update);
 
-            Debug.Log($"面切断完了{triangleCount}  newTriangles {context.NewTriangles.Length}");
+            Debug.Log($"計測: 面切断処理 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
 
-            #endregion
+            // ────────────────────────────────────────────
+            // [バックグラウンド] 断面穴埋め・ループ抽出・コライダー配列作成
+            // ────────────────────────────────────────────
+            await Awaitable.BackgroundThreadAsync();
 
-            #region 切断面の穴埋め処理
-
-            //切断した三角形を追加
             for (int i = 0; i < context.NewTriangles.Length; i++)
             {
                 var nt = context.NewTriangles[i];
@@ -301,25 +291,24 @@ public class MultiMeshCut
                 AddNewTriangle(target, nt, context);
             }
 
-            // ループ抽出と耳切り法
             var allLoops = FindAllLoops(context, breakables.Length);
+
             for (int i = 0; i < breakables.Length; i++)
             {
-                context.breakMeshes[i * 2].AddSubmesh(); // 断面用サブメッシュ
+                context.breakMeshes[i * 2].AddSubmesh();
                 context.breakMeshes[i * 2 + 1].AddSubmesh();
                 foreach (var loop in allLoops[i])
                 {
-                    FillCapForLoop(i, loop, context, context.breakMeshes[i * 2], true);
-                    FillCapForLoop(i, loop, context, context.breakMeshes[i * 2 + 1], false);
+                    FillCapFan(i, loop, context, context.breakMeshes[i * 2], true);
+                    FillCapFan(i, loop, context, context.breakMeshes[i * 2 + 1], false);
                 }
             }
 
-            Debug.Log("耳切法により断面生成完了");
+            Debug.Log($"計測: 断面生成 - {stopwatch.ElapsedMilliseconds} ms");
+            stopwatch.Restart();
 
-            #endregion
-
+            // コライダー用配列
             List<List<Vector3>> colliderVerticesPerFragment = new();
-
             for (int i = 0; i < context.breakMeshes.Count; i++)
             {
                 var source = context.breakMeshes[i];
@@ -327,31 +316,30 @@ public class MultiMeshCut
                 int totalCount = rawVerts.Length;
 
                 List<Vector3> simplifiedVerts = new List<Vector3>();
-
                 if (totalCount <= 200)
                 {
-                    // 頂点数が少なければそのまま全コピー
-                    for (int j = 0; j < totalCount; j++) simplifiedVerts.Add(rawVerts[j]);
+                    for (int j = 0; j < totalCount; j++)
+                        simplifiedVerts.Add(rawVerts[j]);
                 }
                 else
                 {
-                    // 均等にサンプリング（例：150点程度を目標にする）
                     float step = (float)totalCount / sampling;
                     for (int j = 0; j < sampling; j++)
-                    {
-                        int index = (int)(j * step);
-                        simplifiedVerts.Add(rawVerts[index]);
-                    }
+                        simplifiedVerts.Add(rawVerts[(int)(j * step)]);
                 }
 
                 colliderVerticesPerFragment.Add(simplifiedVerts);
             }
 
-            Debug.Log("メッシュ生成完了");
-
-            CutMesh = FinalizeMeshes(context.breakMeshes);
+            // FinalizeMeshes は内部でメインスレッドへの切り替えを自前で行う
+            CutMesh = await FinalizeMeshes(context.breakMeshes);
+            
+            await UniTask.SwitchToMainThread();
+            
             SamplingPoints = colliderVerticesPerFragment;
             Complete = true;
+
+            Debug.Log($"計測: メッシュ生成 - {stopwatch.ElapsedMilliseconds} ms");
         }
         catch (Exception e)
         {
@@ -424,284 +412,449 @@ public class MultiMeshCut
     /// <returns></returns>
     private List<List<int>>[] FindAllLoops(MultiCutContext context, int objectCount)
     {
+        Stopwatch sw = Stopwatch.StartNew();
         List<List<int>>[] allLoops = new List<List<int>>[objectCount];
+
         for (int i = 0; i < objectCount; i++)
         {
             allLoops[i] = new List<List<int>>();
         }
 
-        NativeParallelMultiHashMap<int, int2> allCutEdges = context.CutEdges;
+        var allCutEdges = context.CutEdges;
+        const float precision = 10000f; // 0.1mm単位で丸める
 
         for (int objIndex = 0; objIndex < objectCount; objIndex++)
         {
-            List<int2> objectCutEdges = new List<int2>();
+            // 座標(量子化済み)から代表インデックスへのマップ
+            Dictionary<long3, int> posToRepresentative = new Dictionary<long3, int>();
+            // 代表インデックス間の隣接リスト
+            Dictionary<int, List<int>> adjacency = new Dictionary<int, List<int>>();
+
             if (allCutEdges.ContainsKey(objIndex))
             {
                 var iterator = allCutEdges.GetValuesForKey(objIndex);
+                int edgeCount = 0;
+
                 foreach (var edge in iterator)
                 {
-                    objectCutEdges.Add(edge);
+                    edgeCount++;
+
+                    float3 vA = context.NewVertices[edge.x];
+                    float3 vB = context.NewVertices[edge.y];
+
+                    // 座標を整数値に変換して誤差を吸収
+                    long3 keyA = new long3(
+                        (long)math.round(vA.x * precision),
+                        (long)math.round(vA.y * precision),
+                        (long)math.round(vA.z * precision)
+                    );
+                    long3 keyB = new long3(
+                        (long)math.round(vB.x * precision),
+                        (long)math.round(vB.y * precision),
+                        (long)math.round(vB.z * precision)
+                    );
+
+                    if (!posToRepresentative.TryGetValue(keyA, out int repA))
+                    {
+                        repA = edge.x;
+                        posToRepresentative.Add(keyA, repA);
+                    }
+
+                    if (!posToRepresentative.TryGetValue(keyB, out int repB))
+                    {
+                        repB = edge.y;
+                        posToRepresentative.Add(keyB, repB);
+                    }
+
+                    // 代表インデックス同士を繋ぐ
+                    if (!adjacency.TryGetValue(repA, out var listA))
+                    {
+                        listA = new List<int>();
+                        adjacency.Add(repA, listA);
+                    }
+
+                    // 同じ頂点間のエッジ（縮退エッジ）を避ける
+                    if (repA != repB)
+                    {
+                        if (!listA.Contains(repB)) listA.Add(repB);
+
+                        if (!adjacency.TryGetValue(repB, out var listB))
+                        {
+                            listB = new List<int>();
+                            adjacency.Add(repB, listB);
+                        }
+
+                        if (!listB.Contains(repA)) listB.Add(repA);
+                    }
                 }
 
                 iterator.Dispose();
             }
-
-            // 探索しやすい形にデータを整える
-            Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
-            foreach (var edge in objectCutEdges)
+            else
             {
-                // Add edge.x -> edge.y
-                if (!adjacencyList.ContainsKey(edge.x))
-                    adjacencyList.Add(edge.x, new List<int>());
-                if (!adjacencyList[edge.x].Contains(edge.y))
-                    adjacencyList[edge.x].Add(edge.y);
-
-                // Add edge.y -> edge.x
-                if (!adjacencyList.ContainsKey(edge.y))
-                    adjacencyList.Add(edge.y, new List<int>());
-                if (!adjacencyList[edge.y].Contains(edge.x))
-                    adjacencyList[edge.y].Add(edge.x);
+                Debug.Log($"Object {objIndex}: No edges found in CutEdges.");
             }
 
-            // オブジェクトごとのループを探す
-            HashSet<int> visitedVerticesGlobally = new HashSet<int>();
+            HashSet<(int, int)> visitedEdges = new HashSet<(int, int)>();
 
-            foreach (var startVertex in adjacencyList.Keys)
+            foreach (var kv in adjacency)
             {
-                if (visitedVerticesGlobally.Contains(startVertex)) // 発見済みの場合は決める
-                    continue;
+                int start = kv.Key;
 
-                List<int> currentLoop = new List<int>();
-                int current = startVertex;
-                int previous = -1;
-
-                while (true)
+                foreach (var nextStart in kv.Value)
                 {
-                    if (visitedVerticesGlobally.Contains(current) && current != startVertex)
+                    if (visitedEdges.Contains((start, nextStart))) continue;
+
+                    List<int> loop = new List<int>();
+
+                    int prev = start;
+                    int current = nextStart;
+
+                    loop.Add(start);
+
+                    visitedEdges.Add((start, nextStart));
+                    visitedEdges.Add((nextStart, start));
+
+                    while (true)
                     {
-                        foreach (var v in currentLoop)
+                        loop.Add(current);
+
+                        var neighbors = adjacency[current];
+
+                        int next = -1;
+
+                        for (int i = 0; i < neighbors.Count; i++)
                         {
-                            visitedVerticesGlobally.Add(v);
+                            if (neighbors[i] != prev)
+                            {
+                                next = neighbors[i];
+                                break;
+                            }
                         }
 
-                        currentLoop.Clear();
-                        break;
-                    }
+                        if (next == -1)
+                            break;
 
-                    currentLoop.Add(current);
-                    visitedVerticesGlobally
-                        .Add(current);
-
-                    List<int> neighbors = adjacencyList[current];
-                    int next = -1;
-
-                    foreach (var neighbor in neighbors)
-                    {
-                        if (neighbor != previous)
+                        if (next == start)
                         {
-                            next = neighbor;
+                            if (loop.Count >= 3)
+                            {
+                                allLoops[objIndex].Add(loop);
+                            }
+
                             break;
                         }
+
+                        if (visitedEdges.Contains((current, next)))
+                            break;
+
+                        visitedEdges.Add((current, next));
+                        visitedEdges.Add((next, current));
+
+                        prev = current;
+                        current = next;
                     }
-
-                    if (next == -1)
-                    {
-                        currentLoop.Clear();
-                        break;
-                    }
-
-                    if (next == startVertex)
-                    {
-                        if (currentLoop.Count >= 3)
-                        {
-                            allLoops[objIndex].Add(currentLoop);
-                        }
-
-                        break;
-                    }
-
-                    previous = current;
-                    current = next;
                 }
             }
         }
+
+        Debug.Log($"切断面ループ捜索完了 処理時間{sw.ElapsedMilliseconds}ms");
 
         return allLoops;
     }
 
     /// <summary>
-    /// 改良耳切法を利用して断面メッシュ作成
+    /// 断面メッシュを重心と外縁の頂点で作成(凹型未対応だが、軽量)
     /// </summary>
     /// <param name="objIdx"></param>
     /// <param name="loop"></param>
     /// <param name="context"></param>
     /// <param name="target"></param>
     /// <param name="isFront"></param>
-    private void FillCapForLoop(int objIdx, List<int> loop, MultiCutContext context, BurstBreakMesh target,
+    private void FillCapFan(
+        int objIdx,
+        List<int> loop,
+        MultiCutContext context,
+        BurstBreakMesh target,
         bool isFront)
     {
+        if (loop == null || loop.Count < 3)
+            return;
+
         var blade = context.Blades[objIdx];
 
-        // UV方向のベクトルを作成
-        float3 normal = blade.Normal;
-        float3 tangent = math.abs(normal.y) > 0.999f
-            ? math.cross(normal, new float3(1, 0, 0))
-            : math.cross(normal, new float3(0, 1, 0));
-        tangent = math.normalize(tangent);
-        float3 bitangent = math.normalize(math.cross(normal, tangent));
+        // 重心を求める
+        float3 center = float3.zero;
 
-        // UV方向ベクトルを利用して座標を変換
-        int vertexCount = loop.Count;
-        List<Vector2> projectedVertices = new List<Vector2>(vertexCount); //変換した座標群を入れるリスト
-        for (int i = 0; i < vertexCount; i++)
+        for (int i = 0; i < loop.Count; i++)
         {
-            //ループは必ず新規頂点のみで構成されている
-            float3 v3d = context.NewVertices[loop[i]];
-            float3 relative = v3d - blade.Position;
-            projectedVertices.Add(new Vector2(math.dot(relative, tangent), math.dot(relative, bitangent)));
+            center += context.NewVertices[loop[i]];
         }
 
-        // 戻り値は projectedVertices のリストに対するインデックス
-        // FastEarClippingが頂点を除去しても、元のインデックスにマッピングされるようにTriangulateMappedを使用
-        List<int> resultIndices = FastEarClipping.TriangulateMapped(projectedVertices, loop);
+        center /= loop.Count;
 
-        if (resultIndices == null || resultIndices.Count == 0) return;
+        // UV座標を定義
 
-        // 断面サブメッシュに追加
-        int capSubmeshIndex = target.Triangles.Count - 1;
+        float3 normal = blade.Normal;
 
-        // 断面の法線を作成
+        float3 tangent =
+            math.abs(normal.y) > 0.999f
+                ? math.normalize(math.cross(normal, new float3(1, 0, 0)))
+                : math.normalize(math.cross(normal, new float3(0, 1, 0)));
+
+        float3 bitangent = math.normalize(math.cross(normal, tangent));
+
+        // 法線作成
+
         float3 faceNormal = isFront ? -blade.Normal : blade.Normal;
 
-        for (int i = 0; i < resultIndices.Count; i += 3)
+        int capSubmeshIndex = target.Triangles.Count - 1;
+
+        // 各三角形を作成
+
+        for (int i = 0; i < loop.Count; i++)
         {
-            // 耳切り法の結果を元の NewVertices のインデックスに復元
-            int idx0 = loop[resultIndices[i]];
-            int idx1 = loop[resultIndices[i + 1]];
-            int idx2 = loop[resultIndices[i + 2]];
+            int currentIndex = loop[i];
+            int nextIndex = loop[(i + 1) % loop.Count];
 
-            // 頂点属性の取得
-            float3 v0 = context.NewVertices[idx0], v1 = context.NewVertices[idx1], v2 = context.NewVertices[idx2];
-            float3 n0 = context.NewNormals[idx0], n1 = context.NewNormals[idx1], n2 = context.NewNormals[idx2];
-            float2 u0 = context.NewUvs[idx0], u1 = context.NewUvs[idx1], u2 = context.NewUvs[idx2];
+            float3 v0 = context.NewVertices[currentIndex];
+            float3 v1 = context.NewVertices[nextIndex];
+            float3 v2 = center;
 
-            // 断面なので、法線は全て一律で断面法線（faceNormal）を割り当てる
+            // UVを作成
+
+            float3 d0 = v0 - center;
+            float3 d1 = v1 - center;
+
+            float2 uv0 = new float2(0.5f + math.dot(d0, tangent), 0.5f + math.dot(d0, bitangent));
+
+            float2 uv1 = new float2(0.5f + math.dot(d1, tangent), 0.5f + math.dot(d1, bitangent));
+
+            float2 uv2 = new float2(0.5f, 0.5f);
+
+            // 三角形を追加
+
             target.AddTriangle(
                 v0, v1, v2,
                 faceNormal, faceNormal, faceNormal,
-                u0, u1, u2,
-                faceNormal, capSubmeshIndex
+                uv0, uv1, uv2,
+                faceNormal,
+                capSubmeshIndex
             );
         }
     }
 
-    private Mesh[] FinalizeMeshesSimple(List<BurstBreakMesh> breakMeshes)
+    private static readonly VertexAttributeDescriptor[] VertexLayout =
+    {
+        new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
+        new(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
+        new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
+    };
+
+    private async Awaitable<Mesh[]> FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
     {
         int fragmentCount = breakMeshes.Count;
-        Mesh[] resultMeshes = new Mesh[fragmentCount];
 
-        for (int i = 0; i < fragmentCount; i++)
-        {
-            var source = breakMeshes[i];
-            Mesh mesh = new Mesh();
+        // AllocateWritableMeshData はメインスレッド必須なので最初に切り替える
+        await Awaitable.MainThreadAsync();
 
-            // NativeArray -> List に変換
-            List<Vector3> verts = new List<Vector3>(source.Vertices.Length);
-            for (int v = 0; v < source.Vertices.Length; v++)
-                verts.Add(source.Vertices[v]);
-
-            List<Vector3> normals = new List<Vector3>(source.Normals.Length);
-            for (int n = 0; n < source.Normals.Length; n++)
-                normals.Add(source.Normals[n]);
-
-            List<Vector2> uvs = new List<Vector2>(source.Uvs.Length);
-            for (int u = 0; u < source.Uvs.Length; u++)
-                uvs.Add(source.Uvs[u]);
-
-            mesh.SetVertices(verts);
-            mesh.SetNormals(normals);
-            mesh.SetUVs(0, uvs);
-
-            // サブメッシュとインデックス
-            mesh.subMeshCount = source.Triangles.Count;
-            for (int s = 0; s < source.Triangles.Count; s++)
-            {
-                // NativeList<int> -> List<int> に変換
-                List<int> indices = new List<int>(source.Triangles[s].Length);
-                for (int j = 0; j < source.Triangles[s].Length; j++)
-                    indices.Add(source.Triangles[s][j]);
-
-                mesh.SetTriangles(indices, s);
-            }
-
-            // バウンディングボックスの更新
-            mesh.RecalculateBounds();
-
-            resultMeshes[i] = mesh;
-        }
-
-        return resultMeshes;
-    }
-
-
-    private Mesh[] FinalizeMeshes(List<BurstBreakMesh> breakMeshes)
-    {
-        int fragmentCount = breakMeshes.Count;
         var writableDataArray = Mesh.AllocateWritableMeshData(fragmentCount);
+
+        // 重いメモリコピーをバックグラウンドで実行
+        await Awaitable.BackgroundThreadAsync();
 
         for (int i = 0; i < fragmentCount; i++)
         {
             var source = breakMeshes[i];
             var data = writableDataArray[i];
 
-            // 頂点属性の設定
             int vertexCount = source.Vertices.Length;
 
-            // 修正ポイント：第3引数の 'stream' を 0, 1, 2 と分けて指定する
-            var layout = new[]
-            {
-                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, stream: 0),
-                new VertexAttributeDescriptor(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, stream: 1),
-                new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, stream: 2)
-            };
+            // Vertex Buffer
+            data.SetVertexBufferParams(vertexCount, VertexLayout);
 
-            data.SetVertexBufferParams(vertexCount, layout);
+            var vertices = data.GetVertexData<float3>(0);
+            var normals = data.GetVertexData<float3>(1);
+            var uvs = data.GetVertexData<float2>(2);
 
-            // 正しいストリームからデータを取得する
-            var vertices = data.GetVertexData<float3>(0); // stream 0
-            var normals = data.GetVertexData<float3>(1); // stream 1
-            var uvs = data.GetVertexData<float2>(2); // stream 2
-
-            // NativeListからコピー
             vertices.CopyFrom(source.Vertices.AsArray());
             normals.CopyFrom(source.Normals.AsArray());
             uvs.CopyFrom(source.Uvs.AsArray());
 
-            // サブメッシュとインデックスの設定
+            // Index Buffer
             int totalIndexCount = 0;
-            foreach (var subTri in source.Triangles) totalIndexCount += subTri.Length;
 
-            data.SetIndexBufferParams(totalIndexCount, IndexFormat.UInt32);
-            var indices = data.GetIndexData<int>();
-
-            int indexOffset = 0;
-            data.subMeshCount = source.Triangles.Count;
             for (int s = 0; s < source.Triangles.Count; s++)
             {
-                int subCount = source.Triangles[s].Length;
+                totalIndexCount += source.Triangles[s].Length;
+            }
+
+            data.SetIndexBufferParams(totalIndexCount, IndexFormat.UInt32);
+
+            var indices = data.GetIndexData<int>();
+
+            // SubMesh
+            data.subMeshCount = source.Triangles.Count;
+
+            int indexOffset = 0;
+
+            for (int s = 0; s < source.Triangles.Count; s++)
+            {
                 var subIndices = source.Triangles[s];
-                for (int j = 0; j < subCount; j++) indices[indexOffset + j] = subIndices[j];
+                int subCount = subIndices.Length;
+
+                // memcpy化
+                indices.GetSubArray(indexOffset, subCount).CopyFrom(subIndices.AsArray());
 
                 data.SetSubMesh(s, new SubMeshDescriptor(indexOffset, subCount), MeshUpdateFlags.DontRecalculateBounds);
+
                 indexOffset += subCount;
             }
         }
 
+        // Mesh生成はメインスレッドで
+        await Awaitable.MainThreadAsync();
+
         Mesh[] resultMeshes = new Mesh[fragmentCount];
-        for (int i = 0; i < fragmentCount; i++) resultMeshes[i] = new Mesh();
+        for (int i = 0; i < fragmentCount; i++)
+        {
+            resultMeshes[i] = new Mesh();
+        }
 
         Mesh.ApplyAndDisposeWritableMeshData(writableDataArray, resultMeshes);
 
         return resultMeshes;
+    }
+}
+
+[Serializable]
+public struct long3 : IEquatable<long3>
+{
+    public long x;
+    public long y;
+    public long z;
+
+    public static readonly long3 zero = new long3(0, 0, 0);
+    public static readonly long3 one = new long3(1, 1, 1);
+
+    public long3(long x, long y, long z)
+    {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    public long this[int index]
+    {
+        get
+        {
+            return index switch
+            {
+                0 => x,
+                1 => y,
+                2 => z,
+                _ => throw new IndexOutOfRangeException("Invalid Long3 index!")
+            };
+        }
+        set
+        {
+            switch (index)
+            {
+                case 0:
+                    x = value;
+                    break;
+                case 1:
+                    y = value;
+                    break;
+                case 2:
+                    z = value;
+                    break;
+                default:
+                    throw new IndexOutOfRangeException("Invalid Long3 index!");
+            }
+        }
+    }
+
+    public static long3 operator +(long3 a, long3 b)
+    {
+        return new long3(a.x + b.x, a.y + b.y, a.z + b.z);
+    }
+
+    public static long3 operator -(long3 a, long3 b)
+    {
+        return new long3(a.x - b.x, a.y - b.y, a.z - b.z);
+    }
+
+    public static long3 operator *(long3 a, long b)
+    {
+        return new long3(a.x * b, a.y * b, a.z * b);
+    }
+
+    public static long3 operator /(long3 a, long b)
+    {
+        return new long3(a.x / b, a.y / b, a.z / b);
+    }
+
+    public static bool operator ==(long3 a, long3 b)
+    {
+        return a.Equals(b);
+    }
+
+    public static bool operator !=(long3 a, long3 b)
+    {
+        return !a.Equals(b);
+    }
+
+    public bool Equals(long3 other)
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is long3 other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(x, y, z);
+    }
+
+    public override string ToString()
+    {
+        return $"({x}, {y}, {z})";
+    }
+
+    public long MagnitudeSquared()
+    {
+        return x * x + y * y + z * z;
+    }
+
+    public double Magnitude()
+    {
+        return Math.Sqrt(MagnitudeSquared());
+    }
+
+    public static long Dot(long3 a, long3 b)
+    {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+
+    public static long3 Min(long3 a, long3 b)
+    {
+        return new long3(
+            Math.Min(a.x, b.x),
+            Math.Min(a.y, b.y),
+            Math.Min(a.z, b.z)
+        );
+    }
+
+    public static long3 Max(long3 a, long3 b)
+    {
+        return new long3(
+            Math.Max(a.x, b.x),
+            Math.Max(a.y, b.y),
+            Math.Max(a.z, b.z)
+        );
     }
 }

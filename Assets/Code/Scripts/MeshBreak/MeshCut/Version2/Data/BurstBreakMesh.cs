@@ -17,9 +17,9 @@ public class BurstBreakMesh : IDisposable
         _addVerticesArray = new int[vertCount];
         Array.Fill(_addVerticesArray, -1);
 
-        Vertices = new NativeList<float3>(vertCount, Allocator.TempJob);
-        Normals = new NativeList<float3>(vertCount, Allocator.TempJob);
-        Uvs = new NativeList<float2>(vertCount, Allocator.TempJob);
+        Vertices = new NativeList<float3>(vertCount, Allocator.Persistent);
+        Normals = new NativeList<float3>(vertCount, Allocator.Persistent);
+        Uvs = new NativeList<float2>(vertCount, Allocator.Persistent);
         Triangles = new();
     }
 
@@ -80,7 +80,7 @@ public class BurstBreakMesh : IDisposable
 
     public void AddSubmesh()
     {
-        Triangles.Add(new(Allocator.TempJob));
+        Triangles.Add(new(Allocator.Persistent));
     }
 
     private int GetOrAddVertex(int index, float3 pos, float3 normal, float2 uv)

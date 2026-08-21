@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cysharp.Threading.Tasks;
@@ -7,6 +8,7 @@ using Debug = UnityEngine.Debug;
 
 public class MultiCutBlade : MonoBehaviour
 {
+    [SerializeField] private float _LimitMs = 5;
     [SerializeField] private MeshCutObjectPool _pool;
     [SerializeField] private PhysicsMaterial _slipperyMaterial; // 断面用（滑る）
     [SerializeField] private PhysicsMaterial _defaultMaterial; // 外殻用（通常）
@@ -14,6 +16,11 @@ public class MultiCutBlade : MonoBehaviour
     private MultiMeshCut _slicer = new();
 
     private UniTask _cutTask;
+
+    private void Awake()
+    {
+        _slicer.LimitMs = _LimitMs;
+    }
 
     [MethodExecutor("切断")]
     private async void Test()
@@ -68,14 +75,14 @@ public class MultiCutBlade : MonoBehaviour
         // 切断を実行
         await _slicer.Cut(targets, blade);
 
-        Debug.Log("切断処理完了");
+        Debug.Log("--------------------切断処理完了---------------------");
 
-        var obj = _pool.GetObjects(2);
-
-        // 3. プールから必要な数だけ破片オブジェクトを一括取得
+        // プールから必要な数だけ破片オブジェクトを一括取得
         // ターゲット1つにつき前後2つの破片が必要
         int requiredCount = targets.Length * 2;
         var fragmentStubs = _pool.GetObjects(requiredCount);
+
+        Stopwatch frameStopwatch = Stopwatch.StartNew();
 
         // 4. 結果を各破片に反映
         for (int i = 0; i < targets.Length; i++)
@@ -92,20 +99,21 @@ public class MultiCutBlade : MonoBehaviour
 
             // 元のオブジェクトを非アクティブ化
             target.gameObject.SetActive(false);
+
+            await CheckTime(frameStopwatch, _LimitMs);
         }
 
-        Debug.Log($"全体処理時間 {st.ElapsedMilliseconds}ms");
+        Debug.Log($"--------------------全体処理時間 {st.ElapsedMilliseconds}ms---------------------");
     }
 
     private void ApplyResult(
-        (GameObject gameObject, CuttableObject cuttable) stub,
+        CuttableObject cuttable,
         Mesh mesh,
         List<Vector3> samplingPoints,
         CuttableObject original,
         NativePlane worldBlade)
     {
-        GameObject fragObj = stub.gameObject;
-        CuttableObject cuttable = stub.cuttable;
+        GameObject fragObj = cuttable.gameObject;
 
         // Transform同期
         fragObj.transform.SetPositionAndRotation(
@@ -114,18 +122,18 @@ public class MultiCutBlade : MonoBehaviour
         );
         fragObj.transform.localScale = original.transform.localScale;
 
-        // ===== メッシュ設定 =====
+        // メッシュ設定 
         cuttable.Mesh.sharedMesh = mesh;
 
-        // ===== マテリアルコピー処理 =====
-        var originalRenderer = original.GetComponent<Renderer>();
-        var fragmentRenderer = fragObj.GetComponent<Renderer>();
+        // マテリアルコピー処理
+        var originalRenderer = original.Renderer;
+        var fragmentRenderer = cuttable.Renderer;
 
         if (originalRenderer != null && fragmentRenderer != null)
         {
             Material[] originalMaterials = originalRenderer.sharedMaterials;
 
-            // +1 した配列を作成
+            // 長さを伸ばした配列を作成（断面用）
             Material[] newMaterials = new Material[originalMaterials.Length + 1];
 
             // 外殻マテリアルをコピー
@@ -135,7 +143,7 @@ public class MultiCutBlade : MonoBehaviour
             }
 
             // 最後尾に CapMaterial を設定
-            newMaterials[newMaterials.Length - 1] = cuttable.CapMaterial;
+            newMaterials[^1] = cuttable.CapMaterial;
 
             fragmentRenderer.sharedMaterials = newMaterials;
         }
@@ -143,12 +151,23 @@ public class MultiCutBlade : MonoBehaviour
         // アクティブ化
         fragObj.SetActive(true);
 
+        cuttable.SetupCollider(worldBlade, samplingPoints);
+
         // 物理初速の継承
-        if (original.TryGetComponent<Rigidbody>(out var oldRb) &&
-            fragObj.TryGetComponent<Rigidbody>(out var newRb))
+        if (original.Rig && cuttable.Rig)
         {
-            newRb.linearVelocity = oldRb.linearVelocity;
-            newRb.angularVelocity = oldRb.angularVelocity;
+            cuttable.Rig.linearVelocity = original.Rig.linearVelocity;
+            cuttable.Rig.angularVelocity = original.Rig.angularVelocity;
+        }
+    }
+
+    private async UniTask CheckTime(Stopwatch stopwatch, float limitMs = 5f)
+    {
+        if (stopwatch.ElapsedMilliseconds > limitMs)
+        {
+            await UniTask.Yield();
+            stopwatch.Restart();
+            Debug.Log($"処理時間が長すぎたため、次のフレームに送りました。");
         }
     }
 
